@@ -104,7 +104,7 @@ describe("SidebarSection", () => {
     expect(workLabel?.parentElement?.textContent).toBe("Work");
     expect(projectsLabel?.parentElement?.textContent).toBe("Projects");
     expect(projectsLabel?.parentElement?.querySelector("svg")).toBeNull();
-    expect(container.querySelector('button[aria-label="Collapse Projects"] svg')).toBeTruthy();
+    expect(container.querySelector('button[aria-label="Projects 섹션 접기"] svg')).toBeTruthy();
   });
 
   it("keeps collapse on the caret and opens the menu from the heading", async () => {
@@ -133,7 +133,7 @@ describe("SidebarSection", () => {
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain("Browse projects");
 
-    const caret = container.querySelector('button[aria-label="Collapse Projects"]');
+    const caret = container.querySelector('button[aria-label="Projects 섹션 접기"]');
     await act(async () => {
       caret?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
@@ -313,7 +313,7 @@ describe("SidebarSection", () => {
     await flushReact();
 
     // The clipped header text is gone; the caret/menu trigger is not rendered.
-    expect(container.querySelector('button[aria-label="Collapse Projects"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="Projects 섹션 접기"]')).toBeNull();
     expect(container.querySelector('button[aria-label="Projects section actions"]')).toBeNull();
 
     // The label is preserved in the a11y tree (sr-only) and the items still render.
@@ -341,7 +341,7 @@ describe("SidebarSection", () => {
     const label = Array.from(container.querySelectorAll("span"))
       .find((element) => element.textContent === "Projects");
     expect(label?.className).not.toContain("sr-only");
-    expect(container.querySelector('button[aria-label="Collapse Projects"]')).toBeTruthy();
+    expect(container.querySelector('button[aria-label="Projects 섹션 접기"]')).toBeTruthy();
   });
 
   it("keeps section header controls visible on mobile", async () => {
@@ -372,7 +372,7 @@ describe("SidebarSection", () => {
 
     const projectsLabel = Array.from(container.querySelectorAll("span"))
       .find((element) => element.textContent === "Projects");
-    const caret = container.querySelector('button[aria-label="Expand Projects"] svg');
+    const caret = container.querySelector('button[aria-label="Projects 섹션 펼치기"] svg');
     const action = container.querySelector('button[aria-label="New project"]');
 
     expect(caret?.getAttribute("class")).toContain("opacity-100");

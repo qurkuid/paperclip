@@ -1070,7 +1070,7 @@ describe("IssueDetail", () => {
     await flushReact();
 
     const archiveButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Archive from inbox"]',
+      'button[aria-label="받은 편지함에서 보관"]',
     );
     expect(archiveButton).not.toBeNull();
 
@@ -1452,7 +1452,7 @@ describe("IssueDetail", () => {
     await flushReact();
     await flushReact();
 
-    expect(container.querySelector('[aria-label="Open file in this issue"]')).toBeNull();
+    expect(container.querySelector('[aria-label="이 작업의 파일 열기"]')).toBeNull();
     const latestWorkspaceProps = mockIssueWorkspaceCardRender.mock.calls.at(-1)?.[0];
     expect(latestWorkspaceProps?.onBrowseFiles).toBeUndefined();
     expect(latestWorkspaceProps?.onOpenFileByPath).toBeUndefined();
@@ -1476,7 +1476,7 @@ describe("IssueDetail", () => {
     await flushReact();
     await flushReact();
 
-    expect(container.querySelector('[aria-label="Open file in this issue"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="이 작업의 파일 열기"]')).not.toBeNull();
     const latestWorkspaceProps = mockIssueWorkspaceCardRender.mock.calls.at(-1)?.[0];
     expect(latestWorkspaceProps?.onBrowseFiles).toEqual(expect.any(Function));
     expect(latestWorkspaceProps?.onOpenFileByPath).toEqual(expect.any(Function));
@@ -1746,7 +1746,7 @@ describe("IssueDetail", () => {
     });
 
     const resumeButton = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.textContent?.trim() === "Resume subtree");
+      .find((button) => button.textContent?.trim() === "하위 작업 재개");
     expect(resumeButton).toBeTruthy();
 
     await act(async () => {
@@ -1755,7 +1755,7 @@ describe("IssueDetail", () => {
     await flushReact();
 
     const applyResumeButton = Array.from(container.querySelectorAll("button"))
-      .filter((button) => button.textContent?.trim() === "Resume subtree")
+      .filter((button) => button.textContent?.trim() === "하위 작업 재개")
       .at(-1);
     expect(applyResumeButton).toBeTruthy();
     expect(container.textContent).toContain("CodexCoder");
@@ -1819,7 +1819,7 @@ describe("IssueDetail", () => {
     await flushReact();
     await flushReact();
 
-    const moreButton = container.querySelector('button[aria-label="More task actions"]') as HTMLButtonElement | null;
+    const moreButton = container.querySelector('button[aria-label="추가 작업"]') as HTMLButtonElement | null;
     expect(moreButton).toBeTruthy();
 
     await act(async () => {
@@ -1828,7 +1828,7 @@ describe("IssueDetail", () => {
     await flushReact();
 
     const pauseMenuButton = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.textContent?.trim() === "Pause subtree...");
+      .find((button) => button.textContent?.trim() === "하위 작업 일시정지...");
     expect(pauseMenuButton).toBeTruthy();
 
     await act(async () => {
@@ -1850,7 +1850,7 @@ describe("IssueDetail", () => {
     expect(container.textContent).toContain("Complete");
 
     const pauseApplyButton = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.textContent?.trim() === "Pause and stop work");
+      .find((button) => button.textContent?.trim() === "일시정지하고 작업 중단");
     expect(pauseApplyButton).toBeTruthy();
 
     await act(async () => {
@@ -1908,13 +1908,13 @@ describe("IssueDetail", () => {
     await flushReact();
 
     expect(mockIssueChatThreadRender.mock.calls.at(-1)?.[0]).toMatchObject({
-      stopRunLabel: "Pause work",
-      stoppingRunLabel: "Pausing...",
+      stopRunLabel: "작업 일시정지",
+      stoppingRunLabel: "일시정지 중...",
       issueWorkMode: "standard",
     });
 
     const chatPauseButton = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.textContent?.trim() === "Pause work");
+      .find((button) => button.textContent?.trim() === "작업 일시정지");
     expect(chatPauseButton).toBeTruthy();
 
     await act(async () => {
@@ -1929,7 +1929,7 @@ describe("IssueDetail", () => {
       metadata: { source: "issue_active_run_control", runId: "run-active-1" },
     });
 
-    const moreButton = container.querySelector('button[aria-label="More task actions"]') as HTMLButtonElement | null;
+    const moreButton = container.querySelector('button[aria-label="추가 작업"]') as HTMLButtonElement | null;
     expect(moreButton).toBeTruthy();
     await act(async () => {
       moreButton!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
@@ -1937,7 +1937,7 @@ describe("IssueDetail", () => {
     await flushReact();
 
     const pauseMenuButton = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.textContent?.trim() === "Pause work...");
+      .find((button) => button.textContent?.trim() === "작업 일시정지...");
     expect(pauseMenuButton).toBeTruthy();
   });
 
@@ -2109,7 +2109,7 @@ describe("IssueDetail", () => {
       await flushReact();
 
       const copyButton = Array.from(container.querySelectorAll("button"))
-        .find((button) => button.getAttribute("title") === "Copy task as markdown");
+        .find((button) => button.getAttribute("title") === "작업을 마크다운으로 복사");
       expect(copyButton).toBeTruthy();
 
       await act(async () => {
@@ -2370,7 +2370,7 @@ describe("IssueDetail", () => {
     });
 
     const resumeButton = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.textContent?.trim() === "Resume work");
+      .find((button) => button.textContent?.trim() === "작업 재개");
     expect(resumeButton).toBeTruthy();
 
     await act(async () => {
@@ -2383,7 +2383,7 @@ describe("IssueDetail", () => {
     expect(wakeCheckbox?.checked).toBe(true);
 
     const applyResumeButton = Array.from(container.querySelectorAll("button"))
-      .filter((button) => button.textContent?.trim() === "Resume work")
+      .filter((button) => button.textContent?.trim() === "작업 재개")
       .at(-1);
     expect(applyResumeButton).toBeTruthy();
 
@@ -2449,7 +2449,7 @@ describe("IssueDetail", () => {
     await flushReact();
     await flushReact();
 
-    const moreButton = container.querySelector('button[aria-label="More task actions"]') as HTMLButtonElement | null;
+    const moreButton = container.querySelector('button[aria-label="추가 작업"]') as HTMLButtonElement | null;
     expect(moreButton).toBeTruthy();
 
     await act(async () => {
@@ -2458,7 +2458,7 @@ describe("IssueDetail", () => {
     await flushReact();
 
     const restoreMenuButton = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.textContent?.trim() === "Restore subtree...");
+      .find((button) => button.textContent?.trim() === "하위 작업 복원...");
     expect(restoreMenuButton).toBeTruthy();
 
     await act(async () => {
@@ -2475,7 +2475,7 @@ describe("IssueDetail", () => {
     expect(container.textContent).toContain("Cancelled child");
 
     const restoreApplyButton = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.textContent?.trim() === "Restore 1 tasks");
+      .find((button) => button.textContent?.trim() === "작업 1개 복원");
     expect(restoreApplyButton).toBeTruthy();
 
     await act(async () => {
@@ -2521,7 +2521,7 @@ describe("IssueDetail", () => {
     await flushReact();
 
     const cancelMenuButton = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.textContent?.trim() === "Cancel subtree...");
+      .find((button) => button.textContent?.trim() === "하위 작업 취소...");
     expect(cancelMenuButton).toBeTruthy();
 
     await act(async () => {
@@ -2551,7 +2551,7 @@ describe("IssueDetail", () => {
     expect(bodyScrollRegion?.className).toContain("overscroll-contain");
 
     const cancelApplyButton = Array.from(dialogContent!.querySelectorAll("button"))
-      .find((button) => button.textContent?.trim() === "Cancel 24 tasks") as HTMLButtonElement | undefined;
+      .find((button) => button.textContent?.trim() === "작업 24개 취소") as HTMLButtonElement | undefined;
     expect(cancelApplyButton).toBeTruthy();
     expect(cancelApplyButton!.disabled).toBe(true);
 

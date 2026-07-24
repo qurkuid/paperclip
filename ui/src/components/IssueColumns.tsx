@@ -20,31 +20,32 @@ import { timeAgo } from "../lib/timeAgo";
 import { Identity } from "./Identity";
 import { StatusIcon } from "./StatusIcon";
 import { Badge } from "@/components/ui/badge";
+import { koMenu } from "@/i18n/korean-menu";
 
 export const issueTrailingColumns: InboxIssueColumn[] = ["assignee", "kickedOffBy", "project", "workspace", "parent", "labels", "updated"];
 
 const issueColumnLabels: Record<InboxIssueColumn, string> = {
-  status: "Status",
+  status: "상태",
   id: "ID",
-  assignee: "Responsible",
-  kickedOffBy: "Kicked off by",
-  project: "Project",
-  workspace: "Workspace",
-  parent: "Parent task",
-  labels: "Tags",
-  updated: "Last updated",
+  assignee: "담당자",
+  kickedOffBy: "시작한 사람",
+  project: "프로젝트",
+  workspace: "작업 공간",
+  parent: "상위 작업",
+  labels: "태그",
+  updated: "마지막 업데이트",
 };
 
 const issueColumnDescriptions: Record<InboxIssueColumn, string> = {
-  status: "Task state chip on the left edge.",
-  id: "Ticket identifier like PAP-1009.",
-  assignee: "Responsible agent or board user.",
-  kickedOffBy: "Board user or agent who created the task.",
-  project: "Linked project pill with its color.",
-  workspace: "Execution or project workspace used for the task.",
-  parent: "Parent task identifier and title.",
-  labels: "Task labels and tags.",
-  updated: "Latest visible activity time.",
+  status: "왼쪽에 작업 상태를 표시합니다.",
+  id: "PAP-1009 같은 작업 식별자입니다.",
+  assignee: "담당 에이전트 또는 사용자입니다.",
+  kickedOffBy: "작업을 만든 사용자 또는 에이전트입니다.",
+  project: "연결된 프로젝트를 색상과 함께 표시합니다.",
+  workspace: "작업에 사용하는 실행 또는 프로젝트 공간입니다.",
+  parent: "상위 작업의 식별자와 제목입니다.",
+  labels: "작업의 라벨과 태그입니다.",
+  updated: "최근 활동 시각입니다.",
 };
 
 export function issueActivityText(issue: Issue): string {
@@ -88,17 +89,17 @@ export function IssueColumnPicker({
           variant={iconOnly ? "outline" : "ghost"}
           size={iconOnly ? "icon" : "sm"}
           className={iconOnly ? "h-8 w-8 shrink-0" : "hidden h-8 shrink-0 px-2 text-xs sm:inline-flex"}
-          title="Columns"
+          title={koMenu("Columns")}
         >
           <Columns3 className={iconOnly ? "h-3.5 w-3.5" : "mr-1 h-3.5 w-3.5"} />
-          {!iconOnly && "Columns"}
+          {!iconOnly && koMenu("Columns")}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-(--sz-300px) rounded-xl border-border/70 p-1.5 shadow-xl shadow-black/10">
         <DropdownMenuLabel className="px-2 pb-1 pt-1.5">
           <div className="space-y-1">
             <div className="text-(length:--text-nano) font-semibold uppercase tracking-(--tracking-caps) text-muted-foreground">
-              Desktop task rows
+              데스크톱 작업 행
             </div>
             <div className="text-sm font-medium text-foreground">
               {title}
@@ -129,8 +130,8 @@ export function IssueColumnPicker({
           onSelect={onResetColumns}
           className="rounded-lg px-3 py-2 text-sm"
         >
-          Reset defaults
-          <span className="ml-auto text-xs text-muted-foreground">status, id, updated</span>
+          기본값으로 재설정
+          <span className="ml-auto text-xs text-muted-foreground">상태, ID, 수정일</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

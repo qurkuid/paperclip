@@ -4,11 +4,21 @@ import { cn } from "../lib/utils";
 import { StatusGlyph, type StatusGlyphSize } from "./StatusGlyph";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { koMenu } from "../i18n/korean-menu";
 
 const allStatuses = ["backlog", "todo", "in_progress", "in_review", "done", "cancelled", "blocked"];
+const statusLabels: Record<string, string> = {
+  backlog: koMenu("Backlog"),
+  todo: koMenu("Todo"),
+  in_progress: koMenu("In Progress"),
+  in_review: koMenu("In Review"),
+  done: koMenu("Done"),
+  cancelled: koMenu("Cancelled"),
+  blocked: koMenu("Blocked"),
+};
 
 function statusLabel(status: string): string {
-  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return statusLabels[status] ?? status.replace(/_/g, " ");
 }
 
 interface StatusIconProps {

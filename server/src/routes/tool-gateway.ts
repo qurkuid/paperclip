@@ -36,6 +36,27 @@ const TOOL_GATEWAY_WINDOWS: Record<string, number> = {
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function auditSafeEndpoint(endpoint: string): string {
+  try {
+    return new URL(endpoint).origin;
+  } catch {
+    return "configured remote MCP endpoint";
+  }
+}
+
+function redactAuditEndpoints(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactAuditEndpoints);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, nested]) => [
+      key,
+      key === "endpoint" && typeof nested === "string"
+        ? auditSafeEndpoint(nested)
+        : redactAuditEndpoints(nested),
+    ]),
+  );
+}
+
 function gatewayToken(req: { header(name: string): string | undefined }) {
   return req.header("x-paperclip-tool-gateway-token")?.trim() || null;
 }
@@ -791,6 +812,7 @@ export function toolGatewayRoutes(db: Db, toolGateway: ToolGatewayService) {
       const events = visible.map((item) => {
         const row = item.row;
         const details = row.details ?? null;
+        const safeDetails = redactAuditEndpoints(details);
         const agentId = row.agentId ?? item.invocationAgentId ?? detailString(details, "agentId");
         const connectionId = item.invocationConnectionId ?? detailString(details, "connectionId");
         const connection = connectionId ? connectionsById.get(connectionId) ?? null : null;
@@ -804,6 +826,7 @@ export function toolGatewayRoutes(db: Db, toolGateway: ToolGatewayService) {
             : null;
         return {
           ...row,
+          details: safeDetails,
           agentId,
           agentDisplayName: agentId ? agentsById.get(agentId)?.name ?? "Unknown agent" : null,
           applicationId,

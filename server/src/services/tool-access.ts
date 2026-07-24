@@ -2771,9 +2771,28 @@ export function toolAccessService(db: Db, options: ToolAccessServiceOptions = {}
     return headers;
   }
 
+  async function resolveRemoteEndpoint(connection: typeof toolConnections.$inferSelect): Promise<string> {
+    const endpointRef = connection.credentialSecretRefs.find(
+      (ref) => ref.configPath === "transport.url" || ref.configPath === "config.url",
+    );
+    if (!endpointRef) return assertRemoteEndpointAllowed(connection.config);
+    const endpoint = await secrets.resolveSecretValue(
+      connection.companyId,
+      endpointRef.secretId,
+      endpointRef.versionSelector ?? "latest",
+      {
+        consumerType: "tool_connection",
+        consumerId: connection.id,
+        configPath: endpointRef.configPath,
+        actorType: "system",
+      },
+    );
+    return assertRemoteHttpUrlAllowed(endpoint);
+  }
+
   async function remoteTools(connection: typeof toolConnections.$inferSelect): Promise<McpToolDescriptor[]> {
     const headers = await resolveCredentialHeaders(connection);
-    const endpoint = await assertRemoteEndpointAllowed(connection.config);
+    const endpoint = await resolveRemoteEndpoint(connection);
     const response = await fetch(endpoint, {
       method: "POST",
       // MCP Streamable HTTP requires advertising that we accept both a JSON body
@@ -5752,10 +5771,33 @@ export function toolAccessService(db: Db, options: ToolAccessServiceOptions = {}
             eq(toolConnectionInstalls.connectionId, connection.id),
           ));
         const existingKeys = new Set(existing.map((install) => `${install.targetType}:${install.targetId}`));
-        const removeIds = existing
-          .filter((install) => !requested.has(`${install.targetType}:${install.targetId}`))
-          .map((install) => install.id);
+        const removedInstalls = existing
+          .filter((install) => !requested.has(`${install.targetType}:${install.targetId}`));
+        const removeIds = removedInstalls.map((install) => install.id);
         if (removeIds.length > 0) await tx.delete(toolConnectionInstalls).where(inArray(toolConnectionInstalls.id, removeIds));
+        if (removedInstalls.length > 0) {
+          const [profile] = await tx
+            .select({ id: toolProfiles.id })
+            .from(toolProfiles)
+            .where(and(
+              eq(toolProfiles.companyId, connection.companyId),
+              eq(toolProfiles.profileKey, `app:${connection.id}`),
+            ))
+            .limit(1);
+          if (profile) {
+            for (const install of removedInstalls) {
+              await tx
+                .delete(toolProfileBindings)
+                .where(and(
+                  eq(toolProfileBindings.companyId, connection.companyId),
+                  eq(toolProfileBindings.profileId, profile.id),
+                  eq(toolProfileBindings.targetType, install.targetType),
+                  eq(toolProfileBindings.targetId, install.targetId),
+                  sql`${toolProfileBindings.metadata} ->> 'source' = 'tool_connection_install'`,
+                ));
+            }
+          }
+        }
         const additions = [...requested.entries()].filter(([key]) => !existingKeys.has(key)).map(([, install]) => install);
         if (additions.length > 0) {
           await tx.insert(toolConnectionInstalls).values(additions.map((install) => ({

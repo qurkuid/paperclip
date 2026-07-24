@@ -168,7 +168,7 @@ Supported `kind` values:
 - `ask_user_questions`: ask structured questions and store selected answers
 - `request_confirmation`: ask the board/user to accept or reject a proposal
 
-For `request_confirmation`, `continuationPolicy: "wake_assignee"` wakes the assignee only after acceptance. Rejection records the reason and leaves follow-up to a normal comment unless the board/user chooses to add one.
+For `request_confirmation`, `continuationPolicy` defaults to `"wake_assignee"`, which wakes the assignee after acceptance or rejection. Use `"wake_assignee_on_accept"` when rejection should record the reason without resuming the assignee, or `"none"` when neither outcome should resume it.
 
 ### Resolve Interaction
 

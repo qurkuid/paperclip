@@ -1180,6 +1180,51 @@ describe.sequential("issue thread interaction routes", () => {
     expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
   });
 
+  it("wakes the current assignee with rejection feedback when request confirmations use wake_assignee", async () => {
+    mockInteractionService.rejectInteraction.mockResolvedValueOnce({
+      id: "interaction-revision-request",
+      companyId: "company-1",
+      issueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      kind: "request_confirmation",
+      status: "rejected",
+      continuationPolicy: "wake_assignee",
+      idempotencyKey: null,
+      sourceCommentId: null,
+      sourceRunId: "run-revision-request",
+      payload: {
+        version: 1,
+        prompt: "Approve this post?",
+      },
+      result: {
+        version: 1,
+        outcome: "rejected",
+        reason: "Use a more useful, repeatable content concept",
+      },
+      createdAt: "2026-04-20T12:00:00.000Z",
+      updatedAt: "2026-04-20T12:05:00.000Z",
+      resolvedAt: "2026-04-20T12:05:00.000Z",
+    });
+    const app = await createApp();
+
+    const res = await request(app)
+      .post("/api/issues/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/interactions/interaction-revision-request/reject")
+      .send({ reason: "Use a more useful, repeatable content concept" });
+
+    expect(res.status).toBe(200);
+    const confirmationResult = {
+      outcome: "rejected",
+      reason: "Use a more useful, repeatable content concept",
+      commentId: null,
+    };
+    expect(mockHeartbeatService.wakeup).toHaveBeenCalledWith(
+      ASSIGNEE_AGENT_ID,
+      expect.objectContaining({
+        payload: expect.objectContaining({ confirmationResult }),
+        contextSnapshot: expect.objectContaining({ confirmationResult }),
+      }),
+    );
+  });
+
   it("wakes with decline instructions when a tool-action confirmation is rejected", async () => {
     mockInteractionService.rejectInteraction.mockResolvedValueOnce({
       id: "interaction-tool-action-rejected",

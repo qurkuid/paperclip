@@ -3,6 +3,7 @@ import { Download, ExternalLink, Paperclip, Play } from "lucide-react";
 import type { CompanyArtifact } from "@/api/artifacts";
 import { Link } from "@/lib/router";
 import { cn, formatDate } from "@/lib/utils";
+import { resolveAppResourceUrl } from "@/lib/base-path";
 
 interface ArtifactCardProps {
   artifact: CompanyArtifact;
@@ -40,7 +41,7 @@ function ImagePreview({ artifact }: { artifact: CompanyArtifact }) {
   return (
     <PreviewFrame>
       <img
-        src={artifact.contentPath}
+        src={resolveAppResourceUrl(artifact.contentPath)}
         alt={artifact.title}
         loading="lazy"
         className="h-full w-full object-cover"
@@ -111,7 +112,7 @@ function VideoPreview({ artifact }: { artifact: CompanyArtifact }) {
   return (
     <PreviewFrame className="bg-black">
       <video
-        src={artifact.contentPath}
+        src={resolveAppResourceUrl(artifact.contentPath)}
         preload="metadata"
         muted
         playsInline
@@ -176,9 +177,10 @@ function SecondaryAction({
   title: string;
   children: React.ReactNode;
 }) {
+  const resolvedHref = resolveAppResourceUrl(href);
   return (
     <a
-      href={href}
+      href={resolvedHref}
       {...(download ? { download: "" } : { target: "_blank", rel: "noreferrer" })}
       title={title}
       aria-label={title}
@@ -192,14 +194,17 @@ function SecondaryAction({
 
 export function ArtifactCard({ artifact }: ArtifactCardProps) {
   return (
-    <Link
-      // design-allow(card-pattern): navigation <Link> card; Card renders a div and would break anchor semantics (C5a Run 3)
-      to={artifact.href}
-      disableIssueQuicklook
+    <div
       data-testid="artifact-card"
       data-media-kind={artifact.mediaKind}
-      className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card cursor-pointer transition-colors hover:border-foreground/20 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-foreground/20 hover:shadow-md"
     >
+      <Link
+        to={artifact.href}
+        disableIssueQuicklook
+        aria-label={`결과물 열기: ${artifact.title}`}
+        className="absolute inset-0 z-10 cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      />
       <ArtifactPreview artifact={artifact} />
 
       <div className="flex flex-1 flex-col gap-1 p-3">
@@ -210,7 +215,7 @@ export function ArtifactCard({ artifact }: ArtifactCardProps) {
           >
             {artifact.title}
           </h3>
-          <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          <div className="relative z-20 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
             {artifact.openPath ? (
               <SecondaryAction href={artifact.openPath} title="Open file in new tab">
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -234,6 +239,6 @@ export function ArtifactCard({ artifact }: ArtifactCardProps) {
           ) : null}
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

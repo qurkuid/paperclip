@@ -156,7 +156,7 @@ describe("SidebarCompanyMenu", () => {
     await flushReact();
     await flushReact();
 
-    const trigger = container.querySelector('button[aria-label="Open Acme Labs company switcher"]');
+    const trigger = container.querySelector('button[aria-label="Acme Labs 회사 전환 메뉴 열기"]');
     expect(trigger).not.toBeNull();
     act(() => {
       trigger?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }));
@@ -164,7 +164,7 @@ describe("SidebarCompanyMenu", () => {
     });
     await flushReact();
 
-    expect(document.body.textContent).toContain("Create new company...");
+    expect(document.body.textContent).toContain("새 회사 만들기...");
     expect(document.body.textContent).not.toContain("Add company...");
 
     act(() => {
@@ -190,7 +190,7 @@ describe("SidebarCompanyMenu", () => {
 
     expect(container.textContent).toContain("Acme Labs");
 
-    const trigger = container.querySelector('button[aria-label="Open Acme Labs company switcher"]');
+    const trigger = container.querySelector('button[aria-label="Acme Labs 회사 전환 메뉴 열기"]');
     expect(trigger).not.toBeNull();
 
     act(() => {
@@ -199,17 +199,17 @@ describe("SidebarCompanyMenu", () => {
     });
     await flushReact();
 
-    expect(document.body.textContent).toContain("Switch company");
-    expect(document.body.textContent).toContain("Edit");
+    expect(document.body.textContent).toContain("회사 전환");
+    expect(document.body.textContent).toContain("편집");
     expect(document.body.textContent).toContain("Strata");
     expect(document.body.textContent).toContain("ANA");
-    expect(document.body.textContent).toContain("Create new company...");
-    expect(document.body.textContent).toContain("Invite people to Acme Labs");
-    expect(document.body.textContent).toContain("Company settings");
-    expect(document.body.textContent).toContain("Sign out");
+    expect(document.body.textContent).toContain("새 회사 만들기...");
+    expect(document.body.textContent).toContain("Acme Labs에 사용자 초대");
+    expect(document.body.textContent).toContain("회사 설정");
+    expect(document.body.textContent).toContain("로그아웃");
 
     const signOutButton = Array.from(document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'))
-      .find((element) => element.textContent?.includes("Sign out"));
+      .find((element) => element.textContent?.includes("로그아웃"));
     expect(signOutButton).toBeTruthy();
 
     act(() => {
@@ -240,7 +240,7 @@ describe("SidebarCompanyMenu", () => {
     await flushReact();
     await flushReact();
 
-    const trigger = container.querySelector('button[aria-label="Open Acme Labs company switcher"]');
+    const trigger = container.querySelector('button[aria-label="Acme Labs 회사 전환 메뉴 열기"]');
     expect(trigger).not.toBeNull();
 
     act(() => {
@@ -250,7 +250,7 @@ describe("SidebarCompanyMenu", () => {
     await flushReact();
 
     const editButton = Array.from(document.body.querySelectorAll("button"))
-      .find((element) => element.textContent === "Edit");
+      .find((element) => element.textContent === "편집");
     expect(editButton).toBeTruthy();
 
     act(() => {
@@ -258,10 +258,10 @@ describe("SidebarCompanyMenu", () => {
     });
     await flushReact();
 
-    expect(document.body.textContent).toContain("Done");
+    expect(document.body.textContent).toContain("완료");
     expect(document.body.textContent).not.toContain("PAP");
     expect(document.body.textContent).not.toContain("ANA");
-    expect(document.body.querySelector('button[aria-label="Reorder Strata"]')).toBeTruthy();
+    expect(document.body.querySelector('button[aria-label="Strata 순서 변경"]')).toBeTruthy();
 
     const strataItem = Array.from(document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'))
       .find((element) => element.textContent?.includes("Strata"));
@@ -297,7 +297,7 @@ describe("SidebarCompanyMenu", () => {
     await flushReact();
     await flushReact();
 
-    const trigger = container.querySelector('button[aria-label="Open Acme Labs company switcher"]');
+    const trigger = container.querySelector('button[aria-label="Acme Labs 회사 전환 메뉴 열기"]');
     expect(trigger).not.toBeNull();
 
     act(() => {

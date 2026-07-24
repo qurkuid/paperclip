@@ -109,16 +109,16 @@ export interface BlockedInboxIssueRow {
 export type BlockedInboxGroupBy = "blocker_type" | "none";
 export type BlockedInboxSort = "urgency" | "most_recent" | "longest_stopped";
 
-export const BLOCKED_GROUP_OPTIONS: readonly [BlockedInboxGroupBy, string][] = [
+export const BLOCKED_GROUP_OPTIONS = [
   ["blocker_type", "Blocker type"],
   ["none", "None"],
-];
+] as const satisfies readonly (readonly [BlockedInboxGroupBy, string])[];
 
-export const BLOCKED_SORT_OPTIONS: readonly [BlockedInboxSort, string][] = [
+export const BLOCKED_SORT_OPTIONS = [
   ["urgency", "Most urgent"],
   ["most_recent", "Most recent"],
   ["longest_stopped", "Longest stopped"],
-];
+] as const satisfies readonly (readonly [BlockedInboxSort, string])[];
 
 export interface BlockedInboxGroup {
   variant: BlockedReasonVariant;

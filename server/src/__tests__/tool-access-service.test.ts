@@ -961,6 +961,49 @@ describeEmbeddedPostgres("tool access service", () => {
     );
   });
 
+  it("resolves a remote MCP endpoint from the secret vault before catalog refresh", async () => {
+    const company = await createCompany(db);
+    const service = toolAccessService(db);
+    const endpointSecret = await secretService(db).create(company.id, {
+      provider: "local_encrypted",
+      name: `Remote MCP endpoint ${randomUUID()}`,
+      key: `remote.mcp.endpoint.${randomUUID()}`,
+      value: "https://vault-endpoint.example/mcp/secret-token",
+    });
+    const fetchMock = mockToolsList([
+      {
+        name: "search_packs",
+        description: "Search packs.",
+        inputSchema: { type: "object", properties: {} },
+        annotations: { readOnlyHint: true },
+      },
+    ]);
+    const connection = await service.createConnection(company.id, {
+      name: "Vault endpoint fixture",
+      transport: "mcp_remote",
+      config: { url: "https://vault-endpoint.example/mcp", credentialMode: "vault_endpoint" },
+      credentialSecretRefs: [{
+        secretId: endpointSecret.id,
+        configPath: "transport.url",
+        label: "Remote MCP endpoint URL",
+      }],
+      enabled: true,
+      status: "active",
+    });
+
+    const refresh = await service.refreshCatalog(connection.id);
+
+    expect(refresh.discoveredCount).toBe(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://vault-endpoint.example/mcp/secret-token",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(connection.config).toEqual({
+      url: "https://vault-endpoint.example/mcp",
+      credentialMode: "vault_endpoint",
+    });
+  });
+
   it("sends the MCP Streamable HTTP Accept header and decodes an SSE catalog response", async () => {
     const company = await createCompany(db);
     const service = toolAccessService(db);
@@ -6298,6 +6341,47 @@ describeEmbeddedPostgres("tool access service", () => {
     expect(get.body.installs).toEqual(expect.arrayContaining([
       expect.objectContaining({ targetType: "agent", targetId: agent.id }),
     ]));
+  });
+
+  it("removes install-created profile bindings when an install is removed", async () => {
+    const company = await createCompany(db);
+    const agent = await createAgent(db, company.id);
+    const { connection } = await createRemoteToolFixture(db, company.id);
+    const service = toolAccessService(db);
+
+    await service.putConnectionInstalls(connection.id, {
+      installs: [{ targetType: "agent", targetId: agent.id }],
+    });
+    await service.putConnectionInstalls(connection.id, { installs: [] });
+
+    const [profile] = await db
+      .select()
+      .from(toolProfiles)
+      .where(eq(toolProfiles.profileKey, `app:${connection.id}`));
+    const bindings = await db
+      .select()
+      .from(toolProfileBindings)
+      .where(eq(toolProfileBindings.profileId, profile!.id));
+
+    expect(bindings).toEqual([]);
+  });
+
+  it("applies a company install to agents created after the install", async () => {
+    const company = await createCompany(db);
+    const { connection } = await createRemoteToolFixture(db, company.id);
+    const service = toolAccessService(db);
+
+    await service.putConnectionInstalls(connection.id, {
+      installs: [{ targetType: "company", targetId: company.id }],
+    });
+    const agent = await createAgent(db, company.id);
+
+    const effective = await service.getEffectiveProfilesForAgent(company.id, agent.id);
+
+    expect(effective.installedConnections.map((item) => item.id)).toContain(connection.id);
+    expect(effective.allowedTools).toEqual([
+      expect.objectContaining({ connectionId: connection.id }),
+    ]);
   });
 });
 

@@ -308,7 +308,7 @@ function stringValue(value: unknown): string | null {
 function auditSafeEndpoint(endpoint: string): string {
   try {
     const url = new URL(endpoint);
-    return `${url.origin}${url.pathname}`;
+    return url.origin;
   } catch {
     return "configured remote MCP endpoint";
   }
@@ -2366,6 +2366,39 @@ export function createToolGatewayService(
     return headers;
   }
 
+  async function resolveRemoteEndpoint(connection: typeof toolConnections.$inferSelect): Promise<string> {
+    const endpointRef = connection.credentialSecretRefs.find(
+      (ref) => ref.configPath === "transport.url" || ref.configPath === "config.url",
+    );
+    if (!endpointRef) return assertRemoteEndpointAllowed(connection.config ?? {});
+    try {
+      const endpoint = await secrets.resolveSecretValue(
+        connection.companyId,
+        endpointRef.secretId,
+        endpointRef.versionSelector ?? "latest",
+        {
+          consumerType: "tool_connection",
+          consumerId: connection.id,
+          configPath: endpointRef.configPath,
+          actorType: "system",
+        },
+      );
+      return assertRemoteEndpointAllowed({ url: endpoint });
+    } catch {
+      await markRemoteConnectionHealth(
+        connection,
+        "missing_secret",
+        "The remote MCP endpoint credential could not be resolved.",
+      );
+      throw new ToolGatewayHttpError(
+        422,
+        "The remote MCP endpoint credential could not be resolved.",
+        "mcp_remote_missing_secret",
+        { connectionId: connection.id },
+      );
+    }
+  }
+
   function credentialVersionRefHash(value: Record<string, unknown>): string {
     return stableHash(value);
   }
@@ -3010,7 +3043,7 @@ export function createToolGatewayService(
     callerHeaders?: ExecuteGatewayToolInput["callerHeaders"],
   ): Promise<RemoteHttpExecutionResult> {
     const { entry, connection } = await resolveConnectedRemoteTool(session, tool);
-    const endpoint = await assertRemoteEndpointAllowed(connection.config ?? {});
+    const endpoint = await resolveRemoteEndpoint(connection);
     const credentialHeaders = await resolveCredentialHeaders(connection);
     const { headers, summary: headerSummary } = buildRemoteHeaders({
       session,

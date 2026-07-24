@@ -496,7 +496,7 @@ describe("skill detail breadcrumbs", () => {
     };
 
     expect(skillDetailBreadcrumbs({ name: "Deal with PR", folderId: "review-folder" }, folders)).toEqual([
-      { label: "Skills", href: "/skills" },
+      { label: "스킬", href: "/skills" },
       { label: "My Skills", href: "/skills?folder=my-root" },
       { label: "Review", href: "/skills?folder=review-folder" },
       { label: "Deal with PR" },

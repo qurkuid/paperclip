@@ -150,35 +150,34 @@ describe("CompanySettingsSidebar", () => {
     await flushReact();
 
     expect(container.textContent).toContain("Paperclip");
-    expect(container.textContent).toContain("Company Settings");
-    expect(container.textContent).toContain("Company settings");
-    expect(container.textContent).toContain("Instance settings");
-    expect(container.textContent).toContain("General");
-    expect(container.textContent).toContain("Environments");
-    expect(container.textContent).not.toContain("Cloud upstream");
-    expect(container.textContent).toContain("Members");
-    expect(container.textContent).not.toContain("Cloud upstream");
-    expect(container.textContent).toContain("Invites");
-    expect(container.textContent).toContain("Secrets");
+    expect(container.textContent).toContain("회사 설정");
+    expect(container.textContent).toContain("인스턴스 설정");
+    expect(container.textContent).toContain("일반");
+    expect(container.textContent).toContain("환경");
+    expect(container.textContent).not.toContain("클라우드 연동");
+    expect(container.textContent).toContain("멤버");
+    expect(container.textContent).not.toContain("클라우드 연동");
+    expect(container.textContent).toContain("초대");
+    expect(container.textContent).toContain("보안 정보");
     expect(container.textContent).not.toContain("Tools & Access");
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings",
-        label: "General",
+        label: "일반",
         end: true,
       }),
     );
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/instance/environments",
-        label: "Environments",
+        label: "환경",
         end: true,
       }),
     );
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/members",
-        label: "Members",
+        label: "멤버",
         badge: 2,
         end: true,
       }),
@@ -186,41 +185,41 @@ describe("CompanySettingsSidebar", () => {
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/invites",
-        label: "Invites",
+        label: "초대",
         end: true,
       }),
     );
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/secrets",
-        label: "Secrets",
+        label: "보안 정보",
         end: true,
       }),
     );
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/instance/profile",
-        label: "Profile",
+        label: "프로필",
         end: true,
       }),
     );
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/instance/general",
-        label: "General",
+        label: "일반",
         end: true,
       }),
     );
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/instance/plugins",
-        label: "Plugins",
+        label: "플러그인",
       }),
     );
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/instance/adapters",
-        label: "Adapters",
+        label: "어댑터",
       }),
     );
     expect(sidebarNavItemMock).not.toHaveBeenCalledWith(
@@ -252,11 +251,11 @@ describe("CompanySettingsSidebar", () => {
     });
     await flushReact();
 
-    expect(container.textContent).toContain("Cloud upstream");
+    expect(container.textContent).toContain("클라우드 연동");
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/cloud-upstream",
-        label: "Cloud upstream",
+        label: "클라우드 연동",
         end: true,
       }),
     );
@@ -330,11 +329,11 @@ describe("CompanySettingsSidebar", () => {
     });
     await flushReact();
 
-    expect(container.textContent).toContain("Cloud upstream");
+    expect(container.textContent).toContain("클라우드 연동");
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/cloud-upstream",
-        label: "Cloud upstream",
+        label: "클라우드 연동",
         end: true,
       }),
     );

@@ -182,7 +182,7 @@ function ProjectItem({
                   ? "opacity-100"
                   : "pointer-events-none opacity-0 group-hover/project:pointer-events-auto group-hover/project:opacity-100 group-focus-within/project:pointer-events-auto group-focus-within/project:opacity-100",
               )}
-              aria-label={`Open actions for ${project.name}`}
+              aria-label={`${project.name} 작업 메뉴 열기`}
             >
               <MoreHorizontal className="h-3.5 w-3.5" />
             </Button>

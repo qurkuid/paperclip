@@ -186,7 +186,7 @@ describe("Projects", () => {
   }
 
   async function openSortMenu() {
-    const trigger = container.querySelector<HTMLButtonElement>('button[title="Sort"]');
+    const trigger = container.querySelector<HTMLButtonElement>('button[title="정렬"]');
     expect(trigger).not.toBeNull();
 
     await act(async () => {
@@ -211,23 +211,23 @@ describe("Projects", () => {
     await renderProjects();
 
     const content = container.textContent ?? "";
-    expect(container.querySelector('button[title="Sort"]')?.textContent).toContain("Sort: Name");
-    expect(content.indexOf("My Projects")).toBeLessThan(content.indexOf("Alpha"));
+    expect(container.querySelector('button[title="정렬"]')?.textContent).toContain("정렬: 이름");
+    expect(content.indexOf("내 프로젝트")).toBeLessThan(content.indexOf("Alpha"));
     expect(content.indexOf("Alpha")).toBeLessThan(content.indexOf("Charlie"));
-    expect(content.indexOf("Charlie")).toBeLessThan(content.indexOf("Other Projects"));
-    expect(content.indexOf("Other Projects")).toBeLessThan(content.indexOf("Bravo"));
+    expect(content.indexOf("Charlie")).toBeLessThan(content.indexOf("기타 프로젝트"));
+    expect(content.indexOf("기타 프로젝트")).toBeLessThan(content.indexOf("Bravo"));
     expect(content).toContain("in progress");
   });
 
   it("sorts grouped projects by the selected field", async () => {
     await renderProjects();
     await openSortMenu();
-    await chooseSortField("Updated");
+    await chooseSortField("수정일");
 
     const content = container.textContent ?? "";
-    expect(content.indexOf("My Projects")).toBeLessThan(content.indexOf("Charlie"));
+    expect(content.indexOf("내 프로젝트")).toBeLessThan(content.indexOf("Charlie"));
     expect(content.indexOf("Charlie")).toBeLessThan(content.indexOf("Alpha"));
-    expect(content.indexOf("Alpha")).toBeLessThan(content.indexOf("Other Projects"));
+    expect(content.indexOf("Alpha")).toBeLessThan(content.indexOf("기타 프로젝트"));
   });
 
   it("reserves description line height for projects without descriptions", async () => {

@@ -260,7 +260,7 @@ export function attentionDetailImages(item: AttentionItem): AttentionDetailImage
  */
 export function attentionImageUrl(assetId: string): string {
   if (assetId.startsWith("data:") || assetId.startsWith("http")) return assetId;
-  return `/api/assets/${assetId}/content`;
+  return withAppBasePath(`/api/assets/${assetId}/content`);
 }
 
 /**
@@ -680,3 +680,4 @@ export function groupAttentionItems(
     })
     .map(([key, value]) => ({ key, label: value.label, items: value.items }));
 }
+import { withAppBasePath } from "./base-path";

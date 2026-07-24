@@ -58,6 +58,7 @@ import {
   isCodexUnknownSessionError,
 } from "./parse.js";
 import {
+  buildManagedCodexMcpEnv,
   codexHomeHasUsableAuth,
   evaluateCodexCredentialReadiness,
   isManagedCodexHomePath,
@@ -697,7 +698,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       onLog,
       onEvent,
     });
-    const env: Record<string, string> = { ...paperclipBaseEnv };
+    const env: Record<string, string> = {
+      ...paperclipBaseEnv,
+      ...buildManagedCodexMcpEnv(managedMcpGateways),
+    };
     env.PAPERCLIP_RUN_ID = runId;
     const wakeTaskId =
       (typeof context.taskId === "string" && context.taskId.trim().length > 0 && context.taskId.trim()) ||

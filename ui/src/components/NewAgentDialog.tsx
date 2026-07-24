@@ -28,6 +28,7 @@ import { getAdapterDisplay } from "../adapters/adapter-display-registry";
 import { useDisabledAdaptersSync } from "../adapters/use-disabled-adapters";
 import { useToast } from "../context/ToastContext";
 import { Badge } from "@/components/ui/badge";
+import { withAppBasePath } from "@/lib/base-path";
 
 /**
  * Adapter types that are suitable for agent creation (excludes internal
@@ -169,7 +170,7 @@ export function NewAgentDialog() {
       const onboardingTextLink =
         invite.onboardingTextUrl ??
         invite.onboardingTextPath ??
-        `/api/invites/${invite.token}/onboarding.txt`;
+        withAppBasePath(`/api/invites/${invite.token}/onboarding.txt`);
       const onboardingTextUrl = onboardingTextLink.startsWith("http")
         ? onboardingTextLink
         : `${base}${onboardingTextLink}`;

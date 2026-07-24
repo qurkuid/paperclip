@@ -41,6 +41,19 @@ export {
   type OriginatingActor,
 } from "./issue-attribution.js";
 export {
+  OPENCRAB_MCP_URL_PREFIX,
+  OPENCRAB_SPACE_IDS,
+  buildOpenCrabRuntimeMarkdown,
+  parseOpenCrabAgentConfig,
+  parseOpenCrabPackListResult,
+  recommendOpenCrabPackIds,
+  type OpenCrabAgentConfig,
+  type OpenCrabAgentRecommendationInput,
+  type OpenCrabPackId,
+  type OpenCrabSchemaPack,
+  type OpenCrabSpaceId,
+} from "./opencrab.js";
+export {
   RESPONSIBLE_USER_DENIAL_CODES,
   describeResponsibleUserDenial,
   isResponsibleUserDenialCode,

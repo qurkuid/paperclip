@@ -482,9 +482,9 @@ describe("IssueProperties", () => {
     await flush();
 
     await waitForAssertion(() => {
-      expect(container.textContent).toContain("Assignee");
+      expect(container.textContent).toContain("담당자");
       expect(container.textContent).toContain("CodexCoder");
-      expect(container.textContent).toContain("Originating");
+      expect(container.textContent).toContain("요청 출처");
       expect(container.textContent).toContain("Riley Board");
       expect(container.textContent).not.toContain("Morgan Product");
       expect(container.textContent).not.toContain("Responsible");
@@ -509,7 +509,7 @@ describe("IssueProperties", () => {
     await flush();
 
     await waitForAssertion(() => {
-      expect(container.textContent).toContain("Originating");
+      expect(container.textContent).toContain("요청 출처");
       expect(container.textContent).toContain("Riley Board");
       expect(container.textContent).not.toContain("Kicked off by");
       expect(container.textContent).not.toContain("Kicked off by · responsible");
@@ -535,9 +535,9 @@ describe("IssueProperties", () => {
     await flush();
 
     await waitForAssertion(() => {
-      expect(container.textContent).toContain("Originating");
+      expect(container.textContent).toContain("요청 출처");
       expect(container.textContent).toContain("CodexCoder");
-      expect(container.textContent).toContain("Assignee");
+      expect(container.textContent).toContain("담당자");
       expect(container.textContent).toContain("Unassigned");
       expect(container.textContent).not.toContain("Responsible");
       expect(container.textContent).not.toContain("Kicked off by");
@@ -562,7 +562,7 @@ describe("IssueProperties", () => {
     await flush();
 
     await waitForAssertion(() => {
-      expect(container.textContent).toContain("Originating");
+      expect(container.textContent).toContain("요청 출처");
       expect(container.textContent).toContain("Morgan Product");
       expect(container.textContent).toContain("via CodexCoder");
       expect(container.textContent).not.toContain("Responsible");
@@ -586,7 +586,7 @@ describe("IssueProperties", () => {
     await flush();
 
     await waitForAssertion(() => {
-      expect(container.textContent).toContain("Originating");
+      expect(container.textContent).toContain("요청 출처");
       expect(container.textContent).toContain("Morgan Product");
       expect(container.textContent).not.toContain("via ");
     });
@@ -718,11 +718,11 @@ describe("IssueProperties", () => {
     });
     await flush();
 
-    expect(container.textContent).toContain("Sub-tasks");
-    expect(container.textContent).toContain("Add sub-task");
+    expect(container.textContent).toContain("하위 작업");
+    expect(container.textContent).toContain("하위 작업 추가");
 
     const addButton = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.textContent?.includes("Add sub-task"));
+      .find((button) => button.textContent?.includes("하위 작업 추가"));
     expect(addButton).not.toBeUndefined();
 
     await act(async () => {
@@ -742,7 +742,7 @@ describe("IssueProperties", () => {
     });
     await flush();
 
-    expect(container.textContent).not.toContain("Watchdog");
+    expect(container.textContent).not.toContain("감시 작업");
     expect(container.textContent).not.toContain("Set watchdog");
 
     act(() => root.unmount());
@@ -761,9 +761,9 @@ describe("IssueProperties", () => {
     await flush();
 
     await waitForAssertion(() => {
-      expect(container.textContent).toContain("Watchdog");
+      expect(container.textContent).toContain("감시 작업");
       // Empty watchdog uses the uniform muted "None" empty state (ux-spec §6).
-      expect(findRowTrigger(container, "Watchdog")?.textContent).toContain("None");
+      expect(findRowTrigger(container, "감시 작업")?.textContent).toContain("없음");
     });
 
     act(() => root.unmount());
@@ -829,11 +829,11 @@ describe("IssueProperties", () => {
     expect(blockerLink?.className).toContain("text-xs");
     const removeButton = container.querySelector('button[aria-label="Remove PAP-2 as blocker"]');
     expect(removeButton?.className).toContain("absolute");
-    expect(container.textContent).toContain("Add blocker");
+    expect(container.textContent).toContain("차단 작업 추가");
     expect(container.querySelector('input[placeholder="Search tasks..."]')).toBeNull();
 
     const addButton = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.textContent?.includes("Add blocker"));
+      .find((button) => button.textContent?.includes("차단 작업 추가"));
     expect(addButton).not.toBeUndefined();
 
     await act(async () => {
@@ -874,7 +874,7 @@ describe("IssueProperties", () => {
     await flush();
 
     const addButton = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.textContent?.includes("Add blocker"));
+      .find((button) => button.textContent?.includes("차단 작업 추가"));
     expect(addButton).not.toBeUndefined();
 
     await act(async () => {
@@ -1270,8 +1270,8 @@ describe("IssueProperties", () => {
     expect(serviceLink).not.toBeNull();
     expect(serviceLink?.className).toContain("sm:self-start");
     expect(serviceLink?.className).not.toContain("sm:self-end");
-    expect((container.textContent ?? "").indexOf("Workspace")).toBeLessThan(
-      (container.textContent ?? "").indexOf("Service"),
+    expect((container.textContent ?? "").indexOf("작업 공간")).toBeLessThan(
+      (container.textContent ?? "").indexOf("서비스"),
     );
     const stopButton = container.querySelector<HTMLButtonElement>('button[aria-label="Stop"]');
     expect(stopButton).not.toBeUndefined();
@@ -1305,9 +1305,9 @@ describe("IssueProperties", () => {
     });
     await flush();
 
-    expect(container.textContent).toMatch(/CreatedApr 6, 2026, \d{1,2}:34 (AM|PM)/);
-    expect(container.textContent).toMatch(/StartedApr 6, 2026, \d{1,2}:35 (AM|PM)/);
-    expect(container.textContent).toMatch(/CompletedApr 6, 2026, \d{1,2}:36 (AM|PM)/);
+    expect(container.textContent).toMatch(/생성일Apr 6, 2026, \d{1,2}:34 (AM|PM)/);
+    expect(container.textContent).toMatch(/시작Apr 6, 2026, \d{1,2}:35 (AM|PM)/);
+    expect(container.textContent).toMatch(/완료Apr 6, 2026, \d{1,2}:36 (AM|PM)/);
 
     act(() => root.unmount());
   });
@@ -1330,7 +1330,7 @@ describe("IssueProperties", () => {
     await flush();
 
     const workspaceLink = Array.from(container.querySelectorAll("a")).find(
-      (link) => link.textContent?.trim() === "View workspace",
+      (link) => link.textContent?.trim() === "작업 공간 보기",
     );
     expect(container.textContent).not.toContain("View workspace tasks");
     expect(workspaceLink).not.toBeUndefined();
@@ -1396,7 +1396,7 @@ describe("IssueProperties", () => {
     expect(container.querySelector(`a[href="${serviceUrl}"]`)).toBeNull();
     expect(container.textContent).not.toContain("View workspace tasks");
     expect(Array.from(container.querySelectorAll("a")).some(
-      (link) => link.textContent?.trim() === "View workspace",
+      (link) => link.textContent?.trim() === "작업 공간 보기",
     )).toBe(false);
 
     act(() => root.unmount());
@@ -1430,7 +1430,7 @@ describe("IssueProperties", () => {
     await flush();
 
     expect(container.textContent).not.toContain("Task ids");
-    expect(container.textContent).toContain("Related tasks");
+    expect(container.textContent).toContain("관련 작업");
     expect(container.textContent).toContain("PAP-22");
 
     act(() => root.unmount());
@@ -1517,7 +1517,7 @@ describe("IssueProperties", () => {
     });
     await flush();
 
-    expect(container.textContent).not.toContain("Related tasks");
+    expect(container.textContent).not.toContain("관련 작업");
 
     act(() => root.unmount());
   });
@@ -1690,7 +1690,7 @@ describe("IssueProperties", () => {
 
     // The trailing "clear" X was removed (ux-spec: one trailing-action style).
     // Clearing now happens by selecting the "Primary" model lane inside the picker.
-    const optionsTrigger = findRowTrigger(container, "Model");
+    const optionsTrigger = findRowTrigger(container, "모델");
     expect(optionsTrigger).toBeTruthy();
     await act(async () => {
       optionsTrigger!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -1759,8 +1759,8 @@ describe("IssueProperties", () => {
     await flush();
 
     // Empty parent now uses the uniform muted "None" empty state (ux-spec §6).
-    const parentTrigger = findRowTrigger(container, "Parent");
-    expect(parentTrigger?.textContent).toContain("None");
+    const parentTrigger = findRowTrigger(container, "상위 작업");
+    expect(parentTrigger?.textContent).toContain("없음");
 
     await act(async () => {
       parentTrigger!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -1987,7 +1987,7 @@ describe("IssueProperties", () => {
     });
     await flush();
 
-    expect(container.textContent).toContain("Monitor");
+    expect(container.textContent).toContain("모니터링");
     expect(container.textContent).toContain("In 2h 30m");
     expect(container.querySelector('input[type="datetime-local"]')).toBeNull();
     expect(container.querySelector('input[placeholder="What should the agent re-check?"]')).toBeNull();
@@ -2115,7 +2115,7 @@ describe("IssueProperties", () => {
 
     renderMonitor(createIssue());
     await flush();
-    expect(monitorRowText()).toContain("None");
+    expect(monitorRowText()).toContain("없음");
 
     act(() => root.unmount());
     dateNowSpy.mockRestore();
@@ -2167,8 +2167,8 @@ describe("IssueProperties", () => {
 
     let trigger: HTMLButtonElement | undefined;
     await waitForAssertion(() => {
-      expect(container.textContent).toContain("Watchdog");
-      trigger = findRowTrigger(container, "Watchdog");
+      expect(container.textContent).toContain("감시 작업");
+      trigger = findRowTrigger(container, "감시 작업");
       expect(trigger).toBeTruthy();
     });
 
@@ -2239,7 +2239,7 @@ describe("IssueProperties", () => {
 
     let trigger: HTMLButtonElement | undefined;
     await waitForAssertion(() => {
-      trigger = findRowTrigger(container, "Watchdog");
+      trigger = findRowTrigger(container, "감시 작업");
       expect(trigger).toBeTruthy();
     });
 
@@ -2348,7 +2348,7 @@ describe("IssueProperties", () => {
     expect(instructionNode!.className).not.toContain("whitespace-normal");
     expect(instructionNode!.className).not.toContain("break-words");
 
-    const watchdogTrigger = findRowTrigger(container, "Watchdog");
+    const watchdogTrigger = findRowTrigger(container, "감시 작업");
     expect(watchdogTrigger?.querySelector("[title]")?.getAttribute("title")).toBe(instructions);
 
     act(() => root.unmount());
@@ -2507,7 +2507,7 @@ describe("IssueProperties", () => {
     await flush();
 
     await waitForAssertion(() => {
-      expect(container.textContent).toContain("Archived");
+      expect(container.textContent).toContain("보관됨");
       // The value shows just the agent name (the row label already says
       // "Archived"), giving the name the full column width at 320px.
       expect(container.textContent).toContain("Gardener");
@@ -2584,7 +2584,7 @@ describe("IssueProperties", () => {
     await flush();
 
     await waitForAssertion(() => {
-      expect(container.textContent).toContain("Updated");
+      expect(container.textContent).toContain("수정일");
     });
     expect(container.textContent).not.toContain("Archived by");
     expect(

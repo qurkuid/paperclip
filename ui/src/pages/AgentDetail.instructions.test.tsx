@@ -6,7 +6,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Agent, AgentInstructionsBundle, AgentInstructionsFileDetail, AgentInstructionsFileSummary } from "@paperclipai/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PromptsTab } from "./AgentDetail";
+import { parseAgentDetailView, PromptsTab } from "./AgentDetail";
 
 const mockAgentsApi = vi.hoisted(() => ({
   instructionsBundle: vi.fn(),
@@ -17,6 +17,14 @@ const mockAgentsApi = vi.hoisted(() => ({
 }));
 
 const markdownEditorRenderMock = vi.hoisted(() => vi.fn());
+
+describe("agent detail tab routing", () => {
+  it("uses explicit MCP and OpenCrab routes while preserving the legacy tools URL", () => {
+    expect(parseAgentDetailView("mcp")).toBe("mcp");
+    expect(parseAgentDetailView("tools")).toBe("mcp");
+    expect(parseAgentDetailView("opencrab")).toBe("opencrab");
+  });
+});
 
 vi.mock("../api/agents", () => ({
   agentsApi: mockAgentsApi,

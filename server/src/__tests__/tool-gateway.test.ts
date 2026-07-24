@@ -1183,6 +1183,60 @@ describeEmbeddedPostgres("tool gateway acceptance", () => {
     expect(otherTools.map((tool) => tool.catalogEntryId)).not.toContain(remoteTool.catalogEntry.id);
   });
 
+  it("resolves a remote MCP endpoint from the secret vault before tool execution", async () => {
+    const company = await createCompany(db);
+    const agent = await createAgent(db, company.id);
+    const { run } = await createIssueAndRun(db, company.id, agent.id);
+    const fake = await startFakeRemoteMcpServer((request) => ({
+      body: {
+        jsonrpc: "2.0",
+        id: request.body?.id,
+        result: { content: [{ type: "text", text: "vault endpoint ok" }] },
+      },
+    }));
+
+    try {
+      const endpointSecret = await secretService(db).create(company.id, {
+        provider: "local_encrypted",
+        name: `Gateway endpoint ${randomUUID()}`,
+        key: `gateway.endpoint.${randomUUID()}`,
+        value: fake.url,
+      });
+      const remoteTool = await createRemoteMcpTool(db, company.id, {
+        applicationKey: "vault-endpoint",
+        url: "https://vault-placeholder.example/mcp",
+        toolName: "search_packs",
+        riskLevel: "read",
+        credentialSecretRefs: [{
+          secretId: endpointSecret.id,
+          configPath: "transport.url",
+          label: "Remote MCP endpoint URL",
+        }],
+      });
+      await allowAllToolsForAgent(db, company.id, agent.id);
+      const gateway = createTestToolGatewayService(db);
+      const session = await gateway.createSession({
+        companyId: company.id,
+        agentId: agent.id,
+        runId: run.id,
+      });
+      const tool = (await gateway.listToolsForSession(session.token))
+        .find((candidate) => candidate.connectionId === remoteTool.connection.id)!;
+
+      await expect(gateway.executeTool({
+        sessionToken: session.token,
+        tool: tool.name,
+        parameters: {},
+      })).resolves.toMatchObject({
+        status: "completed",
+        result: { content: "vault endpoint ok" },
+      });
+      expect(fake.requests).toHaveLength(1);
+    } finally {
+      await fake.close();
+    }
+  });
+
   it("lists and executes connected local stdio MCP catalog tools through the gateway", async () => {
     const company = await createCompany(db);
     const agent = await createAgent(db, company.id);
@@ -2247,7 +2301,7 @@ rl.on("line", (line) => {
           request: {
             protocol: "MCP JSON-RPC 2.0",
             httpMethod: "POST",
-            endpoint: fake.url,
+            endpoint: new URL(fake.url).origin,
             mcpMethod: "tools/call",
             requestId: expect.stringMatching(/^paperclip-tool-/),
             upstreamToolName: "kv_set",
@@ -2699,7 +2753,7 @@ rl.on("line", (line) => {
           execution: {
             transport: "mcp_remote",
             request: {
-              endpoint: fake.url,
+              endpoint: new URL(fake.url).origin,
               mcpMethod: "tools/call",
               dispatched: true,
             },

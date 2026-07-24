@@ -7,6 +7,7 @@ import { and, asc, desc, eq, getTableColumns, gt, gte, inArray, isNull, lt, lte,
 import type { Db } from "@paperclipai/db";
 import {
   AGENT_DEFAULT_MAX_CONCURRENT_RUNS,
+  buildOpenCrabRuntimeMarkdown,
   ISSUE_CONTINUATION_SUMMARY_DOCUMENT_KEY,
   MODEL_PROFILE_KEYS,
   PROVIDER_QUOTA_MONITOR_SERVICE_NAME,
@@ -4268,6 +4269,7 @@ const INTERACTION_CONTINUATION_CONTEXT_KEYS = [
   "interactionKind",
   "interactionStatus",
   "continuationPolicy",
+  "confirmationResult",
   "checkboxSelection",
   "itemVerdicts",
   "newlyResolvedItemIds",
@@ -4570,6 +4572,7 @@ export async function buildPaperclipWakePayload(input: {
   const interactionId = readNonEmptyString(input.contextSnapshot.interactionId);
   const interactionKind = readNonEmptyString(input.contextSnapshot.interactionKind);
   const interactionStatus = readNonEmptyString(input.contextSnapshot.interactionStatus);
+  const confirmationResult = parseObject(input.contextSnapshot.confirmationResult);
   const checkboxSelection = parseObject(input.contextSnapshot.checkboxSelection);
   const planReviewContext = issueId
     ? await buildPlanReviewContext({
@@ -4651,6 +4654,7 @@ export async function buildPaperclipWakePayload(input: {
       : null,
     interactionKind,
     interactionStatus,
+    confirmationResult: Object.keys(confirmationResult).length > 0 ? confirmationResult : null,
     checkboxSelection: Object.keys(checkboxSelection).length > 0 ? checkboxSelection : null,
     checkedOutByHarness: input.contextSnapshot[PAPERCLIP_HARNESS_CHECKOUT_KEY] === true,
     dependencyBlockedInteraction: input.contextSnapshot.dependencyBlockedInteraction === true,
@@ -12089,7 +12093,7 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
     } else {
       delete context[PAPERCLIP_WAKE_PAYLOAD_KEY];
     }
-    const taskMarkdown = buildPaperclipTaskMarkdown({
+    const issueTaskMarkdown = buildPaperclipTaskMarkdown({
       issue: issueRef
         ? {
             id: issueRef.id,
@@ -12109,6 +12113,13 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
         readNonEmptyString(context.workspaceRefreshReason) === "accepted_plan_confirmation"
         && Object.keys(parseObject(context.acceptedPlanWakeRouting)).length === 0,
     });
+    const openCrabRuntimeMarkdown = buildOpenCrabRuntimeMarkdown(
+      agent.runtimeConfig.openCrab,
+      agent.id,
+    );
+    const taskMarkdown = issueTaskMarkdown && openCrabRuntimeMarkdown
+      ? `${issueTaskMarkdown}\n\n${openCrabRuntimeMarkdown}`
+      : issueTaskMarkdown ?? openCrabRuntimeMarkdown;
     if (issueRef) {
       context.paperclipIssue = {
         id: issueRef.id,

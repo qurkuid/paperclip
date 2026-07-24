@@ -163,7 +163,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableIsolatedWorkspaces: false });
     const root = await renderSidebar();
 
-    const topSearchLink = container.querySelector('a[aria-label="Open search"]');
+    const topSearchLink = container.querySelector('a[aria-label="검색 열기"]');
     expect(topSearchLink?.getAttribute("href")).toBe("/search");
     const workLinks = [...container.querySelectorAll("nav a")].map((anchor) => anchor.textContent?.trim());
     expect(workLinks).not.toContain("Search");
@@ -186,12 +186,12 @@ describe("Sidebar", () => {
     // The Work section is a Collapsible now (one extra wrapper level), so
     // resolve the section root by walking up until the header label appears.
     let workSectionContainer = workSection?.parentElement ?? null;
-    while (workSectionContainer && !workSectionContainer.textContent?.includes("Work")) {
+    while (workSectionContainer && !workSectionContainer.textContent?.includes("업무")) {
       workSectionContainer = workSectionContainer.parentElement;
     }
-    expect(workSectionContainer?.textContent).toContain("Work");
-    expect(workSectionContainer?.textContent).toContain("Tasks");
-    expect(workSectionContainer?.textContent).not.toContain("Goals");
+    expect(workSectionContainer?.textContent).toContain("업무");
+    expect(workSectionContainer?.textContent).toContain("작업");
+    expect(workSectionContainer?.textContent).not.toContain("목표");
 
     flushSync(() => {
       root.unmount();
@@ -205,14 +205,14 @@ describe("Sidebar", () => {
     });
     const root = await renderSidebar();
 
-    expect(container.textContent).toContain("New Task");
+    expect(container.textContent).toContain("새 작업");
     expect(container.textContent).not.toContain("New Issue");
 
     const navLabels = [...container.querySelectorAll("nav a")].map((a) => a.textContent?.trim());
-    expect(navLabels).toContain("Tasks");
+    expect(navLabels).toContain("작업");
     expect(navLabels).not.toContain("Issues");
 
-    const projectsLink = [...container.querySelectorAll("nav a")].find((a) => a.textContent?.trim() === "Projects");
+    const projectsLink = [...container.querySelectorAll("nav a")].find((a) => a.textContent?.trim() === "프로젝트");
     expect(projectsLink?.getAttribute("href")).toBe("/projects");
 
     expect(container.querySelector('[data-testid="sidebar-projects"]')).toBeNull();
@@ -230,7 +230,7 @@ describe("Sidebar", () => {
     const root = await renderSidebar();
 
     const navLabels = [...container.querySelectorAll("nav a")].map((a) => a.textContent?.trim());
-    expect(navLabels).toContain("Projects");
+    expect(navLabels).toContain("프로젝트");
     expect(container.querySelector('[data-testid="sidebar-projects"]')).toBeNull();
     expect(
       container.querySelector('[data-testid="sidebar-agents"]')?.getAttribute("data-streamlined"),
@@ -251,9 +251,9 @@ describe("Sidebar", () => {
     const root = await renderSidebar();
 
     const navLabels = [...container.querySelectorAll("nav a")].map((a) => a.textContent?.trim());
-    expect(navLabels).toContain("Tasks");
+    expect(navLabels).toContain("작업");
     // Top-level Projects link + starred children stay, per-project collapsible gone.
-    expect(navLabels).toContain("Projects");
+    expect(navLabels).toContain("프로젝트");
     expect(container.querySelector('[data-testid="sidebar-projects"]')).toBeNull();
     expect(container.querySelector('[data-testid="sidebar-starred-projects"]')).not.toBeNull();
     expect(
@@ -272,14 +272,17 @@ describe("Sidebar", () => {
     const sidebarSlot = [...container.querySelectorAll("nav [data-plugin-slot-types]")]
       .find((node) => node.getAttribute("data-plugin-slot-types") === "sidebar");
     expect(sidebarSlot?.textContent).toContain("Plugin slot outlet");
-    const workSectionContainer = sidebarSlot?.parentElement?.parentElement;
+    let workSectionContainer = sidebarSlot?.parentElement ?? null;
+    while (workSectionContainer && !workSectionContainer.textContent?.includes("업무")) {
+      workSectionContainer = workSectionContainer.parentElement;
+    }
     const workText = workSectionContainer?.textContent ?? "";
-    expect(workText).toContain("Work");
-    expect(workText).toContain("Workspaces");
-    expect(workText.indexOf("Workspaces")).toBeLessThan(workText.indexOf("Plugin slot outlet"));
+    expect(workText).toContain("업무");
+    expect(workText).toContain("작업 공간");
+    expect(workText.indexOf("작업 공간")).toBeLessThan(workText.indexOf("Plugin slot outlet"));
 
     const primaryNavText = container.querySelector("nav > div:first-child")?.textContent ?? "";
-    expect(primaryNavText).toContain("Inbox");
+    expect(primaryNavText).toContain("받은 편지함");
     expect(primaryNavText).not.toContain("Plugin slot outlet");
 
     flushSync(() => {
@@ -291,7 +294,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockImplementation(() => new Promise(() => {}));
     const root = await renderSidebar();
 
-    expect(container.textContent).not.toContain("Workspaces");
+    expect(container.textContent).not.toContain("작업 공간");
 
     flushSync(() => {
       root.unmount();
@@ -314,20 +317,20 @@ describe("Sidebar", () => {
     const root = await renderSidebar();
 
     const artifactsLink = [...container.querySelectorAll("a")].find(
-      (anchor) => anchor.textContent === "Artifacts",
+      (anchor) => anchor.textContent === "결과물",
     );
     expect(artifactsLink?.getAttribute("href")).toBe("/artifacts");
 
     const navText = container.querySelector("nav")?.textContent ?? "";
-    expect(navText).toContain("Artifacts");
-    expect(navText).toContain("Skills");
-    expect(navText.indexOf("Artifacts")).toBeLessThan(navText.indexOf("Skills"));
+    expect(navText).toContain("결과물");
+    expect(navText).toContain("스킬");
+    expect(navText.indexOf("결과물")).toBeLessThan(navText.indexOf("스킬"));
 
     const sections = [...container.querySelectorAll("nav > div")];
-    const workSection = sections.find((section) => section.textContent?.startsWith("Work"));
-    const companySection = sections.find((section) => section.textContent?.startsWith("Company"));
-    expect(workSection?.textContent).toContain("Skills");
-    expect(companySection?.textContent).not.toContain("Skills");
+    const workSection = sections.find((section) => section.textContent?.startsWith("업무"));
+    const companySection = sections.find((section) => section.textContent?.startsWith("회사"));
+    expect(workSection?.textContent).toContain("스킬");
+    expect(companySection?.textContent).not.toContain("스킬");
 
     flushSync(() => {
       root.unmount();
@@ -341,7 +344,7 @@ describe("Sidebar", () => {
     });
     const root = await renderSidebar();
 
-    expect([...container.querySelectorAll("nav a")].map((a) => a.textContent?.trim())).not.toContain("Goals");
+    expect([...container.querySelectorAll("nav a")].map((a) => a.textContent?.trim())).not.toContain("목표");
 
     flushSync(() => {
       root.unmount();
@@ -352,7 +355,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockImplementation(() => new Promise(() => {}));
     const root = await renderSidebar();
 
-    expect([...container.querySelectorAll("nav a")].map((a) => a.textContent?.trim())).not.toContain("Goals");
+    expect([...container.querySelectorAll("nav a")].map((a) => a.textContent?.trim())).not.toContain("목표");
     expect(container.querySelector('[data-testid="sidebar-goals-placeholder"]')).not.toBeNull();
 
     flushSync(() => {
@@ -367,11 +370,11 @@ describe("Sidebar", () => {
     });
     const root = await renderSidebar();
 
-    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "Goals");
+    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "목표");
     expect(link?.getAttribute("href")).toBe("/goals");
 
     const navText = container.querySelector("nav")?.textContent ?? "";
-    expect(navText.indexOf("Goals")).toBeLessThan(navText.indexOf("Artifacts"));
+    expect(navText.indexOf("목표")).toBeLessThan(navText.indexOf("결과물"));
 
     flushSync(() => {
       root.unmount();
@@ -383,12 +386,12 @@ describe("Sidebar", () => {
     const root = await renderSidebar();
 
     const sections = [...container.querySelectorAll("nav > div")];
-    const workSection = sections.find((section) => section.textContent?.startsWith("Work"));
-    const companySection = sections.find((section) => section.textContent?.startsWith("Company"));
-    expect(workSection?.textContent).not.toContain("Timeline");
-    expect(companySection?.textContent).toContain("Timeline");
+    const workSection = sections.find((section) => section.textContent?.startsWith("업무"));
+    const companySection = sections.find((section) => section.textContent?.startsWith("회사"));
+    expect(workSection?.textContent).not.toContain("타임라인");
+    expect(companySection?.textContent).toContain("타임라인");
 
-    const timelineLink = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "Timeline");
+    const timelineLink = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "타임라인");
     expect(timelineLink?.getAttribute("href")).toBe("/timeline");
 
     flushSync(() => {
@@ -404,7 +407,7 @@ describe("Sidebar", () => {
     const root = await renderSidebar();
 
     const link = [...container.querySelectorAll("nav a")].find(
-      (anchor) => anchor.textContent?.trim() === "Conference Room",
+      (anchor) => anchor.textContent?.trim() === "회의실",
     );
     expect(link?.getAttribute("href")).toBe("/board-chat");
 
@@ -420,7 +423,7 @@ describe("Sidebar", () => {
     });
     const root = await renderSidebar();
 
-    expect(container.textContent).not.toContain("Conference Room");
+    expect(container.textContent).not.toContain("회의실");
 
     flushSync(() => {
       root.unmount();
@@ -431,7 +434,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockImplementation(() => new Promise(() => {}));
     const root = await renderSidebar();
 
-    expect(container.textContent).not.toContain("Conference Room");
+    expect(container.textContent).not.toContain("회의실");
 
     flushSync(() => {
       root.unmount();
@@ -445,7 +448,7 @@ describe("Sidebar", () => {
     });
     const root = await renderSidebar();
 
-    expect(container.textContent).not.toContain("Pipelines");
+    expect(container.textContent).not.toContain("파이프라인");
 
     flushSync(() => {
       root.unmount();
@@ -456,7 +459,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableApps: false });
     const disabledRoot = await renderSidebar();
 
-    expect([...container.querySelectorAll("a")].some((anchor) => anchor.textContent === "Apps")).toBe(false);
+    expect([...container.querySelectorAll("a")].some((anchor) => anchor.textContent === "앱")).toBe(false);
 
     flushSync(() => {
       disabledRoot.unmount();
@@ -465,7 +468,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableApps: true });
     const enabledRoot = await renderSidebar();
 
-    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "Apps");
+    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "앱");
     expect(link?.getAttribute("href")).toBe("/apps");
 
     flushSync(() => {
@@ -480,7 +483,7 @@ describe("Sidebar", () => {
     });
     const root = await renderSidebar();
 
-    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "Pipelines");
+    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "파이프라인");
     expect(link?.getAttribute("href")).toBe("/pipelines");
 
     flushSync(() => {
@@ -492,7 +495,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockImplementation(() => new Promise(() => {}));
     const root = await renderSidebar();
 
-    expect(container.textContent).not.toContain("Pipelines");
+    expect(container.textContent).not.toContain("파이프라인");
 
     flushSync(() => {
       root.unmount();
@@ -503,7 +506,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableIsolatedWorkspaces: true });
     const root = await renderSidebar();
 
-    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "Workspaces");
+    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "작업 공간");
     expect(link?.getAttribute("href")).toBe("/workspaces");
 
     flushSync(() => {
@@ -515,7 +518,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableIsolatedWorkspaces: false });
     const root = await renderSidebar();
 
-    const toggle = container.querySelector<HTMLButtonElement>('button[aria-label="Collapse sidebar"]');
+    const toggle = container.querySelector<HTMLButtonElement>('button[aria-label="사이드바 접기"]');
     expect(toggle).not.toBeNull();
     expect(toggle?.getAttribute("aria-expanded")).toBe("true");
 
@@ -536,8 +539,8 @@ describe("Sidebar", () => {
     mockSidebar.collapseLocked = true;
     const root = await renderSidebar();
 
-    expect(container.querySelector('button[aria-label="Collapse sidebar"]')).toBeNull();
-    expect(container.querySelector('button[aria-label="Expand sidebar"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="사이드바 접기"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="사이드바 펼치기"]')).toBeNull();
 
     mockSidebar.collapseLocked = false;
     flushSync(() => {
@@ -555,8 +558,8 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableIsolatedWorkspaces: false });
     const root = await renderSidebar();
 
-    expect(container.querySelector('button[aria-label="Expand sidebar"]')).toBeNull();
-    expect(container.querySelector('a[aria-label="Open search"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="사이드바 펼치기"]')).toBeNull();
+    expect(container.querySelector('a[aria-label="검색 열기"]')).toBeNull();
     // The company menu (company switcher / logo) is still present in the rail.
     expect(container.textContent).toContain("Company menu");
 
@@ -572,8 +575,8 @@ describe("Sidebar", () => {
     const root = await renderSidebar();
 
     // The collapse toggle is replaced by the pin while peeking.
-    expect(container.querySelector('button[aria-label="Expand sidebar"]')).toBeNull();
-    const pin = container.querySelector<HTMLButtonElement>('button[aria-label="Keep sidebar expanded"]');
+    expect(container.querySelector('button[aria-label="사이드바 펼치기"]')).toBeNull();
+    const pin = container.querySelector<HTMLButtonElement>('button[aria-label="사이드바 펼쳐 두기"]');
     expect(pin).not.toBeNull();
 
     flushSync(() => {
@@ -591,8 +594,8 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableIsolatedWorkspaces: false });
     const root = await renderSidebar();
 
-    expect(container.querySelector('button[aria-label="Collapse sidebar"]')).toBeNull();
-    expect(container.querySelector('button[aria-label="Keep sidebar expanded"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="사이드바 접기"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="사이드바 펼쳐 두기"]')).toBeNull();
 
     flushSync(() => {
       root.unmount();

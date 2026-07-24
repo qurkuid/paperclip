@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type {
   Approval,
+  AttentionItem,
   DashboardSummary,
   ExecutionWorkspace,
   ExternalObjectSummary,
@@ -125,6 +126,50 @@ function makeJoinRequest(id: string): JoinRequest {
     rejectedAt: null,
     createdAt: new Date("2026-03-11T00:00:00.000Z"),
     updatedAt: new Date("2026-03-11T00:00:00.000Z"),
+  };
+}
+
+function makeReviewRequest(id: string, issueId: string, activityAt: string): AttentionItem {
+  return {
+    id,
+    companyId: "company-1",
+    sourceKind: "issue_thread_interaction",
+    subject: {
+      kind: "interaction",
+      id,
+      companyId: "company-1",
+      title: "대표 검수 요청",
+      identifier: null,
+      status: "pending",
+      href: `/CMP/issues/CMP-10#interaction-${id}`,
+      metadata: { issueId },
+    },
+    whyNow: "대표 검토가 필요합니다.",
+    decisionVerbs: [],
+    inlineResolvable: true,
+    entryRule: "pending",
+    exitRule: "resolved",
+    dedupKey: `interaction:${id}`,
+    dismissalKey: `attention:interaction:${id}`,
+    dismissal: null,
+    severity: "medium",
+    rank: 10,
+    activityAt,
+    createdAt: activityAt,
+    updatedAt: activityAt,
+    relatedIssue: {
+      kind: "issue",
+      id: issueId,
+      companyId: "company-1",
+      title: "OpenCrab 인스타그램 피드 이미지 제작",
+      identifier: "CMP-10",
+      status: "in_review",
+      href: "/CMP/issues/CMP-10",
+    },
+    project: null,
+    workspace: null,
+    detail: null,
+    trainingExampleId: null,
   };
 }
 
@@ -520,6 +565,7 @@ describe("inbox helpers", () => {
         if (item.kind === "issue") return `issue:${item.issue.id}`;
         if (item.kind === "approval") return `approval:${item.approval.id}`;
         if (item.kind === "join_request") return `join:${item.joinRequest.id}`;
+        if (item.kind === "review_request") return `review:${item.reviewRequest.id}`;
         return `run:${item.run.id}`;
       }),
     ).toEqual([
@@ -527,6 +573,55 @@ describe("inbox helpers", () => {
       "approval:approval-between",
       "issue:2",
     ]);
+  });
+
+  it("replaces the duplicate issue row with its actionable review request", () => {
+    const issue = makeIssue("1", true);
+    issue.lastActivityAt = new Date("2026-03-11T04:00:00.000Z");
+    const reviewRequest = makeReviewRequest(
+      "interaction-1",
+      issue.id,
+      "2026-03-11T05:00:00.000Z",
+    );
+
+    const items = getInboxWorkItems({
+      issues: [issue],
+      approvals: [],
+      reviewRequests: [reviewRequest],
+    });
+
+    expect(items).toEqual([
+      {
+        kind: "review_request",
+        timestamp: new Date(reviewRequest.activityAt).getTime(),
+        reviewRequest,
+      },
+    ]);
+    expect(getInboxWorkItemKey(items[0]!)).toBe(reviewRequest.dismissalKey);
+  });
+
+  it("adds review requests once to the inbox badge and does not double-count their unread issue", () => {
+    const issue = makeIssue("1", true);
+    const reviewRequest = makeReviewRequest(
+      "interaction-1",
+      issue.id,
+      "2026-03-11T05:00:00.000Z",
+    );
+
+    const result = computeInboxBadgeData({
+      approvals: [],
+      joinRequests: [],
+      dashboard: undefined,
+      heartbeatRuns: [],
+      mineIssues: [issue],
+      reviewRequests: [reviewRequest],
+      dismissedAlerts: new Set(),
+      dismissedAtByKey: new Map(),
+      currentUserId: "user-1",
+    });
+
+    expect(result.inbox).toBe(1);
+    expect(result.mineIssues).toBe(0);
   });
 
   it("prefers canonical lastActivityAt over comment-only timestamps", () => {
@@ -563,6 +658,7 @@ describe("inbox helpers", () => {
         if (item.kind === "issue") return `issue:${item.issue.id}`;
         if (item.kind === "approval") return `approval:${item.approval.id}`;
         if (item.kind === "join_request") return `join:${item.joinRequest.id}`;
+        if (item.kind === "review_request") return `review:${item.reviewRequest.id}`;
         return `run:${item.run.id}`;
       }),
     ).toEqual([

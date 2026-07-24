@@ -162,7 +162,7 @@ export const DEFAULT_PAPERCLIP_AGENT_PROMPT_TEMPLATE = [
   "- If woken by a human comment on a dependency-blocked issue, respond or triage the comment without treating the blocked deliverable work as unblocked.",
   "- Create child issues directly when you know what needs to be done; use issue-thread interactions when the board/user must choose suggested tasks, answer structured questions, or confirm a proposal.",
   "- Use `PAPERCLIP_SCRATCH_DIR` / `PAPERCLIP_RUN_SCRATCH_DIR` for temporary scratch files instead of ad hoc `/tmp` paths; Paperclip removes that run-owned directory after the run ends.",
-  "- To ask for that input, create an interaction on the current issue with POST /api/issues/{issueId}/interactions using kind suggest_tasks, ask_user_questions, or request_confirmation. Use continuationPolicy wake_assignee when you need to resume after a response; for request_confirmation this resumes only after acceptance.",
+  "- To ask for that input, create an interaction on the current issue with POST /api/issues/{issueId}/interactions using kind suggest_tasks, ask_user_questions, or request_confirmation. request_confirmation defaults to continuationPolicy wake_assignee, which resumes after acceptance or rejection; use wake_assignee_on_accept only when rejection should not resume you.",
   "- When you intentionally restart follow-up work on a completed assigned issue, include structured `resume: true` with the POST /api/issues/{issueId}/comments or PATCH /api/issues/{issueId} comment payload. Generic agent comments on closed issues are inert by default.",
   "- For plan approval, update the plan document first, then create request_confirmation targeting the latest plan revision with idempotencyKey confirmation:{issueId}:plan:{revisionId}. Wait for acceptance before creating implementation subtasks, and create a fresh confirmation after superseding board/user comments if approval is still needed.",
   "- If blocked, mark the issue blocked and name the unblock owner and action.",
@@ -631,6 +631,12 @@ type PaperclipWakeCheckboxSelection = {
   }>;
 };
 
+type PaperclipWakeConfirmationResult = {
+  outcome: string | null;
+  reason: string | null;
+  commentId: string | null;
+};
+
 type PaperclipWakeExecutionWorkspace = {
   branchName: string | null;
 };
@@ -662,6 +668,7 @@ type PaperclipWakePayload = {
   taskWatchdog: PaperclipWakeTaskWatchdogContext | null;
   interactionKind: string | null;
   interactionStatus: string | null;
+  confirmationResult: PaperclipWakeConfirmationResult | null;
   checkboxSelection: PaperclipWakeCheckboxSelection | null;
   executionWorkspace: PaperclipWakeExecutionWorkspace | null;
   annotationDeltas: PaperclipWakeAnnotationDelta[];
@@ -695,6 +702,15 @@ function normalizePaperclipWakeRecovery(value: unknown): PaperclipWakeRecovery |
     nextAction: asString(recovery.nextAction, "").trim() || null,
     routingFallbackReason: asString(recovery.routingFallbackReason, "").trim() || null,
   };
+}
+
+function normalizePaperclipWakeConfirmationResult(value: unknown): PaperclipWakeConfirmationResult | null {
+  const result = parseObject(value);
+  const outcome = asString(result.outcome, "").trim() || null;
+  const reason = asString(result.reason, "").trim() || null;
+  const commentId = asString(result.commentId, "").trim() || null;
+  if (!outcome && !reason && !commentId) return null;
+  return { outcome, reason, commentId };
 }
 
 function normalizePaperclipWakeIssue(value: unknown): PaperclipWakeIssue | null {
@@ -1260,9 +1276,10 @@ export function normalizePaperclipWakePayload(value: unknown): PaperclipWakePayl
     : [];
 
   const activeTreeHold = normalizePaperclipWakeTreeHoldSummary(payload.activeTreeHold);
+  const confirmationResult = normalizePaperclipWakeConfirmationResult(payload.confirmationResult);
   const checkboxSelection = normalizePaperclipWakeCheckboxSelection(payload.checkboxSelection);
   const executionWorkspace = normalizePaperclipWakeExecutionWorkspace(payload.executionWorkspace);
-  if (comments.length === 0 && commentIds.length === 0 && annotationDeltas.length === 0 && childIssueSummaries.length === 0 && unresolvedBlockerIssueIds.length === 0 && unresolvedBlockerSummaries.length === 0 && !activeTreeHold && !executionStage && !continuationSummary && !planReviewContext && !livenessContinuation && !taskWatchdog && !checkboxSelection && !executionWorkspace && !recovery && !normalizePaperclipWakeIssue(payload.issue)) {
+  if (comments.length === 0 && commentIds.length === 0 && annotationDeltas.length === 0 && childIssueSummaries.length === 0 && unresolvedBlockerIssueIds.length === 0 && unresolvedBlockerSummaries.length === 0 && !activeTreeHold && !executionStage && !continuationSummary && !planReviewContext && !livenessContinuation && !taskWatchdog && !confirmationResult && !checkboxSelection && !executionWorkspace && !recovery && !normalizePaperclipWakeIssue(payload.issue)) {
     return null;
   }
 
@@ -1284,6 +1301,7 @@ export function normalizePaperclipWakePayload(value: unknown): PaperclipWakePayl
     taskWatchdog,
     interactionKind: asString(payload.interactionKind, "").trim() || null,
     interactionStatus: asString(payload.interactionStatus, "").trim() || null,
+    confirmationResult,
     checkboxSelection,
     executionWorkspace,
     childIssueSummaries,
@@ -1468,6 +1486,15 @@ export function renderPaperclipWakePrompt(
       .join(", ") || "(none)";
     lines.push(`- checkbox selection ids: ${selectedOptionIds}`);
     lines.push(`- checkbox selection options: ${selectedOptions}`);
+  }
+  if (normalized.confirmationResult) {
+    lines.push(`- confirmation outcome: ${normalized.confirmationResult.outcome ?? "unknown"}`);
+    if (normalized.confirmationResult.reason) {
+      lines.push(`- confirmation feedback: ${normalized.confirmationResult.reason}`);
+    }
+    if (normalized.confirmationResult.commentId) {
+      lines.push(`- confirmation result comment id: ${normalized.confirmationResult.commentId}`);
+    }
   }
   if (normalized.issue?.workMode === "planning" && !normalized.taskWatchdog) {
     const hasWakeComments = normalized.comments.length > 0;

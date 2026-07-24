@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -31,6 +32,26 @@ export type ManagedCodexMcpGateway = {
   endpointPath: string;
   bearerToken: string;
 };
+
+function managedCodexMcpBearerTokenEnvVar(gateway: ManagedCodexMcpGateway): string {
+  const suffix = createHash("sha256")
+    .update(`${gateway.name}\0${gateway.endpointPath}`)
+    .digest("hex")
+    .slice(0, 16)
+    .toUpperCase();
+  return `PAPERCLIP_MCP_GATEWAY_${suffix}_TOKEN`;
+}
+
+export function buildManagedCodexMcpEnv(
+  gateways: ManagedCodexMcpGateway[],
+): Record<string, string> {
+  return Object.fromEntries(
+    gateways.map((gateway) => [
+      managedCodexMcpBearerTokenEnvVar(gateway),
+      gateway.bearerToken,
+    ]),
+  );
+}
 
 export function mergeManagedCodexMcpGateways(
   primary: ManagedCodexMcpGateway[],
@@ -292,7 +313,7 @@ function buildManagedMcpBlock(input: {
       "",
       `[mcp_servers.${tomlString(managedName)}]`,
       `url = ${tomlString(url)}`,
-      `headers = { Authorization = ${tomlString(`Bearer ${gateway.bearerToken}`)} }`,
+      `bearer_token_env_var = ${tomlString(managedCodexMcpBearerTokenEnvVar(gateway))}`,
     );
   });
   lines.push(MANAGED_MCP_BLOCK_END);
@@ -516,10 +537,9 @@ async function stageCodexHomeEntry(
   // Stage every regular file `0600`, not just `auth.json`. The staged dir is a
   // 0700 mkdtemp and each file is read back only by the owner (Codex in-sandbox +
   // copy-back), so nothing needs group/other read. This is least privilege and,
-  // critically, keeps secret-bearing entries protected: `config.toml` embeds the
-  // managed MCP `Authorization = "Bearer …"` header (and the source writer
-  // persists it 0600), so a per-file credential allowlist would silently
-  // downgrade it to 0644 in a world-readable tmpdir.
+  // managed MCP configuration may reference security-sensitive environment
+  // variable names, so it remains private even though bearer values are kept
+  // out of the file and injected only into the child process environment.
   await fs.writeFile(target, bytes, { mode: 0o600 });
   // Explicit chmod so the mode is 0600 regardless of the process umask.
   await fs.chmod(target, 0o600);
@@ -539,8 +559,7 @@ async function stageCodexHomeEntry(
  *   keyring-credential mode, or no `config.json`, is not an error.
  * - **`mkdtemp` guarantees the staged dir is `0700`** on POSIX, and every staged
  *   regular file is written `0600` (least privilege), so staged credentials —
- *   `auth.json` (OAuth token) and `config.toml` (managed MCP bearer header) —
- *   are never group/other-readable.
+ *   `auth.json` and managed MCP configuration — are never group/other-readable.
  * - **Fail-closed** — any *unexpected* I/O error removes the partial temp dir
  *   and re-throws, so a run never proceeds with a partial or empty home.
  *

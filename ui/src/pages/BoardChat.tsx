@@ -32,6 +32,7 @@ import {
 import { AgentIcon } from "../components/AgentIconPicker";
 import { cn, formatDateTime } from "../lib/utils";
 import type { FeedbackVoteValue } from "@paperclipai/shared";
+import { withAppBasePath } from "@/lib/base-path";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 /**
@@ -560,7 +561,7 @@ export function BoardChat() {
       try {
         const controller = new AbortController();
         const fetchTimeout = setTimeout(() => controller.abort(), 130000);
-        const res = await fetch("/api/board/chat/stream", {
+        const res = await fetch(withAppBasePath("/api/board/chat/stream"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

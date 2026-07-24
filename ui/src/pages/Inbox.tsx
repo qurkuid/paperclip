@@ -27,6 +27,7 @@ import { useSidebar } from "../context/SidebarContext";
 import { queryKeys } from "../lib/queryKeys";
 import { useDialogActions } from "../context/DialogContext";
 import { useIssueExternalObjectSummaries } from "../hooks/useIssueExternalObjects";
+import { useInboxReviewRequests } from "../hooks/useInboxReviewRequests";
 import {
   applyIssueFilters,
   countActiveIssueFilters,
@@ -35,6 +36,7 @@ import {
 import { collectLiveIssueIds, collectSubtreeLiveCounts } from "../lib/liveIssueIds";
 import { formatAssigneeUserLabel } from "../lib/assignees";
 import { buildCompanyUserLabelMap, buildCompanyUserProfileMap } from "../lib/company-members";
+import { koMenu } from "../i18n/korean-menu";
 import {
   armIssueDetailInboxQuickArchive,
   createIssueDetailLocationState,
@@ -82,6 +84,7 @@ import { IssueFiltersPopover } from "../components/IssueFiltersPopover";
 import { IssueRow } from "../components/IssueRow";
 import { BlockedInboxView } from "../components/BlockedInboxView";
 import { SwipeToArchive } from "../components/SwipeToArchive";
+import { ReviewRequestInboxRow } from "../components/inbox/ReviewRequestInboxRow";
 
 import { StatusIcon } from "../components/StatusIcon";
 import { cn } from "../lib/utils";
@@ -125,6 +128,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { PageTabBar } from "../components/PageTabBar";
 import type { Approval, HeartbeatRun, Issue, JoinRequest } from "@paperclipai/shared";
+import { matchesInboxReviewRequestSearch } from "../lib/inbox-review-requests";
 import {
   ACTIONABLE_APPROVAL_STATUSES,
   DEFAULT_INBOX_ISSUE_COLUMNS,
@@ -809,6 +813,11 @@ export function Inbox() {
   });
 
   const {
+    reviewRequests,
+    isLoading: isAttentionLoading,
+  } = useInboxReviewRequests(selectedCompanyId);
+
+  const {
     data: joinRequests = [],
     isLoading: isJoinRequestsLoading,
   } = useQuery({
@@ -928,7 +937,7 @@ export function Inbox() {
     resourceKey: "live-runs",
     queryKey: liveRunsQueryKey,
     enabled: !!selectedCompanyId,
-    // Event-sourced via LiveUpdatesProvider (#9627); no interval poll needed.
+    // Event-sourced via LiveUpdatesProvider (PAP-9627); no interval poll needed.
     refetchInterval: false,
     leaderOnly: true,
   });
@@ -1224,6 +1233,12 @@ export function Inbox() {
     return joinRequests;
   }, [joinRequests, tab, showJoinRequestsCategory, dismissedAtByKey]);
 
+  const reviewRequestsForTab = useMemo(() => {
+    if (tab === "recent" || tab === "blocked") return [];
+    if (tab === "all" && allCategoryFilter !== "everything") return [];
+    return reviewRequests;
+  }, [allCategoryFilter, reviewRequests, tab]);
+
   const workItemsToRender = useMemo(
     () =>
       getInboxWorkItems({
@@ -1231,8 +1246,18 @@ export function Inbox() {
         approvals: tab === "all" && !showApprovalsCategory ? [] : approvalsToRender,
         failedRuns: failedRunsForTab,
         joinRequests: joinRequestsForTab,
+        reviewRequests: reviewRequestsForTab,
       }),
-    [approvalsToRender, issuesToRender, showApprovalsCategory, showTouchedCategory, tab, failedRunsForTab, joinRequestsForTab],
+    [
+      approvalsToRender,
+      issuesToRender,
+      showApprovalsCategory,
+      showTouchedCategory,
+      tab,
+      failedRunsForTab,
+      joinRequestsForTab,
+      reviewRequestsForTab,
+    ],
   );
 
   const filteredWorkItems = useMemo(() => {
@@ -1253,6 +1278,9 @@ export function Inbox() {
         if (label.toLowerCase().includes(q)) return true;
         if (a.type.toLowerCase().includes(q)) return true;
         return false;
+      }
+      if (item.kind === "review_request") {
+        return matchesInboxReviewRequestSearch(item.reviewRequest, q);
       }
       if (item.kind === "failed_run") {
         const run = item.run;
@@ -2103,6 +2131,9 @@ export function Inbox() {
               act.navigate(createIssueDetailPath(pathId), { state: detailState });
             } else if (item.kind === "approval") {
               act.navigate(`/approvals/${item.approval.id}`);
+            } else if (item.kind === "review_request") {
+              const href = item.reviewRequest.subject.href ?? item.reviewRequest.relatedIssue?.href;
+              if (href) act.navigate(href);
             } else if (item.kind === "failed_run") {
               act.navigate(`/agents/${item.run.agentId}/runs/${item.run.id}`);
             }
@@ -2162,6 +2193,7 @@ export function Inbox() {
   const allLoaded =
     !isJoinRequestsLoading &&
     !isApprovalsLoading &&
+    !isAttentionLoading &&
     !isDashboardLoading &&
     !isIssuesLoading &&
     !isMineIssuesLoading &&
@@ -2280,7 +2312,7 @@ export function Inbox() {
                     variant="outline"
                     size="icon"
                     className={cn("h-8 w-8 shrink-0", blockedGroupBy !== "none" && "bg-accent")}
-                    title="Group"
+                    title={koMenu("Group")}
                   >
                     <Layers className="h-3.5 w-3.5" />
                   </Button>
@@ -2297,7 +2329,7 @@ export function Inbox() {
                         )}
                         onClick={() => setBlockedGroupBy(value)}
                       >
-                        <span>{label}</span>
+                        <span>{koMenu(label)}</span>
                         {blockedGroupBy === value ? <Check className="h-3.5 w-3.5" /> : null}
                       </button>
                     ))}
@@ -2309,7 +2341,7 @@ export function Inbox() {
                 visibleColumnSet={visibleIssueColumnSet}
                 onToggleColumn={toggleIssueColumn}
                 onResetColumns={() => setIssueColumns(DEFAULT_INBOX_ISSUE_COLUMNS)}
-                title="Choose which inbox columns stay visible"
+                title={koMenu("Choose which inbox columns stay visible")}
                 iconOnly
               />
               <Popover>
@@ -2319,7 +2351,7 @@ export function Inbox() {
                     variant="outline"
                     size="icon"
                     className="h-8 w-8 shrink-0"
-                    title="Sort"
+                    title={koMenu("Sort")}
                   >
                     <ArrowUpDown className="h-3.5 w-3.5" />
                   </Button>
@@ -2336,7 +2368,7 @@ export function Inbox() {
                         )}
                         onClick={() => setBlockedSortBy(value)}
                       >
-                        <span>{label}</span>
+                        <span>{koMenu(label)}</span>
                         {blockedSortBy === value ? <Check className="h-3.5 w-3.5" /> : null}
                       </button>
                     ))}
@@ -2352,7 +2384,9 @@ export function Inbox() {
                 size="icon"
                 className={cn("hidden h-8 w-8 shrink-0 sm:inline-flex", nestingEnabled && "bg-accent")}
                 onClick={toggleNesting}
-                title={nestingEnabled ? "Disable parent-child nesting" : "Enable parent-child nesting"}
+                title={nestingEnabled
+                  ? koMenu("Disable parent-child nesting")
+                  : koMenu("Enable parent-child nesting")}
               >
                 <ListTree className="h-3.5 w-3.5" />
               </Button>
@@ -2378,7 +2412,7 @@ export function Inbox() {
                     variant="outline"
                     size="icon"
                     className={cn("h-8 w-8 shrink-0", groupBy !== "none" && "bg-accent")}
-                    title="Group"
+                    title={koMenu("Group")}
                   >
                     <Layers className="h-3.5 w-3.5" />
                   </Button>
@@ -2401,7 +2435,7 @@ export function Inbox() {
                         )}
                         onClick={() => updateGroupBy(value)}
                       >
-                        <span>{label}</span>
+                        <span>{koMenu(label)}</span>
                         {groupBy === value ? <Check className="h-3.5 w-3.5" /> : null}
                       </button>
                     ))}
@@ -2413,7 +2447,7 @@ export function Inbox() {
                 visibleColumnSet={visibleIssueColumnSet}
                 onToggleColumn={toggleIssueColumn}
                 onResetColumns={() => setIssueColumns(DEFAULT_INBOX_ISSUE_COLUMNS)}
-                title="Choose which inbox columns stay visible"
+                title={koMenu("Choose which inbox columns stay visible")}
                 iconOnly
               />
               {canMarkAllRead && (
@@ -2833,6 +2867,38 @@ export function Inbox() {
                           selected={isSelected}
                           disabled={isArchiving}
                           onArchive={() => handleArchiveNonIssue(approvalKey)}
+                        >
+                          {row}
+                        </SwipeToArchive>
+                      ) : <InboxRowSurface selected={isSelected}>{row}</InboxRowSurface>));
+                      continue;
+                    }
+
+                    if (item.kind === "review_request") {
+                      const reviewKey = item.reviewRequest.dismissalKey;
+                      const isArchiving = archivingNonIssueIds.has(reviewKey);
+                      const row = (
+                        <ReviewRequestInboxRow
+                          key={reviewKey}
+                          item={item.reviewRequest}
+                          selected={isSelected}
+                          unreadState={nonIssueUnreadState(reviewKey)}
+                          onMarkRead={() => handleMarkNonIssueRead(reviewKey)}
+                          onArchive={canArchiveFromTab ? () => handleArchiveNonIssue(reviewKey) : undefined}
+                          archiveDisabled={isArchiving}
+                          className={
+                            isArchiving
+                              ? "pointer-events-none -translate-x-4 scale-(--s-0_98) opacity-0 transition-all duration-200 ease-out"
+                              : "transition-all duration-200 ease-out"
+                          }
+                        />
+                      );
+                      elements.push(wrapItem(reviewKey, isSelected, canArchiveFromTab ? (
+                        <SwipeToArchive
+                          key={reviewKey}
+                          selected={isSelected}
+                          disabled={isArchiving}
+                          onArchive={() => handleArchiveNonIssue(reviewKey)}
                         >
                           {row}
                         </SwipeToArchive>

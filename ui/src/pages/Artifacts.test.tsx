@@ -187,7 +187,7 @@ describe("Artifacts page", () => {
       });
       const groupControl = container.querySelector('[data-testid="artifact-group-control"]') as HTMLButtonElement;
       const allFilter = [...container.querySelectorAll('[role="tab"]')]
-        .find((element) => element.textContent === "All") as HTMLButtonElement;
+        .find((element) => element.textContent === "전체") as HTMLButtonElement;
       expect(groupControl).not.toBeNull();
       expect(groupControl.textContent).toBe("");
       expect(groupControl.getAttribute("data-variant")).toBe("outline");

@@ -156,7 +156,7 @@ async function flushReact() {
   });
 }
 
-async function openAgentMenu(label = "Open actions for Alpha") {
+async function openAgentMenu(label = "Alpha 작업 메뉴 열기") {
   const trigger = document.body.querySelector(`button[aria-label="${label}"]`);
   expect(trigger).not.toBeNull();
 
@@ -168,7 +168,7 @@ async function openAgentMenu(label = "Open actions for Alpha") {
 }
 
 async function openAgentsSectionMenu() {
-  const trigger = document.body.querySelector('button[aria-label="Agents section actions"]');
+  const trigger = document.body.querySelector('button[aria-label="에이전트 섹션 작업"]');
   expect(trigger).not.toBeNull();
 
   await act(async () => {
@@ -199,7 +199,7 @@ function agentLinkLabels(container: HTMLElement) {
 function seeAllAgentsLink(container: HTMLElement) {
   return (
     Array.from(container.querySelectorAll('a[href="/agents/all"]')).find((anchor) =>
-      anchor.textContent?.includes("See all agents"),
+      anchor.textContent?.includes("모든 에이전트 보기"),
     ) ?? null
   );
 }
@@ -352,10 +352,10 @@ describe("SidebarAgents", () => {
     expect(nameSpan?.className).toContain("overflow-hidden");
     const agentLink = container.querySelector('a[href^="/agents/"]:not([href="/agents/all"])');
     expect(agentLink?.parentElement?.getAttribute("data-slot")).toBe("tooltip-trigger");
-    expect(container.querySelector('button[aria-label="Open actions for Alpha"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="Alpha 작업 메뉴 열기"]')).toBeNull();
 
     // The section header collapses to a divider (no caret / section menu).
-    expect(container.querySelector('button[aria-label="Agents section actions"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="에이전트 섹션 작업"]')).toBeNull();
   });
 
   it("pins starred agents at the top without subheadings and dedupes them from the recent list", async () => {
@@ -385,8 +385,8 @@ describe("SidebarAgents", () => {
     expect(labels[0]).toBe("Bravo");
 
     // The starred row offers an explicit "Remove from starred" menu action.
-    await openAgentMenu("Open actions for Bravo");
-    expect(document.body.textContent).toContain("Remove from starred");
+    await openAgentMenu("Bravo 작업 메뉴 열기");
+    expect(document.body.textContent).toContain("즐겨찾기에서 제거");
   });
 
   it("offers star agent from an unstarred sidebar agent menu", async () => {
@@ -394,7 +394,7 @@ describe("SidebarAgents", () => {
     await openAgentMenu();
 
     const starItem = Array.from(document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'))
-      .find((element) => element.textContent?.includes("Star agent"));
+      .find((element) => element.textContent?.includes("에이전트 즐겨찾기"));
     expect(starItem).toBeTruthy();
 
     await act(async () => {
@@ -456,11 +456,11 @@ describe("SidebarAgents", () => {
   it("uses the heading for section menu and the plus button for agent creation", async () => {
     await renderSidebarAgents();
 
-    const sectionMenuTrigger = container.querySelector('button[aria-label="Agents section actions"]');
-    expect(sectionMenuTrigger?.textContent).toContain("Agents");
+    const sectionMenuTrigger = container.querySelector('button[aria-label="에이전트 섹션 작업"]');
+    expect(sectionMenuTrigger?.textContent).toContain("에이전트");
     expect(sectionMenuTrigger?.querySelector("svg")).toBeNull();
 
-    const newAgentButton = container.querySelector('button[aria-label="New agent"]');
+    const newAgentButton = container.querySelector('button[aria-label="새 에이전트"]');
     expect(newAgentButton).toBeTruthy();
     await act(async () => {
       newAgentButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -470,10 +470,10 @@ describe("SidebarAgents", () => {
     await openAgentsSectionMenu();
 
     const newAgentItem = Array.from(document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'))
-      .find((element) => element.textContent?.includes("New agent"));
+      .find((element) => element.textContent?.includes("새 에이전트"));
     expect(newAgentItem).toBeFalsy();
     const browseLink = Array.from(document.body.querySelectorAll("a"))
-      .find((element) => element.textContent?.includes("Browse agents"));
+      .find((element) => element.textContent?.includes("에이전트 찾아보기"));
     expect(browseLink?.getAttribute("href")).toBe("/agents/all");
   });
 
@@ -486,7 +486,7 @@ describe("SidebarAgents", () => {
 
     await renderSidebarAgents();
     await openAgentsSectionMenu();
-    await chooseSortMode("Alphabetical");
+    await chooseSortMode("가나다순");
 
     expect(agentLinkLabels(container)).toEqual(["Alpha", "Bravo", "Charlie"]);
     expect(localStorage.getItem("paperclip.agentSortMode:company-1:user-1")).toBe("alphabetical");
@@ -522,7 +522,7 @@ describe("SidebarAgents", () => {
 
     await renderSidebarAgents();
     await openAgentsSectionMenu();
-    await chooseSortMode("Recent");
+    await chooseSortMode("최근");
 
     expect(agentLinkLabels(container)).toEqual(["Bravo", "Charlie", "Alpha"]);
   });
@@ -557,12 +557,12 @@ describe("SidebarAgents", () => {
     await openAgentMenu();
 
     const editLink = Array.from(document.body.querySelectorAll("a"))
-      .find((element) => element.textContent?.includes("Edit agent"));
+      .find((element) => element.textContent?.includes("에이전트 편집"));
     expect(editLink?.getAttribute("href")).toBe("/agents/alpha/configuration");
-    expect(document.body.textContent).toContain("Pause agent");
+    expect(document.body.textContent).toContain("에이전트 일시정지");
 
     const pauseItem = Array.from(document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'))
-      .find((element) => element.textContent?.includes("Pause agent"));
+      .find((element) => element.textContent?.includes("에이전트 일시정지"));
     expect(pauseItem).toBeTruthy();
 
     await act(async () => {
@@ -579,7 +579,7 @@ describe("SidebarAgents", () => {
     await openAgentMenu();
 
     const leaveItem = Array.from(document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'))
-      .find((element) => element.textContent?.includes("Leave agent"));
+      .find((element) => element.textContent?.includes("에이전트에서 나가기"));
     expect(leaveItem).toBeTruthy();
 
     await act(async () => {
@@ -604,7 +604,7 @@ describe("SidebarAgents", () => {
     await openAgentMenu();
 
     const resumeItem = Array.from(document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'))
-      .find((element) => element.textContent?.includes("Resume agent"));
+      .find((element) => element.textContent?.includes("에이전트 재개"));
     expect(resumeItem).toBeTruthy();
 
     await act(async () => {
@@ -627,21 +627,21 @@ describe("SidebarAgents", () => {
     await openAgentMenu();
 
     const pauseItem = Array.from(document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'))
-      .find((element) => element.textContent?.includes("Pause agent"));
+      .find((element) => element.textContent?.includes("에이전트 일시정지"));
     expect(pauseItem).toBeTruthy();
 
     await act(async () => {
       pauseItem?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushReact();
-    await openAgentMenu("Open actions for Beta");
+    await openAgentMenu("Beta 작업 메뉴 열기");
 
     const betaPauseItem = Array.from(
       document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'),
     )
-      .find((element) => element.textContent?.includes("Pause agent"));
+      .find((element) => element.textContent?.includes("에이전트 일시정지"));
     expect(betaPauseItem).toBeTruthy();
-    expect(document.body.textContent).not.toContain("Updating...");
+    expect(document.body.textContent).not.toContain("업데이트 중...");
   });
 
   it("shows only active agents when any agent has a live run", async () => {
@@ -863,7 +863,7 @@ describe("SidebarAgents", () => {
     const budgetPausedItem = Array.from(
       document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'),
     )
-      .find((element) => element.textContent?.includes("Budget paused"));
+      .find((element) => element.textContent?.includes("예산으로 일시정지됨"));
     expect(budgetPausedItem).toBeTruthy();
 
     await act(async () => {

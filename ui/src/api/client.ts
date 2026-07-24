@@ -1,6 +1,7 @@
 import { getPageVisibility, getVisibilityHeaderValue } from "@/lib/page-visibility";
+import { withAppBasePath } from "@/lib/base-path";
 
-const BASE = "/api";
+const BASE = withAppBasePath("/api");
 
 export class ApiError extends Error {
   status: number;

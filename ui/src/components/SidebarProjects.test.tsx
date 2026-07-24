@@ -209,7 +209,7 @@ async function openProjectsMenu(container: HTMLElement) {
   await flushReact();
 }
 
-async function openProjectMenu(label = "Open actions for Alpha") {
+async function openProjectMenu(label = "Alpha 작업 메뉴 열기") {
   const trigger = document.body.querySelector(`button[aria-label="${label}"]`);
   expect(trigger).not.toBeNull();
 
@@ -374,7 +374,7 @@ describe("SidebarProjects", () => {
     expect(nameSpan?.className).toContain("overflow-hidden");
     const projectLink = container.querySelector('a[href^="/projects/"]');
     expect(projectLink?.parentElement?.getAttribute("data-slot")).toBe("tooltip-trigger");
-    expect(container.querySelector('button[aria-label="Open actions for Bravo"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="Bravo 작업 메뉴 열기"]')).toBeNull();
     // The section header collapses to a divider (no section menu trigger).
     expect(container.querySelector('button[aria-label="Projects section actions"]')).toBeNull();
   });

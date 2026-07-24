@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  buildManagedCodexMcpEnv,
   CODEX_SYNC_ALLOWLIST,
   codexHomeHasUsableAuth,
   ensureSymlink,
@@ -30,6 +31,21 @@ describe("mergeManagedCodexMcpGateways", () => {
       { name: "runtime", endpointPath: "/runtime", bearerToken: "runtime-token" },
       { name: "manual", endpointPath: "/manual", bearerToken: "manual-token" },
     ]);
+  });
+
+  it("keeps managed MCP bearer values in child-only environment variables", () => {
+    const env = buildManagedCodexMcpEnv([
+      { name: "runtime", endpointPath: "/runtime", bearerToken: "runtime-token" },
+      { name: "manual", endpointPath: "/manual", bearerToken: "manual-token" },
+    ]);
+
+    expect(Object.keys(env)).toHaveLength(2);
+    expect(Object.keys(env)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^PAPERCLIP_MCP_GATEWAY_[A-F0-9]{16}_TOKEN$/),
+      ]),
+    );
+    expect(Object.values(env)).toEqual(expect.arrayContaining(["runtime-token", "manual-token"]));
   });
 });
 
@@ -741,7 +757,9 @@ describe("evaluateCodexCredentialReadiness", () => {
       const alpha = await fs.readFile(path.join(alphaHome, "config.toml"), "utf8");
       const zero = await fs.readFile(path.join(zeroHome, "config.toml"), "utf8");
       expect(alpha).toContain('[mcp_servers."alpha"]');
-      expect(alpha).toContain('Authorization = "Bearer alpha-token"');
+      expect(alpha).toMatch(/bearer_token_env_var = "PAPERCLIP_MCP_GATEWAY_[A-F0-9]{16}_TOKEN"/);
+      expect(alpha).not.toContain("alpha-token");
+      expect(alpha).not.toContain("Authorization");
       expect(zero).not.toContain("mcp_servers.");
       expect(zero).not.toContain("stale-token");
       expect(alphaHome).not.toBe(zeroHome);
@@ -860,19 +878,15 @@ describe("stageCodexHomeForSync", () => {
     }
   });
 
-  // config.toml carries the managed MCP `Authorization: Bearer …` header and is
-  // secret-bearing; the staged copy must be 0600, not the world-readable default.
-  it("writes the staged config.toml (managed MCP bearer header) with mode 0600", async () => {
+  it("writes the staged managed MCP config.toml with mode 0600", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-codex-stage-toml-mode-"));
     let staged: string | null = null;
     try {
       const home = path.join(root, "codex-home");
       await fs.mkdir(home, { recursive: true });
-      // Mirror the source writer: config.toml holds an MCP gateway bearer token
-      // and is persisted 0600 on disk.
       await fs.writeFile(
         path.join(home, "config.toml"),
-        "[mcp_servers.paperclip]\nheaders = { Authorization = \"Bearer secret-token\" }\n",
+        "[mcp_servers.paperclip]\nbearer_token_env_var = \"PAPERCLIP_MCP_GATEWAY_TEST_TOKEN\"\n",
         { mode: 0o600 },
       );
       staged = await stageCodexHomeForSync(home, { runId: "run-toml-mode" });

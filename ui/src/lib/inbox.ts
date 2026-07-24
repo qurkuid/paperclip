@@ -1,5 +1,6 @@
 import type {
   Approval,
+  AttentionItem,
   DashboardSummary,
   HeartbeatRun,
   InboxDismissal,
@@ -14,6 +15,11 @@ import {
   type IssueFilterWorkspaceContext,
 } from "./issue-filters";
 import { formatAssigneeUserLabel } from "./assignees";
+import {
+  getInboxReviewRequestIssueId,
+  selectInboxReviewRequests,
+  withoutDuplicateReviewIssues,
+} from "./inbox-review-requests";
 
 export const RECENT_ISSUES_LIMIT = 100;
 export const FAILED_RUN_STATUSES = new Set(["failed", "timed_out"]);
@@ -74,6 +80,11 @@ export type InboxWorkItem =
       kind: "join_request";
       timestamp: number;
       joinRequest: JoinRequest;
+    }
+  | {
+      kind: "review_request";
+      timestamp: number;
+      reviewRequest: AttentionItem;
     };
 
 export interface InboxBadgeData {
@@ -782,14 +793,17 @@ export function getInboxWorkItems({
   approvals,
   failedRuns = [],
   joinRequests = [],
+  reviewRequests = [],
 }: {
   issues: Issue[];
   approvals: Approval[];
   failedRuns?: HeartbeatRun[];
   joinRequests?: JoinRequest[];
+  reviewRequests?: AttentionItem[];
 }): InboxWorkItem[] {
+  const selectedReviewRequests = selectInboxReviewRequests(reviewRequests);
   return [
-    ...issues.map((issue) => ({
+    ...withoutDuplicateReviewIssues(issues, selectedReviewRequests).map((issue) => ({
       kind: "issue" as const,
       timestamp: issueLastActivityTimestamp(issue),
       issue,
@@ -809,6 +823,11 @@ export function getInboxWorkItems({
       timestamp: normalizeTimestamp(joinRequest.createdAt),
       joinRequest,
     })),
+    ...selectedReviewRequests.map((reviewRequest) => ({
+      kind: "review_request" as const,
+      timestamp: normalizeTimestamp(reviewRequest.activityAt),
+      reviewRequest,
+    })),
   ].sort((a, b) => {
     const timestampDiff = b.timestamp - a.timestamp;
     if (timestampDiff !== 0) return timestampDiff;
@@ -820,6 +839,8 @@ export function getInboxWorkItems({
       return approvalActivityTimestamp(b.approval) - approvalActivityTimestamp(a.approval);
     }
 
+    if (a.kind === "review_request") return -1;
+    if (b.kind === "review_request") return 1;
     return a.kind === "approval" ? -1 : 1;
   });
 }
@@ -827,6 +848,7 @@ export function getInboxWorkItems({
 const inboxWorkItemKindOrder: InboxWorkItem["kind"][] = [
   "issue",
   "approval",
+  "review_request",
   "failed_run",
   "join_request",
 ];
@@ -834,6 +856,7 @@ const inboxWorkItemKindOrder: InboxWorkItem["kind"][] = [
 const inboxWorkItemKindLabels: Record<InboxWorkItem["kind"], string> = {
   issue: "Tasks",
   approval: "Approvals",
+  review_request: "검수 요청",
   failed_run: "Failed runs",
   join_request: "Join requests",
 };
@@ -1145,6 +1168,7 @@ export function buildGroupedInboxSections(
 export function getInboxWorkItemKey(item: InboxWorkItem): string {
   if (item.kind === "issue") return `issue:${item.issue.id}`;
   if (item.kind === "approval") return `approval:${item.approval.id}`;
+  if (item.kind === "review_request") return item.reviewRequest.dismissalKey;
   if (item.kind === "failed_run") return `run:${item.run.id}`;
   return `join:${item.joinRequest.id}`;
 }
@@ -1228,6 +1252,7 @@ export function computeInboxBadgeData({
   dashboard,
   heartbeatRuns,
   mineIssues,
+  reviewRequests = [],
   dismissedAlerts,
   dismissedAtByKey,
   currentUserId,
@@ -1237,6 +1262,7 @@ export function computeInboxBadgeData({
   dashboard: DashboardSummary | undefined;
   heartbeatRuns: HeartbeatRun[];
   mineIssues: Issue[];
+  reviewRequests?: AttentionItem[];
   dismissedAlerts: Set<string>;
   dismissedAtByKey: ReadonlyMap<string, number>;
   currentUserId?: string | null;
@@ -1253,7 +1279,15 @@ export function computeInboxBadgeData({
   const visibleJoinRequests = joinRequests.filter(
     (jr) => !isInboxEntityDismissed(dismissedAtByKey, `join:${jr.id}`, jr.updatedAt ?? jr.createdAt),
   ).length;
-  const visibleMineIssues = mineIssues.filter((issue) => issue.isUnreadForMe).length;
+  const selectedReviewRequests = selectInboxReviewRequests(reviewRequests);
+  const reviewIssueIds = new Set(
+    selectedReviewRequests
+      .map(getInboxReviewRequestIssueId)
+      .filter((issueId): issueId is string => issueId !== null),
+  );
+  const visibleMineIssues = mineIssues.filter(
+    (issue) => issue.isUnreadForMe && !reviewIssueIds.has(issue.id),
+  ).length;
   const agentErrorCount = dashboard?.agents.error ?? 0;
   const monthBudgetCents = dashboard?.costs.monthBudgetCents ?? 0;
   const monthUtilizationPercent = dashboard?.costs.monthUtilizationPercent ?? 0;
@@ -1269,7 +1303,12 @@ export function computeInboxBadgeData({
 
   return {
     // The inbox badge reflects personal/actionable work, not company-wide health alerts.
-    inbox: actionableApprovals + visibleJoinRequests + failedRuns + visibleMineIssues,
+    inbox:
+      actionableApprovals
+      + visibleJoinRequests
+      + failedRuns
+      + visibleMineIssues
+      + selectedReviewRequests.length,
     approvals: actionableApprovals,
     failedRuns,
     joinRequests: visibleJoinRequests,

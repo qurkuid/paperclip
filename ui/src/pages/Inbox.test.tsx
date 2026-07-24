@@ -4,7 +4,7 @@ import type { ComponentProps } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Issue } from "@paperclipai/shared";
+import type { AttentionFeed, AttentionItem, Issue } from "@paperclipai/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CompanyJoinRequest } from "../api/access";
 import {
@@ -19,6 +19,7 @@ const routerMock = vi.hoisted(() => ({
 
 const apiMocks = vi.hoisted(() => ({
   approvalsList: vi.fn(),
+  attentionList: vi.fn(),
   joinRequestsList: vi.fn(),
   userDirectoryList: vi.fn(),
   authSession: vi.fn(),
@@ -38,6 +39,10 @@ const apiMocks = vi.hoisted(() => ({
 
 vi.mock("../api/approvals", () => ({
   approvalsApi: { list: apiMocks.approvalsList },
+}));
+
+vi.mock("../api/attention", () => ({
+  attentionApi: { list: apiMocks.attentionList },
 }));
 
 vi.mock("../api/access", async () => {
@@ -260,6 +265,24 @@ function resetInboxApiMocks() {
   routerMock.location.hash = "";
   routerMock.navigate.mockReset();
   apiMocks.approvalsList.mockResolvedValue([]);
+  apiMocks.attentionList.mockResolvedValue({
+    companyId: "company-1",
+    generatedAt: "2026-07-24T14:42:13.730Z",
+    totalCount: 0,
+    countsBySourceKind: {
+      approval: 0,
+      issue_thread_interaction: 0,
+      join_request: 0,
+      recovery_action: 0,
+      productivity_review: 0,
+      blocker_attention: 0,
+      review: 0,
+      failed_run: 0,
+      budget_alert: 0,
+      agent_error_alert: 0,
+    },
+    items: [],
+  } satisfies AttentionFeed);
   apiMocks.joinRequestsList.mockResolvedValue([]);
   apiMocks.userDirectoryList.mockResolvedValue({ users: [] });
   apiMocks.authSession.mockResolvedValue({
@@ -316,12 +339,110 @@ describe("Inbox toolbar", () => {
 
     expect(container.querySelector('input[placeholder="Search inbox…"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="inbox-blocked-tab-badge"]')).toBeNull();
-    expect(container.querySelector('button[title="Filter"]')).not.toBeNull();
-    expect(container.querySelector('button[title="Group"]')).not.toBeNull();
-    expect(container.querySelector('button[title="Columns"]')).not.toBeNull();
-    expect(container.querySelector('button[title="Sort"]')).not.toBeNull();
-    expect(container.querySelector('button[title="Enable parent-child nesting"]')).toBeNull();
+    expect(container.querySelector('button[title="필터"]')).not.toBeNull();
+    expect(container.querySelector('button[title="그룹"]')).not.toBeNull();
+    expect(container.querySelector('button[title="열"]')).not.toBeNull();
+    expect(container.querySelector('button[title="정렬"]')).not.toBeNull();
+    expect(container.querySelector('button[title="상위·하위 작업 묶기"]')).toBeNull();
     expect(container.textContent).not.toContain("Mark all as read");
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it("shows a review request once and links back to the exact issue conversation", async () => {
+    routerMock.location.pathname = "/inbox/mine";
+    const issue = createIssue({
+      id: "issue-1",
+      identifier: "CMP-10",
+      title: "OpenCrab 인스타그램 피드 이미지 제작",
+      status: "in_review",
+      isUnreadForMe: true,
+    });
+    apiMocks.issuesList.mockResolvedValue([issue]);
+    const reviewRequest: AttentionItem = {
+      id: "interaction-1",
+      companyId: "company-1",
+      sourceKind: "issue_thread_interaction",
+      subject: {
+        kind: "interaction",
+        id: "interaction-1",
+        companyId: "company-1",
+        title: "대표 검수 요청",
+        identifier: null,
+        status: "pending",
+        href: "/CMP/issues/CMP-10#interaction-interaction-1",
+        metadata: { issueId: issue.id },
+      },
+      whyNow: "대표 검토가 필요합니다.",
+      decisionVerbs: [],
+      inlineResolvable: true,
+      entryRule: "pending",
+      exitRule: "resolved",
+      dedupKey: "interaction:interaction-1",
+      dismissalKey: "attention:interaction:interaction-1",
+      dismissal: null,
+      severity: "medium",
+      rank: 10,
+      activityAt: "2026-07-24T14:42:13.730Z",
+      createdAt: "2026-07-24T14:42:13.730Z",
+      updatedAt: "2026-07-24T14:42:13.730Z",
+      relatedIssue: {
+        kind: "issue",
+        id: issue.id,
+        companyId: "company-1",
+        title: issue.title,
+        identifier: issue.identifier,
+        status: issue.status,
+        href: "/CMP/issues/CMP-10",
+      },
+      project: null,
+      workspace: null,
+      detail: null,
+      trainingExampleId: null,
+    };
+    apiMocks.attentionList.mockResolvedValue({
+      companyId: "company-1",
+      generatedAt: reviewRequest.activityAt,
+      totalCount: 1,
+      countsBySourceKind: {
+        approval: 0,
+        issue_thread_interaction: 1,
+        join_request: 0,
+        recovery_action: 0,
+        productivity_review: 0,
+        blocker_attention: 0,
+        review: 0,
+        failed_run: 0,
+        budget_alert: 0,
+        agent_error_alert: 0,
+      },
+      items: [reviewRequest],
+    } satisfies AttentionFeed);
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 0, gcTime: 0 } },
+    });
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Inbox />
+        </QueryClientProvider>,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain("대표 검수 요청");
+    });
+    expect(container.textContent?.match(/OpenCrab 인스타그램 피드 이미지 제작/g)).toHaveLength(1);
+    expect(
+      container.querySelector(
+        'a[to="/CMP/issues/CMP-10#interaction-interaction-1"]',
+      ),
+    ).not.toBeNull();
 
     act(() => {
       root.unmount();
@@ -345,7 +466,7 @@ describe("Inbox toolbar", () => {
       );
     });
 
-    const groupButton = container.querySelector<HTMLButtonElement>('button[title="Group"]');
+    const groupButton = container.querySelector<HTMLButtonElement>('button[title="그룹"]');
     expect(groupButton).not.toBeNull();
 
     await act(async () => {
@@ -353,7 +474,7 @@ describe("Inbox toolbar", () => {
     });
 
     const groupOptions = Array.from(document.body.querySelectorAll("button")).map((button) => button.textContent);
-    expect(groupOptions).not.toContain("Workspace");
+    expect(groupOptions).not.toContain("작업 공간");
 
     act(() => {
       root.unmount();

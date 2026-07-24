@@ -47,6 +47,29 @@ function makeArtifact(overrides: Partial<CompanyArtifact> = {}): CompanyArtifact
 }
 
 describe("ArtifactCard", () => {
+  it("keeps file actions outside the primary artifact link", () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      flushSync(() => {
+        root.render(<ArtifactCard artifact={makeArtifact()} />);
+      });
+
+      const nestingErrors = consoleError.mock.calls
+        .flat()
+        .map(String)
+        .filter((message) => message.includes("cannot be a descendant"));
+      expect(nestingErrors).toEqual([]);
+    } finally {
+      flushSync(() => root.unmount());
+      consoleError.mockRestore();
+      container.remove();
+    }
+  });
+
   it("renders an image preview with cover image and links to the issue anchor", () => {
     const markup = renderToStaticMarkup(<ArtifactCard artifact={makeArtifact()} />);
     expect(markup).toContain('href="/issues/PAP-10306#attachment-art-1"');

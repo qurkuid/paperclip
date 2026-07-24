@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import { usePanel } from "../context/PanelContext";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { koMenu } from "../i18n/korean-menu";
 
 export function PropertiesPanel() {
   const { panelContent, panelVisible, setPanelVisible } = usePanel();
@@ -15,7 +16,7 @@ export function PropertiesPanel() {
     >
       <div className="w-80 flex-1 flex flex-col min-w-(--sz-320px) min-h-0">
         <div className="flex items-center justify-between px-4 py-2 border-b border-border">
-          <span className="text-sm font-medium">Properties</span>
+          <span className="text-sm font-medium">{koMenu("Properties")}</span>
           <Button variant="ghost" size="icon-xs" onClick={() => setPanelVisible(false)}>
             <X className="h-4 w-4" />
           </Button>

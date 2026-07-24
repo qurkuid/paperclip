@@ -505,14 +505,14 @@ describe("Routines page", () => {
       await flush();
     });
 
-    let sortButton = container.querySelector<HTMLButtonElement>('button[title="Sort"]');
-    let groupButton = container.querySelector<HTMLButtonElement>('button[title="Group"]');
+    let sortButton = container.querySelector<HTMLButtonElement>('button[title="정렬"]');
+    let groupButton = container.querySelector<HTMLButtonElement>('button[title="그룹"]');
     for (let attempts = 0; attempts < 5 && (!sortButton || !groupButton); attempts += 1) {
       await act(async () => {
         await flush();
       });
-      sortButton = container.querySelector<HTMLButtonElement>('button[title="Sort"]');
-      groupButton = container.querySelector<HTMLButtonElement>('button[title="Group"]');
+      sortButton = container.querySelector<HTMLButtonElement>('button[title="정렬"]');
+      groupButton = container.querySelector<HTMLButtonElement>('button[title="그룹"]');
     }
 
     expect(sortButton).not.toBeNull();
@@ -813,14 +813,14 @@ describe("Routines page", () => {
     });
 
     let createButton = Array.from(container.querySelectorAll("button")).find((button) =>
-      button.textContent?.includes("Create routine"),
+      button.textContent?.includes("새 루틴"),
     );
     for (let attempts = 0; attempts < 5 && !createButton; attempts += 1) {
       await act(async () => {
         await flush();
       });
       createButton = Array.from(container.querySelectorAll("button")).find((button) =>
-        button.textContent?.includes("Create routine"),
+        button.textContent?.includes("새 루틴"),
       );
     }
 

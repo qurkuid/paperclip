@@ -24,7 +24,7 @@ interface ThemeToggleProps {
   onAfterToggle?: () => void;
 }
 
-const MENU_ACTION_DESCRIPTION = "Toggle the app appearance.";
+const MENU_ACTION_DESCRIPTION = "앱 화면 테마를 전환합니다.";
 
 /**
  * Canonical theme-toggle widget. Both the signed-out `/auth` chrome and
@@ -34,7 +34,7 @@ const MENU_ACTION_DESCRIPTION = "Toggle the app appearance.";
 export function ThemeToggle({ className, variant = "icon", onAfterToggle }: ThemeToggleProps) {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
-  const label = isDark ? "Switch to light mode" : "Switch to dark mode";
+  const label = isDark ? "라이트 모드로 전환" : "다크 모드로 전환";
   const Icon = isDark ? Sun : Moon;
 
   function handleClick() {

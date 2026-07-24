@@ -48,8 +48,8 @@ describe("ThemeToggle", () => {
 
     const button = container.querySelector("button");
     expect(button).not.toBeNull();
-    expect(button?.getAttribute("aria-label")).toBe("Switch to light mode");
-    expect(button?.getAttribute("title")).toBe("Switch to light mode");
+    expect(button?.getAttribute("aria-label")).toBe("라이트 모드로 전환");
+    expect(button?.getAttribute("title")).toBe("라이트 모드로 전환");
 
     await act(async () => {
       button?.click();
@@ -66,8 +66,8 @@ describe("ThemeToggle", () => {
     });
     await flushReact();
 
-    expect(container.textContent).toContain("Switch to light mode");
-    expect(container.textContent).toContain("Toggle the app appearance.");
+    expect(container.textContent).toContain("라이트 모드로 전환");
+    expect(container.textContent).toContain("앱 화면 테마를 전환합니다.");
 
     await act(async () => root.unmount());
   });
@@ -100,7 +100,7 @@ describe("ThemeToggle", () => {
     await flushReact();
 
     const button = container.querySelector("button");
-    expect(button?.getAttribute("aria-label")).toBe("Switch to dark mode");
+    expect(button?.getAttribute("aria-label")).toBe("다크 모드로 전환");
 
     await act(async () => root.unmount());
   });

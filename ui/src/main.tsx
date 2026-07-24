@@ -18,6 +18,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { initPluginBridge } from "./plugins/bridge-init";
 import { PluginLauncherProvider } from "./plugins/launchers";
 import { startPerfMeasureReaper } from "./lib/perf-measure-reaper";
+import { appBasePath, withAppBasePath } from "./lib/base-path";
 import "@mdxeditor/editor/style.css";
 import "./index.css";
 
@@ -30,7 +31,9 @@ startPerfMeasureReaper();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js");
+    navigator.serviceWorker.register(withAppBasePath("/sw.js"), {
+      scope: appBasePath ? `${appBasePath}/` : "/",
+    });
   });
 }
 
@@ -56,7 +59,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={appBasePath || undefined}>
           <CompanyProvider>
             <EditorAutocompleteProvider>
               <ToastProvider>

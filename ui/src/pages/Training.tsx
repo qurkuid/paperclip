@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { queryKeys } from "@/lib/queryKeys";
 import { cn, formatDate, formatDateTime } from "@/lib/utils";
+import { withAppBasePath } from "@/lib/base-path";
 
 type SnapshotRecord = Record<string, unknown>;
 
@@ -68,7 +69,7 @@ function authorLabel(id: string) {
 
 function downloadExport(companyId: string) {
   const anchor = document.createElement("a");
-  anchor.href = `/api/companies/${companyId}/decision-training/export.jsonl`;
+  anchor.href = withAppBasePath(`/api/companies/${companyId}/decision-training/export.jsonl`);
   anchor.download = "decision-training.jsonl";
   anchor.hidden = true;
   document.body.appendChild(anchor);

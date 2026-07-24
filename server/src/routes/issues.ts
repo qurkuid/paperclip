@@ -1902,7 +1902,9 @@ function queueResolvedInteractionContinuationWakeup(input: {
   const forceFreshSession = input.forceFreshSession === true;
   const workspaceRefreshReason = readNonEmptyString(input.workspaceRefreshReason);
   const planTarget = readPlanConfirmationTargetForIssue(input.interaction.payload, input.issue.id);
-  const interactionResult = readConfirmationResultForWake(input.interaction.result);
+  const confirmationResult = input.interaction.kind === "request_confirmation"
+    ? readConfirmationResultForWake(input.interaction.result)
+    : null;
   const checkboxSelection = readCheckboxSelectionForWake(input.interaction);
   const toolAction = readToolActionContinuationContext(input.interaction);
   const newlyResolvedItemIds = input.newlyResolvedItemIds?.filter((value) => value.length > 0) ?? [];
@@ -1920,7 +1922,7 @@ function queueResolvedInteractionContinuationWakeup(input: {
           status: input.interaction.status,
           target: planTarget,
           acceptedTargetRevision: input.interaction.status === "accepted" ? planTarget : null,
-          result: interactionResult,
+          result: confirmationResult,
         }
       : null;
   void input.heartbeat.wakeup(input.issue.assigneeAgentId, {
@@ -1934,6 +1936,7 @@ function queueResolvedInteractionContinuationWakeup(input: {
       interactionStatus: input.interaction.status,
       sourceCommentId: input.interaction.sourceCommentId ?? null,
       sourceRunId: input.interaction.sourceRunId ?? null,
+      ...(confirmationResult ? { confirmationResult } : {}),
       ...(planReviewInteraction ? { planReviewInteraction } : {}),
       ...(checkboxSelection ? { checkboxSelection } : {}),
       ...(toolAction ? { toolAction } : {}),
@@ -1951,6 +1954,7 @@ function queueResolvedInteractionContinuationWakeup(input: {
       interactionStatus: input.interaction.status,
       sourceCommentId: input.interaction.sourceCommentId ?? null,
       sourceRunId: input.interaction.sourceRunId ?? null,
+      ...(confirmationResult ? { confirmationResult } : {}),
       ...(planReviewInteraction ? { planReviewInteraction } : {}),
       ...(checkboxSelection ? { checkboxSelection } : {}),
       ...(toolAction ? { toolAction } : {}),

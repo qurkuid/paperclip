@@ -14,6 +14,7 @@ import {
   useLocalInboxArchiveIssueIds,
 } from "../lib/inboxArchiveCache";
 import { usePublishSharedQueryData, useSharedPollingQuery } from "./useSharedPolling";
+import { useInboxReviewRequests } from "./useInboxReviewRequests";
 import {
   buildInboxDismissedAtByKey,
   computeInboxBadgeData,
@@ -192,6 +193,8 @@ export function useInboxBadge(companyId: string | null | undefined) {
     enabled: !!companyId,
   });
 
+  const { reviewRequests } = useInboxReviewRequests(companyId);
+
   const { data: joinRequests = [] } = useQuery({
     queryKey: queryKeys.access.joinRequests(companyId!),
     queryFn: async () => {
@@ -266,10 +269,21 @@ export function useInboxBadge(companyId: string | null | undefined) {
         dashboard,
         heartbeatRuns,
         mineIssues,
+        reviewRequests,
         dismissedAlerts,
         dismissedAtByKey,
         currentUserId,
       }),
-    [approvals, joinRequests, dashboard, heartbeatRuns, mineIssues, dismissedAlerts, dismissedAtByKey, currentUserId],
+    [
+      approvals,
+      reviewRequests,
+      joinRequests,
+      dashboard,
+      heartbeatRuns,
+      mineIssues,
+      dismissedAlerts,
+      dismissedAtByKey,
+      currentUserId,
+    ],
   );
 }

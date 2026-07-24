@@ -1456,6 +1456,29 @@ describe("renderPaperclipWakePrompt", () => {
     expect(prompt.indexOf("Open plan comments to incorporate:")).toBeLessThan(prompt.indexOf("New comments in order:"));
   });
 
+  it("renders rejection feedback for non-plan confirmation retries", () => {
+    const prompt = renderPaperclipWakePrompt({
+      reason: "issue_commented",
+      issue: {
+        id: "issue-1",
+        identifier: "PAP-3405",
+        title: "Revise the Instagram post",
+        status: "in_review",
+        workMode: "standard",
+      },
+      interactionKind: "request_confirmation",
+      interactionStatus: "rejected",
+      confirmationResult: {
+        outcome: "rejected",
+        reason: "Use a more useful, repeatable content concept",
+        commentId: null,
+      },
+    });
+
+    expect(prompt).toContain("- confirmation outcome: rejected");
+    expect(prompt).toContain("- confirmation feedback: Use a more useful, repeatable content concept");
+  });
+
   it("renders dependency-blocked interaction guidance", () => {
     const prompt = renderPaperclipWakePrompt({
       reason: "issue_commented",

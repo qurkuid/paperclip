@@ -88,6 +88,7 @@ import { Input } from "@/components/ui/input";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
 import { RunTranscriptView, type TranscriptMode } from "../components/transcript/RunTranscriptView";
 import { AgentToolsTab } from "./AgentToolsTab";
+import { AgentOpenCrabTab } from "./AgentOpenCrabTab";
 import {
   appendCapped,
   LIVE_TRANSCRIPT_RENDER_LIMIT,
@@ -119,6 +120,7 @@ import {
   useResourceMemberships,
 } from "../hooks/useResourceMemberships";
 import { Badge } from "@/components/ui/badge";
+import { koMenu } from "@/i18n/korean-menu";
 
 const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string }> = {
   succeeded: { icon: CheckCircle2, color: "text-green-600 dark:text-green-400" },
@@ -271,13 +273,14 @@ function scrollToContainerBottom(container: ScrollContainer, behavior: ScrollBeh
   container.scrollTo({ top: container.scrollHeight, behavior });
 }
 
-type AgentDetailView = "dashboard" | "instructions" | "configuration" | "skills" | "tools" | "runs" | "budget";
+type AgentDetailView = "dashboard" | "instructions" | "configuration" | "skills" | "mcp" | "opencrab" | "runs" | "budget";
 
-function parseAgentDetailView(value: string | null): AgentDetailView {
+export function parseAgentDetailView(value: string | null): AgentDetailView {
   if (value === "instructions" || value === "prompts") return "instructions";
   if (value === "configure" || value === "configuration") return "configuration";
   if (value === "skills") return "skills";
-  if (value === "tools") return "tools";
+  if (value === "tools" || value === "mcp") return "mcp";
+  if (value === "opencrab") return "opencrab";
   if (value === "budget") return "budget";
   if (value === "runs") return value;
   return "dashboard";
@@ -894,12 +897,14 @@ export function AgentDetail() {
           ? "configuration"
           : activeView === "skills"
             ? "skills"
-            : activeView === "tools"
-              ? "tools"
-              : activeView === "runs"
-                ? "runs"
-                : activeView === "budget"
-                  ? "budget"
+            : activeView === "mcp"
+              ? "mcp"
+              : activeView === "opencrab"
+                ? "opencrab"
+                : activeView === "runs"
+                  ? "runs"
+                  : activeView === "budget"
+                    ? "budget"
               : "dashboard";
     if (routeAgentRef !== canonicalAgentRef || urlTab !== canonicalTab) {
       navigate(`/agents/${canonicalAgentRef}/${canonicalTab}`, { replace: true });
@@ -987,7 +992,7 @@ export function AgentDetail() {
 
   useEffect(() => {
     const crumbs: { label: string; href?: string }[] = [
-      { label: "Agents", href: "/agents" },
+      { label: koMenu("Agents"), href: "/agents" },
     ];
     const agentName = agent?.name ?? routeAgentRef ?? "Agent";
     if (activeView === "dashboard" && !urlRunId) {
@@ -995,22 +1000,24 @@ export function AgentDetail() {
     } else {
       crumbs.push({ label: agentName, href: `/agents/${canonicalAgentRef}/dashboard` });
       if (urlRunId) {
-        crumbs.push({ label: "Runs", href: `/agents/${canonicalAgentRef}/runs` });
+        crumbs.push({ label: koMenu("Runs"), href: `/agents/${canonicalAgentRef}/runs` });
         crumbs.push({ label: `Run ${urlRunId.slice(0, 8)}` });
       } else if (activeView === "instructions") {
-        crumbs.push({ label: "Instructions" });
+        crumbs.push({ label: koMenu("Instructions") });
       } else if (activeView === "configuration") {
-        crumbs.push({ label: "Configuration" });
+        crumbs.push({ label: koMenu("Configuration") });
       // } else if (activeView === "skills") { // TODO: bring back later
       //   crumbs.push({ label: "Skills" });
-      } else if (activeView === "tools") {
-        crumbs.push({ label: "Tools" });
+      } else if (activeView === "mcp") {
+        crumbs.push({ label: "MCP" });
+      } else if (activeView === "opencrab") {
+        crumbs.push({ label: "OpenCrab" });
       } else if (activeView === "runs") {
-        crumbs.push({ label: "Runs" });
+        crumbs.push({ label: koMenu("Runs") });
       } else if (activeView === "budget") {
-        crumbs.push({ label: "Budget" });
+        crumbs.push({ label: koMenu("Budget") });
       } else {
-        crumbs.push({ label: "Dashboard" });
+        crumbs.push({ label: koMenu("Dashboard") });
       }
     }
     setBreadcrumbs(crumbs);
@@ -1151,8 +1158,8 @@ export function AgentDetail() {
           <AgentActionButtons
             agent={agent}
             companyId={resolvedCompanyId}
-            assignLabel="Assign Task"
-            runLabel="Run Heartbeat"
+            assignLabel={koMenu("Assign Task")}
+            runLabel={koMenu("Run Heartbeat")}
             actionsDisabled={agentAction.isPending}
             workActionsDisabled={hasInvalidOrgChain}
             workActionsDisabledReason="Repair this agent's reporting chain before assigning tasks or starting runs"
@@ -1244,13 +1251,14 @@ export function AgentDetail() {
         >
           <PageTabBar
             items={[
-              { value: "dashboard", label: "Dashboard" },
-              { value: "instructions", label: "Instructions" },
-              { value: "skills", label: "Skills" },
-              { value: "configuration", label: "Configuration" },
-              { value: "tools", label: "Tools" },
-              { value: "runs", label: "Runs" },
-              { value: "budget", label: "Budget" },
+              { value: "dashboard", label: koMenu("Dashboard") },
+              { value: "instructions", label: koMenu("Instructions") },
+              { value: "skills", label: koMenu("Skills") },
+              { value: "configuration", label: koMenu("Configuration") },
+              { value: "mcp", label: "MCP" },
+              { value: "opencrab", label: "OpenCrab" },
+              { value: "runs", label: koMenu("Runs") },
+              { value: "budget", label: koMenu("Budget") },
             ]}
             value={activeView}
             onValueChange={(value) => navigate(`/agents/${canonicalAgentRef}/${value}`)}
@@ -1269,7 +1277,7 @@ export function AgentDetail() {
             disabled={agentAction.isPending}
           >
             <CheckCircle2 className="h-3.5 w-3.5 sm:mr-1" />
-            <span>Approve agent</span>
+            <span>{koMenu("Approve agent")}</span>
           </Button>
         </div>
       )}
@@ -1366,8 +1374,12 @@ export function AgentDetail() {
         />
       )}
 
-      {activeView === "tools" && resolvedCompanyId && (
+      {activeView === "mcp" && resolvedCompanyId && (
         <AgentToolsTab agent={agent} companyId={resolvedCompanyId} />
+      )}
+
+      {activeView === "opencrab" && resolvedCompanyId && (
+        <AgentOpenCrabTab agent={agent} companyId={resolvedCompanyId} />
       )}
 
       {activeView === "runs" && (

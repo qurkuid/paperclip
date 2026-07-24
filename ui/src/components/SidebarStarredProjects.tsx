@@ -172,7 +172,7 @@ export function SidebarStarredProjects() {
                     variant="ghost"
                     size="icon-xs"
                     className="absolute right-3 top-1/2 h-6 w-6 -translate-y-1/2 opacity-100"
-                    aria-label={`Open actions for ${project.name}`}
+                    aria-label={`${project.name} 작업 메뉴 열기`}
                   >
                     <MoreHorizontal className="h-3.5 w-3.5" />
                   </Button>

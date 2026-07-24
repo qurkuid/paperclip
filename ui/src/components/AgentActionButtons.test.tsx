@@ -128,7 +128,7 @@ describe("AgentActionButtons", () => {
     root = createRoot(container);
     root.render(
       <QueryClientProvider client={queryClient}>
-        <AgentActionButtons agent={agent} companyId="company-1" runLabel="Run Heartbeat" />
+        <AgentActionButtons agent={agent} companyId="company-1" runLabel="하트비트 실행" />
       </QueryClientProvider>,
     );
   }
@@ -137,16 +137,16 @@ describe("AgentActionButtons", () => {
     render(makeAgent({ status: "error" }));
     await flushReact();
 
-    expect(container.textContent).toContain("Clear error");
-    expect(container.textContent).not.toContain("Pause");
-    expect(container.textContent).toContain("Run Heartbeat");
+    expect(container.textContent).toContain("오류 해제");
+    expect(container.textContent).not.toContain("일시정지");
+    expect(container.textContent).toContain("하트비트 실행");
 
     await act(async () => {
-      container.querySelector<HTMLButtonElement>('[aria-label="Open actions for Alpha Agent"]')?.click();
+      container.querySelector<HTMLButtonElement>('[aria-label="Alpha Agent 작업 메뉴 열기"]')?.click();
     });
     await flushReact();
 
-    expect(document.body.textContent).toContain("Reset Sessions");
+    expect(document.body.textContent).toContain("세션 초기화");
   });
 
   it("calls clearError and refreshes agent-related queries", async () => {
@@ -172,7 +172,7 @@ describe("AgentActionButtons", () => {
     render(makeAgent({ status: "active" }));
     await flushReact();
 
-    expect(container.textContent).toContain("Pause");
-    expect(container.textContent).not.toContain("Clear error");
+    expect(container.textContent).toContain("일시정지");
+    expect(container.textContent).not.toContain("오류 해제");
   });
 });

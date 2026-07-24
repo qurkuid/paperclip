@@ -16,9 +16,11 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
+  const scopeUrl = new URL(self.registration.scope);
+  const apiPath = `${scopeUrl.pathname.replace(/\/$/, "")}/api`;
 
   // Skip non-GET requests and API calls
-  if (request.method !== "GET" || url.pathname.startsWith("/api")) {
+  if (request.method !== "GET" || url.pathname.startsWith(apiPath)) {
     return;
   }
 
@@ -34,7 +36,7 @@ self.addEventListener("fetch", (event) => {
       })
       .catch(() => {
         if (request.mode === "navigate") {
-          return caches.match("/") || new Response("Offline", { status: 503 });
+          return caches.match(scopeUrl.pathname) || new Response("Offline", { status: 503 });
         }
         return caches.match(request);
       })

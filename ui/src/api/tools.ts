@@ -117,6 +117,7 @@ export interface CreateToolConnectionInput {
   status?: ToolConnection["status"];
   config?: Record<string, unknown>;
   credentialRefs?: ToolConnection["credentialRefs"];
+  credentialSecretRefs?: ToolConnection["credentialSecretRefs"];
   enabled?: boolean;
 }
 
@@ -126,6 +127,7 @@ export interface UpdateToolConnectionInput {
   config?: Record<string, unknown>;
   transportConfig?: Record<string, unknown>;
   credentialRefs?: ToolConnection["credentialRefs"];
+  credentialSecretRefs?: ToolConnection["credentialSecretRefs"];
   enabled?: boolean;
 }
 

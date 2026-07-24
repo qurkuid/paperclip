@@ -25,6 +25,7 @@ import { parseWorkspaceFileHref, remarkWorkspaceFileRefs, WORKSPACE_FILE_HREF_PR
 import { remarkSoftBreaks } from "../lib/remark-soft-breaks";
 import { StatusIcon } from "./StatusIcon";
 import { WorkspaceFileLink } from "./WorkspaceFileLink";
+import { isPreviewableImageHref, MarkdownImageLink } from "./MarkdownImageLink";
 import { ExternalObjectStatusIcon } from "./ExternalObjectStatusIcon";
 import {
   externalObjectCategoryLabel,
@@ -891,6 +892,18 @@ function MarkdownBodyImpl({
           <MarkdownExternalLink href={href} reference={externalReference}>
             {linkChildren}
           </MarkdownExternalLink>
+        );
+      }
+
+      if (isPreviewableImageHref(href)) {
+        return (
+          <MarkdownImageLink
+            href={href}
+            {...anchorProps}
+            style={mergeWrapStyle(linkStyle as React.CSSProperties | undefined)}
+          >
+            {linkChildren}
+          </MarkdownImageLink>
         );
       }
 
