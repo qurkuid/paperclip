@@ -439,6 +439,7 @@ describe("startServer PAPERCLIP_API_URL handling", () => {
     loadConfigMock.mockReturnValue(buildTestConfig());
     process.env.BETTER_AUTH_SECRET = "test-secret";
     delete process.env.PAPERCLIP_API_URL;
+    delete process.env.PAPERCLIP_RUNTIME_API_URL;
   });
 
   afterEach(() => {
@@ -472,6 +473,21 @@ describe("startServer PAPERCLIP_API_URL handling", () => {
       expect.arrayContaining(["http://custom-api:3100"]),
     );
     expect(JSON.parse(process.env.PAPERCLIP_RUNTIME_API_CANDIDATES_JSON ?? "[]")[0]).toBe("http://custom-api:3100");
+  });
+
+  it("preserves an explicit runtime API URL when the public auth URL has a path prefix", async () => {
+    process.env.PAPERCLIP_API_URL = "http://127.0.0.1:3100";
+    process.env.PAPERCLIP_RUNTIME_API_URL = "http://127.0.0.1:3100";
+    loadConfigMock.mockReturnValueOnce(buildTestConfig({
+      authBaseUrlMode: "explicit",
+      authPublicBaseUrl: "https://intm.kr/af",
+    }));
+
+    const started = await startServer();
+
+    expect(started.apiUrl).toBe("http://127.0.0.1:3100");
+    expect(process.env.PAPERCLIP_RUNTIME_API_URL).toBe("http://127.0.0.1:3100");
+    expect(JSON.parse(process.env.PAPERCLIP_RUNTIME_API_CANDIDATES_JSON ?? "[]")[0]).toBe("http://127.0.0.1:3100");
   });
 
   it("falls back to host-based URL when PAPERCLIP_API_URL is not set", async () => {
