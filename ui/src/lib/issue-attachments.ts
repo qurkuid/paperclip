@@ -1,5 +1,6 @@
 import type { IssueAttachment } from "@paperclipai/shared";
 import { isVideoLikeOutput } from "./issue-output";
+import { resolveAppResourceUrl } from "./base-path";
 
 const GENERIC_ATTACHMENT_CONTENT_TYPES = new Set([
   "application/octet-stream",
@@ -22,11 +23,11 @@ export function attachmentFilename(attachment: Pick<IssueAttachment, "id" | "ori
 }
 
 export function attachmentOpenPath(attachment: AttachmentPathLike) {
-  return attachment.openPath ?? attachment.contentPath;
+  return resolveAppResourceUrl(attachment.openPath ?? attachment.contentPath);
 }
 
 export function attachmentDownloadPath(attachment: AttachmentPathLike) {
-  return attachment.downloadPath ?? `${attachment.contentPath}?download=1`;
+  return resolveAppResourceUrl(attachment.downloadPath ?? `${attachment.contentPath}?download=1`);
 }
 
 export function isImageAttachment(attachment: Pick<IssueAttachment, "contentType">) {

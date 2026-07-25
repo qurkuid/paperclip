@@ -59,10 +59,12 @@ export function mergeManagedCodexMcpGateways(
 ): ManagedCodexMcpGateway[] {
   const merged = [...primary];
   const names = new Set(primary.map((gateway) => gateway.name));
+  const endpoints = new Set(primary.map((gateway) => gateway.endpointPath));
   for (const gateway of secondary) {
-    if (names.has(gateway.name)) continue;
+    if (names.has(gateway.name) || endpoints.has(gateway.endpointPath)) continue;
     merged.push(gateway);
     names.add(gateway.name);
+    endpoints.add(gateway.endpointPath);
   }
   return merged;
 }

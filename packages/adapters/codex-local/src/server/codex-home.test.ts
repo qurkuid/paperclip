@@ -33,6 +33,27 @@ describe("mergeManagedCodexMcpGateways", () => {
     ]);
   });
 
+  it("keeps the primary runtime gateway when a secondary alias targets the same endpoint", () => {
+    expect(
+      mergeManagedCodexMcpGateways(
+        [{
+          name: "runtime-intm-publisher",
+          endpointPath: "/api/tool-gateway/gateways/publisher/mcp",
+          bearerToken: "fresh-run-token",
+        }],
+        [{
+          name: "intm",
+          endpointPath: "/api/tool-gateway/gateways/publisher/mcp",
+          bearerToken: "stale-alias-token",
+        }],
+      ),
+    ).toEqual([{
+      name: "runtime-intm-publisher",
+      endpointPath: "/api/tool-gateway/gateways/publisher/mcp",
+      bearerToken: "fresh-run-token",
+    }]);
+  });
+
   it("keeps managed MCP bearer values in child-only environment variables", () => {
     const env = buildManagedCodexMcpEnv([
       { name: "runtime", endpointPath: "/runtime", bearerToken: "runtime-token" },

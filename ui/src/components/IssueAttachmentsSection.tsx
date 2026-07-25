@@ -19,6 +19,7 @@ import {
 import { queryKeys } from "@/lib/queryKeys";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+import { resolveAppResourceUrl } from "@/lib/base-path";
 
 interface IssueAttachmentsSectionProps {
   attachments: IssueAttachment[];
@@ -35,7 +36,7 @@ interface IssueAttachmentsSectionProps {
 }
 
 async function fetchAttachmentText(attachment: IssueAttachment) {
-  const response = await fetch(attachment.contentPath, {
+  const response = await fetch(resolveAppResourceUrl(attachment.contentPath), {
     headers: { Accept: "text/markdown,text/plain;q=0.9,*/*;q=0.1" },
   });
   if (!response.ok) {
@@ -161,7 +162,7 @@ function VideoAttachmentCard({
   const filename = attachmentFilename(attachment);
   return (
     <Card id={`attachment-${attachment.id}`} className="block scroll-mt-20 overflow-hidden py-0">
-      <OutputVideoPlayer src={attachment.contentPath} title={filename} />
+      <OutputVideoPlayer src={resolveAppResourceUrl(attachment.contentPath)} title={filename} />
       <div className="flex flex-col gap-2 p-3 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <p className="break-words text-sm font-semibold text-foreground">{filename}</p>
@@ -286,7 +287,7 @@ export function IssueAttachmentsSection({
               onClick={() => onImageClick(attachment)}
             >
               <img
-                src={attachment.contentPath}
+                src={resolveAppResourceUrl(attachment.contentPath)}
                 alt={attachment.originalFilename ?? "attachment"}
                 className="h-full w-full object-cover"
                 loading="lazy"

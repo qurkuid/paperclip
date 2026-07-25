@@ -11,6 +11,7 @@ import {
 import { OutputPrimaryCard } from "./OutputPrimaryCard";
 import { OutputRow } from "./OutputRow";
 import { cn, relativeTime } from "@/lib/utils";
+import { resolveAppResourceUrl } from "@/lib/base-path";
 
 interface IssueOutputSectionProps {
   workProducts: IssueWorkProduct[] | null | undefined;
@@ -49,7 +50,7 @@ function OutputMediaPreview({
     <>
       {isVideo ? (
         <video
-          src={meta.contentPath}
+          src={resolveAppResourceUrl(meta.contentPath)}
           className="h-full w-full object-cover"
           muted
           playsInline
@@ -57,7 +58,7 @@ function OutputMediaPreview({
         />
       ) : (
         <img
-          src={meta.contentPath}
+          src={resolveAppResourceUrl(meta.contentPath)}
           alt={filename}
           className="h-full w-full object-cover"
           loading="lazy"
@@ -90,7 +91,7 @@ function OutputMediaPreview({
 
   return (
     <a
-      href={meta.openPath}
+      href={resolveAppResourceUrl(meta.openPath)}
       target="_blank"
       rel="noreferrer"
       className={className}
