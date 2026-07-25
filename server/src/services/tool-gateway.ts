@@ -2845,6 +2845,13 @@ export function createToolGatewayService(
     );
   }
 
+  function isRemoteMcpConnectionFailure(error: Record<string, unknown> | null): boolean {
+    // Invalid params is a caller/input failure: the remote server is reachable
+    // and healthy enough to validate the request. Other JSON-RPC errors remain
+    // connection failures unless their semantics are equally unambiguous.
+    return error?.code !== -32602;
+  }
+
   type McpElicitationRequest = {
     message: string;
     requestedSchema: Record<string, unknown> | null;
@@ -3123,7 +3130,9 @@ export function createToolGatewayService(
       }
       if (payloadRecord.error !== undefined) {
         const errorRecord = asRecord(payloadRecord.error);
-        await markRemoteConnectionHealth(connection, "error", "Remote MCP server returned a JSON-RPC error.");
+        if (isRemoteMcpConnectionFailure(errorRecord)) {
+          await markRemoteConnectionHealth(connection, "error", "Remote MCP server returned a JSON-RPC error.");
+        }
         throw new ToolGatewayHttpError(502, "Remote MCP server returned an error", "remote_mcp_error", {
           code: typeof errorRecord?.code === "number" ? errorRecord.code : null,
           connectionId: connection.id,

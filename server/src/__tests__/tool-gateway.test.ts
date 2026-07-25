@@ -2031,6 +2031,104 @@ rl.on("line", (line) => {
     }
   });
 
+  it("keeps a remote MCP tool available after an Invalid params response", async () => {
+    const company = await createCompany(db);
+    const agent = await createAgent(db, company.id);
+    const { run } = await createIssueAndRun(db, company.id, agent.id);
+    const fake = await startFakeRemoteMcpServer((fakeRequest) => {
+      const args = (fakeRequest.body?.params as Record<string, unknown> | undefined)?.arguments as
+        | Record<string, unknown>
+        | undefined;
+      if (args?.limit === 100) {
+        return {
+          body: {
+            jsonrpc: "2.0",
+            id: fakeRequest.body?.id,
+            error: { code: -32602, message: "Invalid params: limit must be at most 50" },
+          },
+        };
+      }
+      return {
+        body: {
+          jsonrpc: "2.0",
+          id: fakeRequest.body?.id,
+          result: {
+            content: [{ type: "text", text: "catalog ok" }],
+            structuredContent: { limit: args?.limit },
+          },
+        },
+      };
+    });
+    try {
+      const remoteTool = await createRemoteMcpTool(db, company.id, {
+        applicationKey: "catalog-reader",
+        connectionName: "Catalog reader",
+        toolName: "list_catalog",
+        title: "List catalog",
+        url: fake.url,
+        riskLevel: "read",
+      });
+      await db
+        .update(toolCatalogEntries)
+        .set({
+          inputSchema: {
+            type: "object",
+            properties: { limit: { type: "integer", minimum: 1, maximum: 50 } },
+            additionalProperties: false,
+          },
+        })
+        .where(eq(toolCatalogEntries.id, remoteTool.catalogEntry.id));
+      await allowAllToolsForAgent(db, company.id, agent.id);
+
+      const gateway = createTestToolGatewayService(db);
+      const firstSession = await gateway.createSession({
+        companyId: company.id,
+        agentId: agent.id,
+        runId: run.id,
+      });
+      const toolName = (await gateway.listToolsForSession(firstSession.token))
+        .find((tool) => tool.connectionId === remoteTool.connection.id)!.name;
+
+      await gateway.executeTool({
+        sessionToken: firstSession.token,
+        tool: toolName,
+        parameters: { limit: 100 },
+      }).then(
+        () => {
+          throw new Error("Expected remote MCP Invalid params response");
+        },
+        (error) => expectGatewayError(error, 502, "remote_mcp_error"),
+      );
+
+      const [connectionAfterInvalidParams] = await db
+        .select()
+        .from(toolConnections)
+        .where(eq(toolConnections.id, remoteTool.connection.id));
+      expect(connectionAfterInvalidParams.healthStatus).toBe("ok");
+
+      const newSession = await gateway.createSession({
+        companyId: company.id,
+        agentId: agent.id,
+        runId: run.id,
+      });
+      expect((await gateway.listToolsForSession(newSession.token)).map((tool) => tool.name))
+        .toContain(toolName);
+      await expect(gateway.executeTool({
+        sessionToken: newSession.token,
+        tool: toolName,
+        parameters: { limit: 50 },
+      })).resolves.toMatchObject({
+        status: "completed",
+        result: {
+          content: "catalog ok",
+          data: { structuredContent: { limit: 50 } },
+        },
+      });
+    } finally {
+      await fake.close();
+    }
+  });
+
   it("discovers and calls the SDK-backed KV demo MCP server over Streamable HTTP", async () => {
     const company = await createCompany(db);
     const agent = await createAgent(db, company.id);
