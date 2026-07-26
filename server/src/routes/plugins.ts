@@ -162,6 +162,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EXPERIMENTAL_BUNDLED_PLUGIN_PACKAGE_NAMES = new Set([
   "@paperclipai/plugin-llm-wiki",
   "@paperclipai/plugin-modal",
+  "@paperclipai/plugin-spacebogam-experiments",
   "@paperclipai/plugin-workspace-diff",
 ]);
 /**
@@ -260,6 +261,12 @@ async function bundledPluginMetadata(
 
   try {
     const source = await readFile(sourcePath, "utf8");
+    const manifestStart = source.search(
+      /const\s+manifest(?:\s*:[^=]+)?\s*=\s*\{/u,
+    );
+    const manifestSource = manifestStart >= 0
+      ? source.slice(manifestStart)
+      : source;
     const pluginId = source
       .match(/(?:export\s+)?const\s+PLUGIN_ID\s*=\s*(?:"([^"]*)"|'([^']*)'|`([^`]*)`)/)
       ?.slice(1)
@@ -268,8 +275,8 @@ async function bundledPluginMetadata(
       ?? null;
     return {
       pluginKey: pluginId ?? undefined,
-      displayName: firstStringLiteral(source, "displayName") ?? undefined,
-      description: firstStringLiteral(source, "description") ?? undefined,
+      displayName: firstStringLiteral(manifestSource, "displayName") ?? undefined,
+      description: firstStringLiteral(manifestSource, "description") ?? undefined,
     };
   } catch {
     return {};

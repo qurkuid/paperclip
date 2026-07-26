@@ -1,0 +1,55 @@
+{
+  "name": "@paperclipai/plugin-spacebogam-experiments",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "First-party Spacebogam experiment operations bundle.",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "prebuild": "pnpm --filter @paperclipai/plugin-sdk ensure-build-deps",
+    "build": "node ./esbuild.config.mjs",
+    "build:rollup": "rollup -c",
+    "dev": "node ./esbuild.config.mjs --watch",
+    "test": "vitest run --config ./vitest.config.ts",
+    "typecheck": "pnpm --filter @paperclipai/plugin-sdk ensure-build-deps && tsc --noEmit"
+  },
+  "paperclipPlugin": {
+    "manifest": "./dist/manifest.js",
+    "worker": "./dist/worker.js",
+    "ui": "./dist/ui/"
+  },
+  "keywords": [
+    "paperclip",
+    "plugin",
+    "spacebogam",
+    "experiments"
+  ],
+  "author": "Paperclip",
+  "license": "MIT",
+  "dependencies": {
+    "@paperclipai/plugin-sdk": "workspace:*",
+    "chart.js": "^4",
+    "react-chartjs-2": "^5",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "@types/node": "^22.19.21",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "esbuild": "^0.28.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "rollup": "^4.62.2",
+    "tslib": "^2.8.1",
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  }
+}
