@@ -163,9 +163,9 @@ export function createExperimentMutations(
     const result = await database.execute(
       `UPDATE ${experiments}
           SET status = $4,
-              started_at = CASE WHEN $4 = 'running' THEN COALESCE(started_at, $5) ELSE started_at END,
-              ended_at = CASE WHEN $4 IN ('completed', 'cancelled') THEN $5 ELSE NULL END,
-              version = version + 1, updated_at = $5
+              started_at = CASE WHEN $4 = 'running' THEN COALESCE(started_at, $5::timestamptz) ELSE started_at END,
+              ended_at = CASE WHEN $4 IN ('completed', 'cancelled') THEN $5::timestamptz ELSE NULL END,
+              version = version + 1, updated_at = $5::timestamptz
         WHERE company_id = $1 AND id = $2 AND version = $3
           AND archived_at IS NULL`,
       [input.companyId, input.experimentId, input.expectedVersion, input.to, input.at],

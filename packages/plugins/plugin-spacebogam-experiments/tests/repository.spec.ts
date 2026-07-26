@@ -105,6 +105,7 @@ describe("Spacebogam experiment repository", () => {
     const update = database.calls.find((call) => call.sql.includes("UPDATE"));
     expect(update?.sql).toContain("company_id = $1");
     expect(update?.sql).toContain("version = $3");
+    expect(update?.sql).toContain("$5::timestamptz");
     expect(update?.params).toEqual([
       COMPANY_A,
       EXPERIMENT_ID,
