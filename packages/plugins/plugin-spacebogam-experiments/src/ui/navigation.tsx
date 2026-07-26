@@ -6,6 +6,7 @@ import {
 } from "@paperclipai/plugin-sdk/ui";
 
 import { ROUTE_PATH } from "../manifest.js";
+import { selectOperationalExperiments } from "./experiment-visibility.js";
 import type { OverviewData } from "./types.js";
 
 function TargetIcon() {
@@ -44,6 +45,9 @@ export function SpacebogamExperimentsSidebar({ context }: PluginSidebarProps) {
 function CompanyRouteSidebar({ companyId }: { companyId: string }) {
   const navigation = useHostNavigation();
   const overview = usePluginData<OverviewData>("overview", { companyId });
+  const experiments = selectOperationalExperiments(
+    overview.data?.experiments ?? [],
+  );
   return (
     <nav className="sbe-nav" aria-label="실험 운영 탐색">
       <div className="sbe-nav-title">실험 운영</div>
@@ -57,7 +61,7 @@ function CompanyRouteSidebar({ companyId }: { companyId: string }) {
       <a className="sbe-nav-link" {...navigation.linkProps("/decisions")}>
         의사결정
       </a>
-      {overview.data?.experiments.map((experiment) => (
+      {experiments.map((experiment) => (
         <a
           className="sbe-nav-item"
           key={experiment.id}

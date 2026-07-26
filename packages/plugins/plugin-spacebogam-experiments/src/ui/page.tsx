@@ -13,6 +13,7 @@ import {
 import { CreateExperimentPanel } from "./create-panel.js";
 import { EntryPanel } from "./entry-panel.js";
 import { ExperimentSummary } from "./experiment-summary.js";
+import { selectOperationalExperiments } from "./experiment-visibility.js";
 import { InsightPanel } from "./insight-panel.js";
 import { OperationsPanel } from "./operations-panel.js";
 import { experimentStyles } from "./theme.js";
@@ -58,7 +59,9 @@ function CompanyExperimentPage({ companyId }: { companyId: string }) {
   }, [experiment, options, overview]);
 
   useEffect(() => {
-    const experiments = overview.data?.experiments ?? [];
+    const experiments = selectOperationalExperiments(
+      overview.data?.experiments ?? [],
+    );
     if (
       selectedId === null
       || !experiments.some((candidate) => candidate.id === selectedId)
@@ -98,7 +101,9 @@ function CompanyExperimentPage({ companyId }: { companyId: string }) {
     );
   }
 
-  const experiments = overview.data?.experiments ?? [];
+  const experiments = selectOperationalExperiments(
+    overview.data?.experiments ?? [],
+  );
   const detail = experiment.data;
   return (
     <main className="sbe-main">
