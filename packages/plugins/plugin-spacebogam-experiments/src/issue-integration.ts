@@ -25,6 +25,16 @@ const publishStrategyInputSchema = z.object({
   authorAgentId: z.string().uuid().nullable(),
 }).strict();
 
+const requestStrategyReviewInputSchema = z.object({
+  companyId: z.string().uuid(),
+  experimentId: z.string().uuid(),
+  experimentTitle: z.string().trim().min(1).max(120),
+  issueId: z.string().uuid(),
+  responsibleAgentId: z.string().uuid(),
+  request: z.string().trim().min(1).max(4000),
+  idempotencyKey: z.string().regex(/^[A-Za-z0-9._:-]+$/u).min(1).max(120),
+}).strict();
+
 const unsafeContactPattern =
   /(?:[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|01[016789][-\s]?\d{3,4}[-\s]?\d{4})/iu;
 
@@ -34,6 +44,16 @@ export type ResolveExperimentIssueInput = Readonly<
 export type PublishExperimentStrategyInput = Readonly<
   z.infer<typeof publishStrategyInputSchema>
 >;
+export type RequestExperimentStrategyReviewInput = Readonly<
+  z.infer<typeof requestStrategyReviewInputSchema>
+>;
+
+export type RequestedExperimentStrategyReview = {
+  readonly issueId: string;
+  readonly commentId: string;
+  readonly queued: boolean;
+  readonly runId: string | null;
+};
 
 export type PublishedExperimentStrategy = {
   readonly issueId: string;
@@ -49,6 +69,9 @@ export type ExperimentIssueIntegration = {
   readonly resolveIssue: (
     input: ResolveExperimentIssueInput,
   ) => Promise<Issue>;
+  readonly requestStrategyReview: (
+    input: RequestExperimentStrategyReviewInput,
+  ) => Promise<RequestedExperimentStrategyReview>;
   readonly publishStrategy: (
     input: PublishExperimentStrategyInput,
   ) => Promise<PublishedExperimentStrategy>;
@@ -108,6 +131,49 @@ function strategyMarker(idempotencyKey: string): string {
   return `<!-- spacebogam-strategy:${idempotencyKey} -->`;
 }
 
+function strategyRequestMarker(idempotencyKey: string): string {
+  return `<!-- spacebogam-strategy-request:${idempotencyKey} -->`;
+}
+
+function strategyRequestBody(
+  input: RequestExperimentStrategyReviewInput,
+  marker: string,
+): string {
+  return [
+    marker,
+    "## 실험 전략 검토 요청",
+    "",
+    `- 실험: ${input.experimentTitle}`,
+    `- 실험 ID: \`${input.experimentId}\``,
+    "",
+    "### 요청",
+    "",
+    input.request,
+    "",
+    "### 작업 기준",
+    "",
+    "1. 공간보감 실험 overview/get 도구로 구조화된 실험 상태와 표본을 확인합니다.",
+    "2. 같은 기간의 INTM 퍼널과 네이버 광고 근거를 확인합니다.",
+    "3. 표본이 부족하면 추측하지 말고 필요한 계측·승인 항목을 구분합니다.",
+    "4. 개인정보를 포함하지 않고 propose_strategy 도구로 검토안을 제출합니다.",
+    "5. 광고·콘텐츠·실험 상태를 직접 변경하지 않습니다.",
+  ].join("\n");
+}
+
+function strategyRequestDescription(
+  input: RequestExperimentStrategyReviewInput,
+): string {
+  return [
+    "실험 운영 페이지에서 설계, 표본, 결과와 전략 제안을 관리합니다.",
+    "",
+    "## 현재 작업",
+    "",
+    strategyRequestBody(input, strategyRequestMarker(input.idempotencyKey)),
+    "",
+    "제안 결과는 이 이슈의 전략 문서와 의사결정 요청으로 남겨야 합니다.",
+  ].join("\n");
+}
+
 export function createExperimentIssueIntegration(
   ctx: PluginContext,
 ): ExperimentIssueIntegration {
@@ -143,6 +209,61 @@ export function createExperimentIssueIntegration(
       originKind,
       originId,
     });
+  }
+
+  async function requestStrategyReview(
+    rawInput: RequestExperimentStrategyReviewInput,
+  ): Promise<RequestedExperimentStrategyReview> {
+    const input = requestStrategyReviewInputSchema.parse(rawInput);
+    if (unsafeContactPattern.test(input.request)) {
+      throw new ExperimentIssueIntegrationError(
+        "unsafe_strategy_content",
+        "Strategy requests cannot contain contact identifiers",
+      );
+    }
+    const issue = requireCompanyIssue(
+      await ctx.issues.get(input.issueId, input.companyId),
+      input.companyId,
+    );
+
+    const marker = strategyRequestMarker(input.idempotencyKey);
+    const comments = await ctx.issues.listComments(
+      input.issueId,
+      input.companyId,
+    );
+    const duplicateComment = comments.find((comment) =>
+      comment.body.includes(marker));
+
+    await ctx.issues.update(
+      input.issueId,
+      {
+        status: issue.status === "in_progress" ? "in_progress" : "todo",
+        assigneeAgentId: input.responsibleAgentId,
+        description: strategyRequestDescription(input),
+      },
+      input.companyId,
+    );
+    const comment = duplicateComment ?? await ctx.issues.createComment(
+      input.issueId,
+      strategyRequestBody(input, marker),
+      input.companyId,
+    );
+    const wakeup = await ctx.issues.requestWakeup(
+      input.issueId,
+      input.companyId,
+      {
+        reason: "spacebogam_strategy_review_requested",
+        contextSource: `plugin:${PLUGIN_ID}:strategy-request`,
+        idempotencyKey: `spacebogam-strategy-request:${input.idempotencyKey}`,
+      },
+    );
+
+    return {
+      issueId: input.issueId,
+      commentId: comment.id,
+      queued: wakeup.queued,
+      runId: wakeup.runId,
+    };
   }
 
   async function publishStrategy(
@@ -249,5 +370,5 @@ export function createExperimentIssueIntegration(
     };
   }
 
-  return { resolveIssue, publishStrategy };
+  return { resolveIssue, requestStrategyReview, publishStrategy };
 }

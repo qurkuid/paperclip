@@ -85,6 +85,72 @@ describe("Spacebogam experiment issue integration", () => {
     }));
   });
 
+  it("assigns, records, and wakes one native issue for strategy review", async () => {
+    const harness = harnessWithIssueCapabilities();
+    const integration = createExperimentIssueIntegration(harness.ctx);
+    const issue = await harness.ctx.issues.create({
+      companyId: COMPANY_ID,
+      title: "실험: 상담 CTA",
+    });
+    const input = {
+      companyId: COMPANY_ID,
+      experimentId: EXPERIMENT_ID,
+      experimentTitle: "상담 CTA 실험",
+      issueId: issue.id,
+      responsibleAgentId: AGENT_ID,
+      request: "표본이 없으면 계측 항목과 승인 항목을 구분해줘.",
+      idempotencyKey: "request-v3",
+    };
+
+    const first = await integration.requestStrategyReview(input);
+    const repeated = await integration.requestStrategyReview(input);
+    const updatedIssue = await harness.ctx.issues.get(issue.id, COMPANY_ID);
+    const comments = await harness.ctx.issues.listComments(issue.id, COMPANY_ID);
+
+    expect(repeated.commentId).toBe(first.commentId);
+    expect(first).toMatchObject({
+      issueId: issue.id,
+      queued: true,
+    });
+    expect(updatedIssue).toMatchObject({
+      status: "todo",
+      assigneeAgentId: AGENT_ID,
+    });
+    expect(updatedIssue?.description).toContain(input.request);
+    expect(updatedIssue?.description).toContain("propose_strategy");
+    expect(comments).toHaveLength(1);
+    expect(comments[0]?.body).toContain(
+      "<!-- spacebogam-strategy-request:request-v3 -->",
+    );
+  });
+
+  it("rejects contact identifiers before assigning a strategy review", async () => {
+    const harness = harnessWithIssueCapabilities();
+    const integration = createExperimentIssueIntegration(harness.ctx);
+    const issue = await harness.ctx.issues.create({
+      companyId: COMPANY_ID,
+      title: "실험: 상담 CTA",
+    });
+
+    await expect(integration.requestStrategyReview({
+      companyId: COMPANY_ID,
+      experimentId: EXPERIMENT_ID,
+      experimentTitle: "상담 CTA 실험",
+      issueId: issue.id,
+      responsibleAgentId: AGENT_ID,
+      request: "010-1234-5678로 결과를 보내줘.",
+      idempotencyKey: "unsafe-request",
+    })).rejects.toEqual(expect.objectContaining<Partial<ExperimentIssueIntegrationError>>({
+      code: "unsafe_strategy_content",
+    }));
+    await expect(harness.ctx.issues.get(issue.id, COMPANY_ID)).resolves.toMatchObject({
+      status: "todo",
+      assigneeAgentId: null,
+    });
+    await expect(harness.ctx.issues.listComments(issue.id, COMPANY_ID))
+      .resolves.toHaveLength(0);
+  });
+
   it("publishes one complete review document, comment, and pending decision", async () => {
     const harness = harnessWithIssueCapabilities();
     const integration = createExperimentIssueIntegration(harness.ctx);

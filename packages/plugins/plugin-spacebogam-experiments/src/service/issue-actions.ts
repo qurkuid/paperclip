@@ -135,9 +135,7 @@ export function createIssueActionHandlers(
     payload: RequestStrategyPayload,
   ): Promise<ExperimentDetail> {
     const detail = await requireExperiment(companyId, payload.experimentId);
-    if (deps.invokeAgent === undefined) {
-      throw new ServiceError("unknown_action", "Agent invocation is unavailable");
-    }
+    const integration = requireIssueIntegration();
     if (detail.experiment.version !== payload.version) {
       throw new ServiceError("invalid_version", "Experiment version is stale");
     }
@@ -145,21 +143,31 @@ export function createIssueActionHandlers(
     if (agentId === null || agentId === undefined) {
       throw new ServiceError("unknown_action", "Select a responsible agent first");
     }
-    if (detail.experiment.linkedIssueId === null) {
+    const issueId = detail.experiment.linkedIssueId;
+    if (issueId === null || issueId === undefined) {
       throw new ServiceError("unknown_action", "Link a Paperclip issue first");
     }
-    const invocation = await deps.invokeAgent({
+    const request = await integration.requestStrategyReview({
       companyId,
-      agentId,
       experimentId: payload.experimentId,
+      experimentTitle: detail.experiment.title,
+      issueId,
+      responsibleAgentId: agentId,
       request: payload.request,
+      idempotencyKey: `${payload.experimentId}:${payload.version}`,
     });
     await appendObservation({
       companyId,
       experimentId: payload.experimentId,
       kind: "note",
       summary: "책임 에이전트에게 전략 검토를 요청했습니다.",
-      evidence: { agentId, runId: invocation.runId },
+      evidence: {
+        agentId,
+        issueId: request.issueId,
+        requestCommentId: request.commentId,
+        queued: request.queued,
+        runId: request.runId,
+      },
       idempotencyKey: `strategy-request:${payload.experimentId}:${payload.version}`,
     });
     return detail;

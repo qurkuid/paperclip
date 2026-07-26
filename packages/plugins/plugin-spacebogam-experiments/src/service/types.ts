@@ -119,12 +119,6 @@ export type SpacebogamExperimentServiceDeps = {
     companyId: string,
     agentId: string,
   ) => Promise<boolean>;
-  readonly invokeAgent?: (input: {
-    readonly companyId: string;
-    readonly agentId: string;
-    readonly experimentId: string;
-    readonly request: string;
-  }) => Promise<{ readonly runId: string }>;
   readonly reconcileRoutine?: (
     companyId: string,
     enabled: boolean,

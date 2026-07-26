@@ -83,20 +83,6 @@ function createDefaultBoardActionService(
       const agent = await ctx.agents.get(agentId, targetCompanyId);
       return agent !== null && agent.status !== "terminated";
     },
-    invokeAgent: async (input) => ctx.agents.invoke(
-      input.agentId,
-      input.companyId,
-      {
-        prompt: [
-          `공간보감 실험 ${input.experimentId}의 다음 전략을 검토하세요.`,
-          "먼저 공간보감 실험 overview/get 도구로 구조화 상태를 읽으세요.",
-          "같은 기간의 퍼널 근거는 기존 INTM MCP에서 확인하세요.",
-          "개인정보를 포함하지 말고 propose_strategy 도구로 검토안을 제출하세요.",
-          `요청: ${input.request}`,
-        ].join("\n"),
-        reason: "Spacebogam experiment strategy review",
-      },
-    ),
     reconcileRoutine: async (
       targetCompanyId,
       enabled,

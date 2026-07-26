@@ -128,9 +128,6 @@ function createService(
     validateAgent: async (companyId, agentId) =>
       companyId === COMPANY_ID && agentId === USER_ID,
     resolveLinkedProjectId: async () => PROJECT_ID,
-    invokeAgent: async ({ companyId, agentId, experimentId }) => ({
-      runId: `run:${companyId}:${agentId}:${experimentId}`,
-    }),
     hashLeadKey: async (leadKey) => `hash:${leadKey}`,
     funnelFreshness: async () => ({
       quality: null,
@@ -249,6 +246,22 @@ describe("Spacebogam board issue actions", () => {
       ok: true,
       experimentId: EXPERIMENT_ID,
     });
+    const linkedIssueId = fixture.current()?.linkedIssueId;
+    expect(linkedIssueId).not.toBeNull();
+    await expect(
+      harness.ctx.issues.get(linkedIssueId!, COMPANY_ID),
+    ).resolves.toMatchObject({
+      status: "todo",
+      assigneeAgentId: USER_ID,
+      description: expect.stringContaining("다음 전략을 제안해줘"),
+    });
+    await expect(
+      harness.ctx.issues.listComments(linkedIssueId!, COMPANY_ID),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        body: expect.stringContaining("다음 전략을 제안해줘"),
+      }),
+    ]);
   });
 
 });
