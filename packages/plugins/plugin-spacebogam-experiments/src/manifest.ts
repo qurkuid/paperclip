@@ -185,7 +185,7 @@ const manifest: PaperclipPluginManifestV1 = {
       triggers: [{
         kind: "schedule",
         label: "Weekly",
-        enabled: false,
+        enabled: true,
         cronExpression: "0 9 * * 1",
         timezone: "Asia/Seoul",
         signingMode: null,

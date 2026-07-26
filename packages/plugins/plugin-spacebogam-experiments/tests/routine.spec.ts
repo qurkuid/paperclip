@@ -106,13 +106,13 @@ function serviceFor(
 }
 
 describe("Spacebogam managed routine", () => {
-  it("is declared paused with its schedule disabled and its agent has zero budget", () => {
+  it("keeps the weekly trigger armed while the routine and agent remain paused", () => {
     expect(manifest.routines).toContainEqual(expect.objectContaining({
       routineKey: ROUTINE_KEY,
       status: "paused",
       concurrencyPolicy: "coalesce_if_active",
       catchUpPolicy: "skip_missed",
-      triggers: [expect.objectContaining({ enabled: false })],
+      triggers: [expect.objectContaining({ enabled: true })],
     }));
     expect(manifest.agents).toContainEqual(expect.objectContaining({
       agentKey: SPACEBOGAM_AGENT_KEY,
