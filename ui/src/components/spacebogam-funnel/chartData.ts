@@ -42,6 +42,11 @@ export function formatRate(value: number | null): string {
   return `${(value * 100).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}%`;
 }
 
+export function formatWon(value: number | null): string {
+  if (value === null) return "-";
+  return `${Math.round(value).toLocaleString("ko-KR")}원`;
+}
+
 export function buildFunnelRows(report: SpacebogamFunnelReport): FunnelRow[] {
   return report.stages.map((stage) => ({
     id: stage.key,

@@ -8,6 +8,7 @@ import type {
   SpacebogamFunnelUpstreamClient,
   SpacebogamFunnelUpstreamError,
 } from "../services/spacebogam-funnel-upstream.js";
+import type { SpacebogamNaverSearchAdsClient } from "../services/spacebogam-naver-searchads.js";
 import {
   agentActor,
   boardActor,
@@ -40,6 +41,14 @@ function client(result: Awaited<ReturnType<SpacebogamFunnelUpstreamClient["fetch
   } satisfies SpacebogamFunnelUpstreamClient;
 }
 
+function naverClient(
+  result: Awaited<ReturnType<SpacebogamNaverSearchAdsClient["fetchSnapshot"]>>,
+) {
+  return {
+    fetchSnapshot: vi.fn(async () => result),
+  } satisfies SpacebogamNaverSearchAdsClient;
+}
+
 function expectNoSecretLeak(value: unknown) {
   const body = JSON.stringify(value);
   expect(body).not.toContain(secretToken);
@@ -49,6 +58,7 @@ function expectNoSecretLeak(value: unknown) {
 async function createRouteApp(input: {
   actor?: Express.Request["actor"];
   upstreamClient?: SpacebogamFunnelUpstreamClient;
+  naverSearchAdsClient?: SpacebogamNaverSearchAdsClient;
 }) {
   const { spacebogamFunnelRoutes } = await import("../routes/spacebogam-funnel.js");
   const app = express();
@@ -57,7 +67,7 @@ async function createRouteApp(input: {
     req.actor = input.actor ?? boardActor();
     next();
   });
-  app.use("/api", spacebogamFunnelRoutes(input.upstreamClient));
+  app.use("/api", spacebogamFunnelRoutes(input.upstreamClient, input.naverSearchAdsClient));
   app.use(errorHandler);
   return app;
 }
@@ -69,6 +79,7 @@ describe.sequential("spacebogam funnel routes", () => {
     delete process.env.SPACEBOGAM_FUNNEL_UPSTREAM_URL;
     delete process.env.SPACEBOGAM_FUNNEL_UPSTREAM_TOKEN;
     delete process.env.SPACEBOGAM_FUNNEL_PAPERCLIP_COMPANY_ID;
+    delete process.env.SPACEBOGAM_NAVER_SEARCH_AD_CREDENTIALS_PATH;
   });
 
   afterEach(() => {
@@ -87,6 +98,60 @@ describe.sequential("spacebogam funnel routes", () => {
     expect(upstreamClient.fetchReport).toHaveBeenCalledWith({
       companyId: spacebogamCompanyId,
       rangeDays: 28,
+    });
+  });
+
+  it("attaches the same-window Naver Search Ads snapshot without changing the funnel contract", async () => {
+    const report = validSpacebogamReport(28);
+    const upstreamClient = client({ ok: true, report });
+    const snapshot = {
+      status: "ready",
+      since: "2026-06-28",
+      until: "2026-07-25",
+      generatedAt: "2026-07-25T12:00:00.000+09:00",
+      campaignCount: 1,
+      activeCampaignCount: 1,
+      campaignsWithSpend: 1,
+      totals: {
+        impressions: 1_000,
+        clicks: 40,
+        spendKrw: 80_000,
+        conversions: 4,
+        ctr: 0.04,
+        cpcKrw: 2_000,
+        conversionRate: 0.1,
+        costPerConversionKrw: 20_000,
+      },
+      campaigns: [{
+        name: "아파트 인테리어",
+        type: "WEB_SITE",
+        status: "ELIGIBLE",
+        userLocked: false,
+        dailyBudgetKrw: 30_000,
+        impressions: 1_000,
+        clicks: 40,
+        spendKrw: 80_000,
+        conversions: 4,
+        ctr: 0.04,
+        cpcKrw: 2_000,
+        conversionRate: 0.1,
+        costPerConversionKrw: 20_000,
+      }],
+    } as const;
+    const adsClient = naverClient(snapshot);
+    const app = await createRouteApp({
+      upstreamClient,
+      naverSearchAdsClient: adsClient,
+    });
+
+    const res = await request(app).get(routePath);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ...report, naverSearchAds: snapshot });
+    expect(adsClient.fetchSnapshot).toHaveBeenCalledWith({
+      companyId: spacebogamCompanyId,
+      rangeDays: 28,
+      dataThrough: report.dataThrough,
     });
   });
 

@@ -1,4 +1,7 @@
-import type { SpacebogamFunnelReport } from "@paperclipai/shared/validators/spacebogam-funnel";
+import type {
+  SpacebogamFunnelReport,
+  SpacebogamNaverSearchAdsSnapshot,
+} from "@paperclipai/shared/validators/spacebogam-funnel";
 import type { ChartData, ChartOptions } from "chart.js";
 import { ChevronDown, TableProperties } from "lucide-react";
 import { Chart } from "react-chartjs-2";
@@ -10,6 +13,7 @@ import {
   buildLossParetoRows,
   formatCount,
   formatRate,
+  formatWon,
 } from "./chartData";
 import { resolveSpacebogamChartTheme } from "./chartTheme";
 
@@ -18,6 +22,8 @@ registerSpacebogamChartBasics();
 interface Props {
   report: SpacebogamFunnelReport;
 }
+
+type ReadyNaverSearchAdsSnapshot = Extract<SpacebogamNaverSearchAdsSnapshot, { status: "ready" }>;
 
 function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -336,6 +342,109 @@ export function UtmBubbleChart({ report }: Props) {
               <td className={labelCellClass}>{row.sourceMedium}</td>
               <td className={valueCellClass}>{formatCount(row.visits)}</td>
               <td className={valueCellClass}>{formatRate(row.leadRate)}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </EvidenceTable>
+    </ChartShell>
+  );
+}
+
+export function NaverCampaignPerformanceChart({
+  snapshot,
+}: {
+  snapshot: ReadyNaverSearchAdsSnapshot;
+}) {
+  const rows = snapshot.campaigns;
+  const theme = resolveSpacebogamChartTheme();
+  const data: ChartData<"bar" | "line", number[], string> = {
+    labels: rows.map((row) => row.name ?? "이름 없는 캠페인"),
+    datasets: [
+      {
+        type: "bar",
+        label: "광고비",
+        data: rows.map((row) => row.spendKrw),
+        backgroundColor: theme.series[3],
+        borderColor: theme.border,
+        borderRadius: 4,
+        borderWidth: 1,
+        yAxisID: "spend",
+      },
+      {
+        type: "line",
+        label: "클릭",
+        data: rows.map((row) => row.clicks),
+        borderColor: theme.warning,
+        backgroundColor: theme.warning,
+        borderWidth: 2,
+        pointRadius: 3,
+        tension: 0.22,
+        yAxisID: "clicks",
+      },
+    ],
+  };
+
+  return (
+    <ChartShell
+      title="네이버 캠페인 지출과 반응"
+      description="캠페인별 광고비와 클릭을 같은 순서로 비교합니다. 지출은 있는데 클릭이 약한 캠페인이 우선 점검 대상입니다."
+      finding={`${snapshot.campaignsWithSpend}개 캠페인에서 광고비가 발생했습니다.`}
+    >
+      <div className="mx-5 h-80 min-w-0">
+        <Chart
+          type="bar"
+          aria-label="네이버 캠페인 광고비 및 클릭 혼합 차트"
+          data={data}
+          options={{
+            ...baseOptions(),
+            scales: {
+              x: {
+                ticks: {
+                  color: theme.axis,
+                  font: { size: 11 },
+                  maxRotation: 0,
+                  minRotation: 0,
+                },
+                grid: { color: theme.grid },
+                border: { color: theme.border },
+              },
+              spend: {
+                ...baseOptions().scales?.y,
+                position: "left",
+                ticks: {
+                  color: theme.axis,
+                  callback: (value) => `${Number(value).toLocaleString("ko-KR")}원`,
+                },
+              },
+              clicks: {
+                beginAtZero: true,
+                position: "right",
+                ticks: { color: theme.axis },
+                grid: { drawOnChartArea: false },
+                border: { color: theme.border },
+              },
+            },
+          }}
+        />
+      </div>
+      <EvidenceTable label="네이버 캠페인 성과 표 스크롤 영역">
+        <table className={tableClass} aria-label="네이버 캠페인 성과 표">
+          <thead>
+            <tr>
+              <th className={`${headerClass} text-left`}>캠페인</th>
+              <th className={`${headerClass} text-right`}>광고비</th>
+              <th className={`${headerClass} text-right`}>클릭</th>
+              <th className={`${headerClass} text-right`}>CTR</th>
+              <th className={`${headerClass} text-right`}>전환</th>
+            </tr>
+          </thead>
+          <tbody>{rows.map((row, index) => (
+            <tr key={`${row.name ?? "campaign"}-${index}`}>
+              <td className={labelCellClass}>{row.name ?? "이름 없는 캠페인"}</td>
+              <td className={valueCellClass}>{formatWon(row.spendKrw)}</td>
+              <td className={valueCellClass}>{formatCount(row.clicks)}</td>
+              <td className={valueCellClass}>{formatRate(row.ctr)}</td>
+              <td className={valueCellClass}>{formatCount(row.conversions)}</td>
             </tr>
           ))}</tbody>
         </table>

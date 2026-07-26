@@ -44,4 +44,10 @@ export { createNaverSearchAdConfig, readConfigFromEnv, readNaverCredentialsFile 
 export { createNaverSearchAdClient, normalizeStats, signNaverSearchAdRequest } from "./naver-client.js";
 export { createToolDefinitions } from "./tools.js";
 export type { NaverSearchAdConfig } from "./config.js";
-export type { NaverSearchAdClient } from "./naver-client.js";
+export type {
+  NaverAdGroup,
+  NaverCampaign,
+  NaverKeyword,
+  NaverSearchAdClient,
+  NaverStats,
+} from "./naver-client.js";

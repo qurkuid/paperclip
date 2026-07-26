@@ -109,7 +109,7 @@ function report(rangeDays: SpacebogamFunnelRangeDays, status: SpacebogamFunnelQu
       ? [
           { source: "meta", medium: "paid_social", campaign: "ai_ad_test", visits: 48, submittedLeads: 0, visitToLeadRate: 0, sampleStatus: "usable" },
           { source: "meta", medium: "paid_social", campaign: "home_landing", visits: 21, submittedLeads: 0, visitToLeadRate: 0, sampleStatus: "usable" },
-          { source: "naver", medium: "search", campaign: "brand", visits: 12, submittedLeads: 0, visitToLeadRate: 0, sampleStatus: "low_sample" },
+          { source: "naver", medium: "search", campaign: "brand", visits: 12, submittedLeads: 0, visitToLeadRate: 0, sampleStatus: "insufficient" },
         ]
       : [
           { source: "naver", medium: "search", campaign: "apt-main", visits: 920, submittedLeads: 124, visitToLeadRate: 0.135, sampleStatus: "usable" },
@@ -138,6 +138,31 @@ function report(rangeDays: SpacebogamFunnelRangeDays, status: SpacebogamFunnelQu
         }]
       : [],
     legacyBaseline: { source: "spacebogam-v1-fixture" },
+    naverSearchAds: {
+      status: "ready",
+      since: dailyStart.toISOString().slice(0, 10),
+      until: periodEnd.toISOString().slice(0, 10),
+      generatedAt: "2026-07-25T12:00:00.000+09:00",
+      campaignCount: 4,
+      activeCampaignCount: 3,
+      campaignsWithSpend: 3,
+      totals: {
+        impressions: 594_704,
+        clicks: 231,
+        spendKrw: 233_646,
+        conversions: 0,
+        ctr: 231 / 594_704,
+        cpcKrw: 1_011,
+        conversionRate: 0,
+        costPerConversionKrw: null,
+      },
+      campaigns: [
+        { name: "퀵스타트_파워링크#1", type: "WEB_SITE", status: "ELIGIBLE", userLocked: false, dailyBudgetKrw: 39_000, impressions: 320_000, clicks: 121, spendKrw: 132_000, conversions: 0, ctr: 121 / 320_000, cpcKrw: 1_091, conversionRate: 0, costPerConversionKrw: null },
+        { name: "플레이스#1 공간보감", type: "PLACE", status: "ELIGIBLE", userLocked: false, dailyBudgetKrw: 10_000, impressions: 190_000, clicks: 80, spendKrw: 74_000, conversions: 0, ctr: 80 / 190_000, cpcKrw: 925, conversionRate: 0, costPerConversionKrw: null },
+        { name: "02파컨(blog)", type: "POWER_CONTENTS", status: "ELIGIBLE", userLocked: false, dailyBudgetKrw: 10_000, impressions: 84_704, clicks: 30, spendKrw: 27_646, conversions: 0, ctr: 30 / 84_704, cpcKrw: 922, conversionRate: 0, costPerConversionKrw: null },
+        { name: "중단 캠페인", type: "WEB_SITE", status: "PAUSED", userLocked: true, dailyBudgetKrw: 50_000, impressions: 0, clicks: 0, spendKrw: 0, conversions: 0, ctr: 0, cpcKrw: 0, conversionRate: 0, costPerConversionKrw: null },
+      ],
+    },
   };
 }
 

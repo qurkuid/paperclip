@@ -130,6 +130,41 @@ const completeReport = {
   },
 };
 
+const readyNaverSearchAds = {
+  status: "ready",
+  since: "2026-07-19",
+  until: "2026-07-25",
+  generatedAt: "2026-07-25T12:00:00.000+09:00",
+  campaignCount: 1,
+  activeCampaignCount: 1,
+  campaignsWithSpend: 1,
+  totals: {
+    impressions: 1_000,
+    clicks: 40,
+    spendKrw: 80_000,
+    conversions: 4,
+    ctr: 0.04,
+    cpcKrw: 2_000,
+    conversionRate: 0.1,
+    costPerConversionKrw: 20_000,
+  },
+  campaigns: [{
+    name: "아파트 인테리어",
+    type: "WEB_SITE",
+    status: "ELIGIBLE",
+    userLocked: false,
+    dailyBudgetKrw: 30_000,
+    impressions: 1_000,
+    clicks: 40,
+    spendKrw: 80_000,
+    conversions: 4,
+    ctr: 0.04,
+    cpcKrw: 2_000,
+    conversionRate: 0.1,
+    costPerConversionKrw: 20_000,
+  }],
+} as const;
+
 const buildDailyRows = (length: number) => Array.from({ length }, (_, index) => {
   const date = new Date(Date.UTC(2026, 6, 1 + index));
 
@@ -149,6 +184,30 @@ describe("spacebogam funnel report validator", () => {
   it("accepts only schema version 1", () => {
     expect(spacebogamFunnelReportSchema.safeParse({ ...completeReport, schemaVersion: 1 }).success).toBe(true);
     expect(spacebogamFunnelReportSchema.safeParse({ ...completeReport, schemaVersion: 2 }).success).toBe(false);
+  });
+
+  it("accepts ready and error Naver snapshots while rejecting impossible negative metrics", () => {
+    expect(spacebogamFunnelReportSchema.safeParse({
+      ...completeReport,
+      naverSearchAds: readyNaverSearchAds,
+    }).success).toBe(true);
+    expect(spacebogamFunnelReportSchema.safeParse({
+      ...completeReport,
+      naverSearchAds: {
+        status: "error",
+        since: "2026-07-19",
+        until: "2026-07-25",
+        generatedAt: "2026-07-25T12:00:00.000+09:00",
+        message: "네이버 검색광고 데이터를 불러오지 못했습니다.",
+      },
+    }).success).toBe(true);
+    expect(spacebogamFunnelReportSchema.safeParse({
+      ...completeReport,
+      naverSearchAds: {
+        ...readyNaverSearchAds,
+        totals: { ...readyNaverSearchAds.totals, spendKrw: -1 },
+      },
+    }).success).toBe(false);
   });
 
   it("accepts the supported status variants and rejects unknown status", () => {

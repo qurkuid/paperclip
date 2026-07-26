@@ -91,6 +91,56 @@ export const spacebogamFunnelRecommendationSchema = z.object({
   confidence: spacebogamFunnelRecommendationConfidenceSchema,
 }).strict();
 
+const nonnegativeFiniteNumberSchema = finiteNumberSchema.nonnegative();
+
+export const spacebogamNaverSearchAdsTotalsSchema = z.object({
+  impressions: nonnegativeFiniteNumberSchema,
+  clicks: nonnegativeFiniteNumberSchema,
+  spendKrw: nonnegativeFiniteNumberSchema,
+  conversions: nonnegativeFiniteNumberSchema,
+  ctr: nonnegativeFiniteNumberSchema,
+  cpcKrw: nonnegativeFiniteNumberSchema,
+  conversionRate: nonnegativeFiniteNumberSchema,
+  costPerConversionKrw: nonnegativeFiniteNumberSchema.nullable(),
+}).strict();
+
+export const spacebogamNaverSearchAdsCampaignSchema = z.object({
+  name: z.string().nullable(),
+  type: z.string().nullable(),
+  status: z.string().nullable(),
+  userLocked: z.boolean(),
+  dailyBudgetKrw: nonnegativeFiniteNumberSchema.nullable(),
+  impressions: nonnegativeFiniteNumberSchema,
+  clicks: nonnegativeFiniteNumberSchema,
+  spendKrw: nonnegativeFiniteNumberSchema,
+  conversions: nonnegativeFiniteNumberSchema,
+  ctr: nonnegativeFiniteNumberSchema,
+  cpcKrw: nonnegativeFiniteNumberSchema,
+  conversionRate: nonnegativeFiniteNumberSchema,
+  costPerConversionKrw: nonnegativeFiniteNumberSchema.nullable(),
+}).strict();
+
+const spacebogamNaverSearchAdsBaseSchema = z.object({
+  since: dateStringSchema,
+  until: dateStringSchema,
+  generatedAt: timestampSchema,
+});
+
+export const spacebogamNaverSearchAdsSnapshotSchema = z.discriminatedUnion("status", [
+  spacebogamNaverSearchAdsBaseSchema.extend({
+    status: z.literal("ready"),
+    campaignCount: countSchema,
+    activeCampaignCount: countSchema,
+    campaignsWithSpend: countSchema,
+    totals: spacebogamNaverSearchAdsTotalsSchema,
+    campaigns: z.array(spacebogamNaverSearchAdsCampaignSchema),
+  }).strict(),
+  spacebogamNaverSearchAdsBaseSchema.extend({
+    status: z.literal("error"),
+    message: z.string().min(1),
+  }).strict(),
+]);
+
 export const spacebogamFunnelReportSchema = z.object({
   schemaVersion: z.literal(1),
   timezone: z.literal("Asia/Seoul"),
@@ -106,6 +156,7 @@ export const spacebogamFunnelReportSchema = z.object({
   bottleneck: spacebogamFunnelBottleneckSchema.nullable(),
   recommendations: z.array(spacebogamFunnelRecommendationSchema),
   legacyBaseline: z.unknown(),
+  naverSearchAds: spacebogamNaverSearchAdsSnapshotSchema.optional(),
 }).strict().superRefine((report, ctx) => {
   if (report.daily.length !== report.rangeDays) {
     ctx.addIssue({
@@ -144,4 +195,5 @@ export const spacebogamFunnelReportSchema = z.object({
 export type SpacebogamFunnelRangeDays = z.infer<typeof spacebogamFunnelRangeDaysSchema>;
 export type SpacebogamFunnelStageKey = z.infer<typeof spacebogamFunnelStageKeySchema>;
 export type SpacebogamFunnelQualityStatus = z.infer<typeof spacebogamFunnelQualityStatusSchema>;
+export type SpacebogamNaverSearchAdsSnapshot = z.infer<typeof spacebogamNaverSearchAdsSnapshotSchema>;
 export type SpacebogamFunnelReport = z.infer<typeof spacebogamFunnelReportSchema>;

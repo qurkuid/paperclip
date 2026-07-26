@@ -6,10 +6,13 @@ import {
   Crosshair,
   FlaskConical,
   Gauge,
+  Megaphone,
+  MousePointerClick,
   RefreshCw,
   ScanSearch,
   ShieldCheck,
   Target,
+  WalletCards,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type {
@@ -22,9 +25,10 @@ import {
   DailyMixedChart,
   FunnelBarChart,
   LossParetoChart,
+  NaverCampaignPerformanceChart,
   UtmBubbleChart,
 } from "@/components/spacebogam-funnel/SpacebogamFunnelCharts";
-import { formatCount, formatRate } from "@/components/spacebogam-funnel/chartData";
+import { formatCount, formatRate, formatWon } from "@/components/spacebogam-funnel/chartData";
 import {
   buildCampaignVerdict,
   buildFunnelDiagnosis,
@@ -367,6 +371,115 @@ function CampaignInsight({ report }: { report: SpacebogamFunnelReport }) {
   );
 }
 
+function NaverSearchAdsPanel({ report }: { report: SpacebogamFunnelReport }) {
+  const snapshot = report.naverSearchAds;
+  if (!snapshot) {
+    return (
+      <InlineBanner tone="warning" title="네이버 광고 연결 대기" icon={Megaphone}>
+        네이버 검색광고 결과가 아직 이 리포트에 연결되지 않았습니다.
+      </InlineBanner>
+    );
+  }
+  if (snapshot.status === "error") {
+    return (
+      <InlineBanner tone="warning" title="네이버 광고 데이터 점검 필요" icon={Megaphone}>
+        {snapshot.message} 퍼널 데이터는 계속 확인할 수 있습니다.
+      </InlineBanner>
+    );
+  }
+
+  const naverCampaigns = report.campaigns.filter((campaign) => (
+    campaign.source.toLowerCase().includes("naver")
+  ));
+  const naverUtmLeads = naverCampaigns.reduce((sum, campaign) => sum + campaign.submittedLeads, 0);
+  const trackingMismatch = snapshot.totals.conversions === 0 && naverUtmLeads > 0;
+  const metrics = [
+    {
+      icon: WalletCards,
+      label: "광고비",
+      value: formatWon(snapshot.totals.spendKrw),
+      context: `${snapshot.campaignsWithSpend}개 캠페인 지출`,
+    },
+    {
+      icon: Megaphone,
+      label: "노출",
+      value: formatCount(snapshot.totals.impressions),
+      context: `활성 ${snapshot.activeCampaignCount}/${snapshot.campaignCount}`,
+    },
+    {
+      icon: MousePointerClick,
+      label: "클릭",
+      value: formatCount(snapshot.totals.clicks),
+      context: `CTR ${formatRate(snapshot.totals.ctr)}`,
+    },
+    {
+      icon: Target,
+      label: "네이버 전환",
+      value: formatCount(snapshot.totals.conversions),
+      context: snapshot.totals.costPerConversionKrw === null
+        ? "전환 추적 확인 필요"
+        : `CPA ${formatWon(snapshot.totals.costPerConversionKrw)}`,
+    },
+  ];
+
+  return (
+    <section aria-labelledby="naver-searchads-title" className="overflow-hidden rounded-xl border border-funnel-line bg-funnel-panel">
+      <header className="grid gap-4 border-b border-funnel-line px-5 py-5 lg:grid-cols-3 lg:px-6">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className="bg-funnel-signal text-funnel-canvas">LIVE API</Badge>
+            <Badge variant="outline" className="border-funnel-line text-funnel-muted">에이전트 조회 가능</Badge>
+          </div>
+          <h2 id="naver-searchads-title" className="text-xl font-semibold text-funnel-ink">네이버 검색광고</h2>
+        </div>
+        <div className="space-y-2 lg:col-span-2">
+          <p className="font-semibold text-funnel-ink">
+            {trackingMismatch
+              ? "사이트 문의와 네이버 전환 집계가 연결되지 않았습니다."
+              : snapshot.totals.conversions === 0
+                ? "전환 0건이 실제 성과인지 추적 누락인지 먼저 구분하세요."
+                : "광고 반응과 사이트 문의 흐름을 함께 비교할 수 있습니다."}
+          </p>
+          <p className="text-sm leading-6 text-funnel-muted">
+            {trackingMismatch
+              ? `네이버 UTM 유입에서 문의 ${formatCount(naverUtmLeads)}건이 보이지만 광고 플랫폼 전환은 0건입니다. 전환 태그와 UTM 연결을 먼저 점검하세요.`
+              : `광고 데이터 ${snapshot.since}–${snapshot.until}. 퍼널과 날짜 범위는 같지만 공통 UTM이 없는 캠페인은 문의 인과로 단정하지 않습니다.`}
+          </p>
+        </div>
+      </header>
+
+      <dl className="grid border-b border-funnel-line sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric, index) => {
+          const Icon = metric.icon;
+          return (
+            <div
+              key={metric.label}
+              className={cn(
+                "flex items-end justify-between gap-3 border-b border-funnel-line px-5 py-4",
+                index % 2 === 0 && "sm:border-r",
+                index >= 2 && "sm:border-b-0",
+                index < 2 && "xl:border-b-0",
+                index < 3 && "xl:border-r",
+              )}
+            >
+              <div className="space-y-2">
+                <Icon className="h-4 w-4 text-funnel-signal" aria-hidden="true" />
+                <div>
+                  <dt className="text-xs font-medium text-funnel-muted">{metric.label}</dt>
+                  <dd className="text-xs text-funnel-muted">{metric.context}</dd>
+                </div>
+              </div>
+              <dd className="font-mono text-xl font-semibold tracking-tight text-funnel-ink">{metric.value}</dd>
+            </div>
+          );
+        })}
+      </dl>
+
+      <NaverCampaignPerformanceChart snapshot={snapshot} />
+    </section>
+  );
+}
+
 function canRenderLossPareto(report: SpacebogamFunnelReport) {
   return report.quality.status === "ready"
     && report.quality.isMonotonic
@@ -391,6 +504,7 @@ function Dashboard({ report }: { report: SpacebogamFunnelReport }) {
     <div className="space-y-8">
       <MetricStrip report={report} />
       <QualitySummary report={report} />
+      <NaverSearchAdsPanel report={report} />
       {diagnosis && (
         <>
           <DiagnosisPanel diagnosis={diagnosis} />
@@ -442,9 +556,9 @@ export function SpacebogamFunnelAnalytics() {
                 <span>Conversion control</span>
               </div>
               <div>
-                <h1 className="text-3xl font-semibold tracking-tight text-funnel-ink">공간보감 퍼널 분석</h1>
+                <h1 className="text-3xl font-semibold tracking-tight text-funnel-ink">공간보감 퍼널·광고 분석</h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-funnel-muted">
-                  숫자를 나열하지 않고, 어디가 막혔는지와 다음 행동을 구분합니다.
+                  유입부터 문의까지의 병목과 광고 반응을 한 화면에서 구분합니다.
                 </p>
               </div>
             </div>

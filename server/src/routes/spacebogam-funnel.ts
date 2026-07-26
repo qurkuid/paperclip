@@ -5,6 +5,10 @@ import {
   type SpacebogamFunnelUpstreamClient,
   type SpacebogamFunnelUpstreamError,
 } from "../services/spacebogam-funnel-upstream.js";
+import {
+  createSpacebogamNaverSearchAdsClient,
+  type SpacebogamNaverSearchAdsClient,
+} from "../services/spacebogam-naver-searchads.js";
 import { assertBoard, assertCompanyAccess } from "./authz.js";
 
 function getCompanyId(params: Record<string, string | undefined>): string | null {
@@ -28,6 +32,13 @@ function envClient(): SpacebogamFunnelUpstreamClient {
   });
 }
 
+function envNaverClient(): SpacebogamNaverSearchAdsClient {
+  return createSpacebogamNaverSearchAdsClient({
+    credentialsPath: process.env.SPACEBOGAM_NAVER_SEARCH_AD_CREDENTIALS_PATH,
+    paperclipCompanyId: process.env.SPACEBOGAM_FUNNEL_PAPERCLIP_COMPANY_ID,
+  });
+}
+
 function routeError(error: SpacebogamFunnelUpstreamError): HttpError {
   if (error.kind === "disabled") {
     return new HttpError(503, "spacebogam_funnel_disabled");
@@ -44,7 +55,10 @@ function routeError(error: SpacebogamFunnelUpstreamError): HttpError {
   return new HttpError(502, "spacebogam_funnel_upstream_error");
 }
 
-export function spacebogamFunnelRoutes(client?: SpacebogamFunnelUpstreamClient) {
+export function spacebogamFunnelRoutes(
+  client?: SpacebogamFunnelUpstreamClient,
+  naverClient: SpacebogamNaverSearchAdsClient = envNaverClient(),
+) {
   const router = Router();
 
   router.get("/companies/:companyId/analytics/spacebogam-funnel", async (req, res) => {
@@ -68,7 +82,12 @@ export function spacebogamFunnelRoutes(client?: SpacebogamFunnelUpstreamClient) 
       throw routeError(result.error);
     }
 
-    res.json(result.report);
+    const naverSearchAds = await naverClient.fetchSnapshot({
+      companyId,
+      rangeDays,
+      dataThrough: result.report.dataThrough,
+    });
+    res.json(naverSearchAds ? { ...result.report, naverSearchAds } : result.report);
   });
 
   return router;
