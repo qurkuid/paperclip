@@ -26,6 +26,10 @@ const markdownEditorMockState = vi.hoisted(() => ({
   emitMountEmptyChange: false,
 }));
 
+const locationMockState = vi.hoisted(() => ({
+  hash: "",
+}));
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -58,7 +62,7 @@ vi.mock("../hooks/useAutosaveIndicator", () => ({
 }));
 
 vi.mock("@/lib/router", () => ({
-  useLocation: () => ({ hash: "" }),
+  useLocation: () => locationMockState,
 }));
 
 vi.mock("./MarkdownBody", () => ({
@@ -292,6 +296,7 @@ describe("IssueDocumentsSection", () => {
     window.localStorage.clear();
     vi.clearAllMocks();
     markdownEditorMockState.emitMountEmptyChange = false;
+    locationMockState.hash = "";
   });
 
   afterEach(() => {
@@ -340,6 +345,69 @@ describe("IssueDocumentsSection", () => {
       root.unmount();
     });
     queryClient.clear();
+  });
+
+  it("keeps a document deep link anchored after the page layout settles", async () => {
+    const documentKey = "experiment-operations-log";
+    const documentTitle = "고객 접점 실험 운영대장";
+    const issue = createIssue();
+    const root = createRoot(container);
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+        mutations: {
+          retry: false,
+        },
+      },
+    });
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    const scrollIntoViewMock = vi.fn();
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoViewMock,
+    });
+
+    locationMockState.hash = `#document-${documentKey}`;
+    mockIssuesApi.listDocuments.mockResolvedValue([
+      createIssueDocument({
+        id: "document-operations",
+        key: documentKey,
+        title: documentTitle,
+        body: "Daily operator checklist",
+      }),
+    ]);
+
+    try {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <IssueDocumentsSection issue={issue} canDeleteDocuments={false} />
+          </QueryClientProvider>,
+        );
+      });
+      await flush();
+      await flush();
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      });
+
+      const documentFrame = container.querySelector(`#document-${documentKey}`);
+      expect(documentFrame).toBeTruthy();
+      expect(documentFrame?.querySelector("span.text-sm.font-semibold")?.textContent).toBe(documentTitle);
+      expect(scrollIntoViewMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(scrollIntoViewMock).toHaveBeenLastCalledWith({ behavior: "auto", block: "start" });
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      queryClient.clear();
+      Object.defineProperty(Element.prototype, "scrollIntoView", {
+        configurable: true,
+        value: originalScrollIntoView,
+      });
+    }
   });
 
   it("locks documents from the document header action", async () => {

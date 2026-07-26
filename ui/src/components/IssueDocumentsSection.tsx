@@ -15,6 +15,7 @@ import { useLocation } from "@/lib/router";
 import { ApiError } from "../api/client";
 import { issuesApi } from "../api/issues";
 import { useAutosaveIndicator } from "../hooks/useAutosaveIndicator";
+import { parseDocumentAnnotationHash } from "../lib/document-annotation-hash";
 import { deriveDocumentRevisionState } from "../lib/document-revisions";
 import type { CompanyUserProfile } from "../lib/company-members";
 import { queryKeys } from "../lib/queryKeys";
@@ -442,6 +443,10 @@ export function IssueDocumentsSection({
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
   }, [documentSubject.hideSystemDocuments, documents]);
+  const sortedDocumentKeys = useMemo(
+    () => sortedDocuments.map((doc) => doc.key).join("\u0000"),
+    [sortedDocuments],
+  );
 
   const feedbackVoteByTargetId = useMemo(() => {
     const map = new Map<string, FeedbackVoteValue>();
@@ -803,21 +808,34 @@ export function IssueDocumentsSection({
   }, [documentConflict, sortedDocuments]);
 
   useEffect(() => {
-    const hash = location.hash;
-    if (!hash.startsWith("#document-")) return;
-    const documentKey = decodeURIComponent(hash.slice("#document-".length));
-    const targetExists = sortedDocuments.some((doc) => doc.key === documentKey)
+    const target = parseDocumentAnnotationHash(location.hash);
+    if (!target) return;
+    const documentKey = target.documentKey;
+    const targetExists = sortedDocumentKeys.split("\u0000").includes(documentKey)
       || (documentKey === "plan" && Boolean(documentSubject.legacyPlanDocument));
     if (!targetExists || hasScrolledToHashRef.current) return;
     setFoldedDocumentKeys((current) => current.filter((key) => key !== documentKey));
-    const element = document.getElementById(`document-${documentKey}`);
-    if (!element) return;
     hasScrolledToHashRef.current = true;
     setHighlightDocumentKey(documentKey);
-    element.scrollIntoView({ behavior: "smooth", block: "center" });
-    const timer = setTimeout(() => setHighlightDocumentKey((current) => current === documentKey ? null : current), 3000);
-    return () => clearTimeout(timer);
-  }, [documentSubject.legacyPlanDocument, location.hash, sortedDocuments]);
+
+    const scrollToDocument = () => {
+      document.getElementById(`document-${documentKey}`)
+        ?.scrollIntoView({ behavior: "auto", block: "start" });
+    };
+
+    scrollToDocument();
+    const frame = requestAnimationFrame(scrollToDocument);
+    const settleTimer = window.setTimeout(scrollToDocument, 250);
+    const highlightTimer = window.setTimeout(
+      () => setHighlightDocumentKey((current) => current === documentKey ? null : current),
+      3000,
+    );
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(settleTimer);
+      window.clearTimeout(highlightTimer);
+    };
+  }, [documentSubject.legacyPlanDocument, location.hash, sortedDocumentKeys]);
 
   useEffect(() => {
     return () => {
@@ -1027,6 +1045,7 @@ export function IssueDocumentsSection({
             >
               <DocumentFrameHeader
                 documentKey={doc.key}
+                documentLabel={showTitle ? displayedTitle : undefined}
                 folded={isFolded}
                 onToggleFolded={() => toggleFoldedDocument(doc.key)}
                 sourceTrustSlot={<SourceTrustBadge sourceTrust={doc.sourceTrust} artifactLabel="document" />}
@@ -1056,7 +1075,6 @@ export function IssueDocumentsSection({
                     onToggle={() => toggleAnnotationPanel(doc.key)}
                   />
                 ) : null}
-                titleSlot={showTitle ? <p className="mt-2 text-sm font-medium">{displayedTitle}</p> : null}
                 actionsSlot={
                   <>
                     {canManageDocumentLocks ? (
