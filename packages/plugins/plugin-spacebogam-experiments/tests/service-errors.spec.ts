@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { normalizeError } from "../src/service/errors.js";
 
@@ -25,6 +26,19 @@ describe("Spacebogam service error normalization", () => {
     expect(normalizeError(new Error("invalid_version"), REQUEST_ID)).toMatchObject({
       ok: false,
       code: "invalid_version",
+    });
+  });
+
+  it("keeps the first validation path in board-facing errors", () => {
+    const parsed = z.object({
+      title: z.string().min(1),
+    }).safeParse({ title: "" });
+    expect(parsed.success).toBe(false);
+    if (parsed.success) return;
+
+    expect(normalizeError(parsed.error, REQUEST_ID)).toMatchObject({
+      code: "unknown_action",
+      message: expect.stringContaining("title:"),
     });
   });
 });

@@ -27,7 +27,18 @@ export function normalizeError(error: unknown, requestId: string): ErrorResponse
   }
   const repositoryError = repositoryErrorFromUnknown(error);
   if (repositoryError !== null) return errorResponse(repositoryCode(repositoryError.code), repositoryError.message, requestId);
-  if (error instanceof z.ZodError) return errorResponse("unknown_action", "Invalid Spacebogam experiment action", requestId);
+  if (error instanceof z.ZodError) {
+    const issue = error.issues[0];
+    const path = issue?.path.length ? issue.path.join(".") : "$";
+    const detail = issue === undefined
+      ? "validation failed"
+      : `${path}: ${issue.message}`;
+    return errorResponse(
+      "unknown_action",
+      `Invalid Spacebogam experiment action (${detail})`,
+      requestId,
+    );
+  }
   if (error instanceof Error && isRepositoryCode(error.message)) return errorResponse(error.message, "Experiment mutation conflict", requestId);
   return errorResponse("unknown_action", "Spacebogam experiment action failed", requestId);
 }
