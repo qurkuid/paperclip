@@ -17,6 +17,53 @@ export interface ConfigValidationResult {
   errors?: { field: string; message: string }[];
 }
 
+const SECRET_REF_VALUE_SCHEMA = {
+  type: "object",
+  properties: {
+    type: { const: "secret_ref" },
+    secretId: { type: "string", format: "uuid" },
+    version: {
+      anyOf: [
+        { const: "latest" },
+        { type: "integer", minimum: 1 },
+      ],
+    },
+    projectionClass: {
+      enum: ["unclassified", "class_3_static_lease"],
+    },
+    projectionAllowlistKey: {
+      type: ["string", "null"],
+      minLength: 1,
+      maxLength: 160,
+    },
+  },
+  required: ["type", "secretId"],
+  additionalProperties: false,
+} satisfies JsonSchema;
+
+function normalizeSecretRefSchemas(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(normalizeSecretRefSchemas);
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const node = value as Record<string, unknown>;
+  const normalized = Object.fromEntries(
+    Object.entries(node).map(([key, child]) => [key, normalizeSecretRefSchemas(child)]),
+  );
+  if (node.format !== "secret-ref") {
+    return normalized;
+  }
+
+  const { type: _type, format: _format, ...annotations } = normalized;
+  return {
+    ...annotations,
+    ...SECRET_REF_VALUE_SCHEMA,
+  };
+}
+
 /**
  * Validate a config object against a JSON Schema.
  *
@@ -34,11 +81,7 @@ export function validateInstanceConfig(
   // ajv-formats v3 default export is a FormatsPlugin object; call it as a plugin.
   const applyFormats = (addFormats as any).default ?? addFormats;
   applyFormats(ajv);
-  // Register the secret-ref format used by plugin manifests to mark fields that
-  // hold a Paperclip secret UUID rather than a raw value. The format is a UI
-  // hint only — UUID validation happens in the secrets handler at resolve time.
-  ajv.addFormat("secret-ref", { validate: () => true });
-  const validate = ajv.compile(schema);
+  const validate = ajv.compile(normalizeSecretRefSchemas(schema));
   const valid = validate(configJson);
 
   if (valid) {
