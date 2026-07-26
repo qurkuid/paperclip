@@ -7,6 +7,7 @@ import type {
   SpacebogamFunnelReport,
 } from "@paperclipai/shared/validators/spacebogam-funnel";
 import { spacebogamFunnelQueryKey } from "@/api/spacebogam-funnel";
+import { useCompany } from "@/context/CompanyContext";
 import { SpacebogamFunnelAnalytics } from "@/pages/SpacebogamFunnelAnalytics";
 
 const COMPANY = "company-storybook";
@@ -70,18 +71,21 @@ function report(rangeDays: SpacebogamFunnelRangeDays, status: SpacebogamFunnelQu
   const collecting = status === "collecting";
   const stale = status === "stale";
   const invalidSequence = status === "invalid_sequence";
-  const visits = collecting ? 38 : 2_640;
-  const engagedVisits = invalidSequence ? 2_780 : collecting ? 24 : 1_650;
-  const consultationClicks = collecting ? 9 : 620;
-  const formStarts = collecting ? 4 : 410;
-  const submittedLeads = collecting ? 1 : 276;
+  const visits = ready ? 105 : collecting ? 38 : 2_640;
+  const engagedVisits = invalidSequence ? 2_780 : ready ? 22 : collecting ? 24 : 1_650;
+  const consultationClicks = ready ? 1 : collecting ? 9 : 620;
+  const formStarts = ready ? 0 : collecting ? 4 : 410;
+  const submittedLeads = ready ? 0 : collecting ? 1 : 276;
+  const periodEnd = new Date(Date.UTC(2026, 6, 25));
+  const dailyStart = new Date(periodEnd);
+  dailyStart.setUTCDate(periodEnd.getUTCDate() - rangeDays + 1);
   return {
     schemaVersion: 1,
     timezone: "Asia/Seoul",
     rangeDays,
     generatedAt: "2026-07-25T12:00:00.000+09:00",
     dataThrough: stale ? "2026-07-21T09:30:00.000+09:00" : "2026-07-25T11:30:00.000+09:00",
-    collectionStartedAt: "2026-07-01T00:00:00.000+09:00",
+    collectionStartedAt: ready ? "2026-07-25T02:38:00.000+09:00" : "2026-07-01T00:00:00.000+09:00",
     counts: { visits, engagedVisits, consultationClicks, formStarts, submittedLeads },
     stages: [
       stage("visit", "방문", visits, null),
@@ -90,17 +94,28 @@ function report(rangeDays: SpacebogamFunnelRangeDays, status: SpacebogamFunnelQu
       stage("form_start", "상담 작성 시작", formStarts, consultationClicks),
       stage("lead", "상담 제출 완료", submittedLeads, formStarts),
     ],
-    daily: Array.from({ length: rangeDays }, (_, index) => ({
-      date: `2026-07-${String(index + 1).padStart(2, "0")}`,
-      visits: collecting ? index + 1 : 72 + index,
-      submittedLeads: collecting ? (index === 0 ? 1 : 0) : 7 + (index % 5),
-      visitToLeadRate: collecting ? null : 0.09 + index / 1_000,
-    })),
-    campaigns: [
-      { source: "naver", medium: "search", campaign: "apt-main", visits: 920, submittedLeads: 124, visitToLeadRate: 0.135, sampleStatus: "usable" },
-      { source: "google", medium: "cpc", campaign: "brand-protect", visits: 510, submittedLeads: 46, visitToLeadRate: 0.09, sampleStatus: "usable" },
-      { source: "instagram", medium: "social", campaign: "portfolio-reels", visits: 280, submittedLeads: 14, visitToLeadRate: 0.05, sampleStatus: "usable" },
-    ],
+    daily: Array.from({ length: rangeDays }, (_, index) => {
+      const date = new Date(dailyStart);
+      date.setUTCDate(dailyStart.getUTCDate() + index);
+      const observedReadyDay = ready && index === rangeDays - 1;
+      return {
+        date: date.toISOString().slice(0, 10),
+        visits: observedReadyDay ? 105 : collecting ? index + 1 : ready ? 0 : 72 + index,
+        submittedLeads: collecting ? (index === 0 ? 1 : 0) : ready ? 0 : 7 + (index % 5),
+        visitToLeadRate: ready ? (observedReadyDay ? 0 : null) : collecting ? null : 0.09 + index / 1_000,
+      };
+    }),
+    campaigns: ready
+      ? [
+          { source: "meta", medium: "paid_social", campaign: "ai_ad_test", visits: 48, submittedLeads: 0, visitToLeadRate: 0, sampleStatus: "usable" },
+          { source: "meta", medium: "paid_social", campaign: "home_landing", visits: 21, submittedLeads: 0, visitToLeadRate: 0, sampleStatus: "usable" },
+          { source: "naver", medium: "search", campaign: "brand", visits: 12, submittedLeads: 0, visitToLeadRate: 0, sampleStatus: "low_sample" },
+        ]
+      : [
+          { source: "naver", medium: "search", campaign: "apt-main", visits: 920, submittedLeads: 124, visitToLeadRate: 0.135, sampleStatus: "usable" },
+          { source: "google", medium: "cpc", campaign: "brand-protect", visits: 510, submittedLeads: 46, visitToLeadRate: 0.09, sampleStatus: "usable" },
+          { source: "instagram", medium: "social", campaign: "portfolio-reels", visits: 280, submittedLeads: 14, visitToLeadRate: 0.05, sampleStatus: "usable" },
+        ],
     quality: {
       status,
       sampleSessions: visits,
@@ -112,7 +127,7 @@ function report(rangeDays: SpacebogamFunnelRangeDays, status: SpacebogamFunnelQu
       isMonotonic: !invalidSequence,
       warnings: invalidSequence ? ["참여 세션이 방문 세션보다 크게 집계되었습니다."] : [],
     },
-    bottleneck: ready ? { fromStage: "10초 이상 참여", toStage: "상담 CTA 클릭", lostSessions: 1_030, lossRate: 0.624 } : null,
+    bottleneck: ready ? { fromStage: "방문", toStage: "10초 이상 참여", lostSessions: 83, lossRate: 83 / 105 } : null,
     recommendations: ready
       ? [{
           code: "consultation_cta",
@@ -141,10 +156,16 @@ function makeClient(status: SpacebogamFunnelQualityStatus, error?: ErrorFixture)
 function Scenario({ status, error }: { status: SpacebogamFunnelQualityStatus; error?: ErrorFixture }) {
   installFunnelFixture(status, error);
   const client = useMemo(() => makeClient(status, error), [error, status]);
+  const { selectedCompanyId, setSelectedCompanyId } = useCompany();
+  useEffect(() => {
+    window.localStorage.setItem("paperclip.selectedCompanyId", COMPANY);
+    if (selectedCompanyId !== COMPANY) setSelectedCompanyId(COMPANY);
+  }, [selectedCompanyId, setSelectedCompanyId]);
   useEffect(() => () => {
     client.clear();
     restoreFetchFixture();
   }, [client]);
+  if (selectedCompanyId !== COMPANY) return null;
   return (
     <QueryClientProvider client={client}>
       <SpacebogamFunnelAnalytics />

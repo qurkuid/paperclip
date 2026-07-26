@@ -54,6 +54,17 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-funnel-canvas: var(--funnel-canvas);
+  --color-funnel-panel: var(--funnel-panel);
+  --color-funnel-ink: var(--funnel-ink);
+  --color-funnel-muted: var(--funnel-muted);
+  --color-funnel-line: var(--funnel-line);
+  --color-funnel-critical: var(--funnel-critical);
+  --color-funnel-warning: var(--funnel-warning);
+  --color-funnel-positive: var(--funnel-positive);
+  --color-funnel-signal: var(--funnel-signal);
+  --color-funnel-critical-wash: var(--funnel-critical-wash);
+  --color-funnel-signal-wash: var(--funnel-signal-wash);
   /* Multiplicative radius ladder (modern shadcn/Tailwind v4 mapping):
      sm/md/lg/xl/2xl/3xl/4xl = 0.6/0.8/1.0/1.4/1.8/2.2/2.6 x the single
      --radius knob (base anchor 0.5rem = 8px; rounded-lg IS the anchor).
@@ -104,6 +115,25 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --funnel-canvas: oklch(0.972 0.012 75);
+  --funnel-panel: oklch(0.992 0.007 75);
+  --funnel-ink: oklch(0.22 0.025 65);
+  --funnel-muted: oklch(0.47 0.03 70);
+  --funnel-line: oklch(0.84 0.025 75);
+  --funnel-critical: oklch(0.55 0.16 32);
+  --funnel-warning: oklch(0.64 0.13 72);
+  --funnel-positive: oklch(0.48 0.1 150);
+  --funnel-signal: oklch(0.48 0.12 245);
+  --funnel-critical-wash: oklch(0.94 0.04 35);
+  --funnel-signal-wash: oklch(0.94 0.03 245);
+  --funnel-chart-1: oklch(0.55 0.16 32);
+  --funnel-chart-2: oklch(0.64 0.13 72);
+  --funnel-chart-3: oklch(0.48 0.1 150);
+  --funnel-chart-4: oklch(0.48 0.12 245);
+  --funnel-chart-5: oklch(0.5 0.1 315);
+  --funnel-grid-line: color-mix(in oklab, var(--funnel-line) 32%, transparent);
+  --funnel-grid-size: 3rem;
+  --funnel-grid-stroke: 1px;
   --chip-match-title-bg: oklch(0.97 0.02 265);
   --chip-match-title-fg: oklch(0.4 0.13 265);
   --chip-match-title-border: oklch(0.85 0.05 265);
@@ -228,6 +258,23 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --funnel-canvas: oklch(0.18 0.016 70);
+  --funnel-panel: oklch(0.22 0.018 70);
+  --funnel-ink: oklch(0.93 0.012 75);
+  --funnel-muted: oklch(0.72 0.026 72);
+  --funnel-line: oklch(0.34 0.025 72);
+  --funnel-critical: oklch(0.7 0.15 33);
+  --funnel-warning: oklch(0.75 0.13 76);
+  --funnel-positive: oklch(0.7 0.1 150);
+  --funnel-signal: oklch(0.7 0.11 245);
+  --funnel-critical-wash: oklch(0.28 0.055 32);
+  --funnel-signal-wash: oklch(0.27 0.045 245);
+  --funnel-chart-1: oklch(0.7 0.15 33);
+  --funnel-chart-2: oklch(0.75 0.13 76);
+  --funnel-chart-3: oklch(0.7 0.1 150);
+  --funnel-chart-4: oklch(0.7 0.11 245);
+  --funnel-chart-5: oklch(0.72 0.1 315);
+  --funnel-grid-line: color-mix(in oklab, var(--funnel-line) 42%, transparent);
   --chip-match-title-bg: oklch(0.27 0.04 265 / 0.5);
   --chip-match-title-fg: oklch(0.78 0.10 265);
   --chip-match-title-border: oklch(0.4 0.06 265);
@@ -310,6 +357,22 @@
   .paperclip-mdxeditor-content {
     font-family: inherit;
   }
+}
+
+.spacebogam-funnel-surface {
+  background-color: var(--funnel-canvas);
+  background-image:
+    linear-gradient(
+      to right,
+      var(--funnel-grid-line) var(--funnel-grid-stroke),
+      transparent var(--funnel-grid-stroke)
+    ),
+    linear-gradient(
+      to bottom,
+      var(--funnel-grid-line) var(--funnel-grid-stroke),
+      transparent var(--funnel-grid-stroke)
+    );
+  background-size: var(--funnel-grid-size) var(--funnel-grid-size);
 }
 
 @media (pointer: coarse) {

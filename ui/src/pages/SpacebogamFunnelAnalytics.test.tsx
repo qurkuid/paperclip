@@ -155,12 +155,15 @@ describe("SpacebogamFunnelAnalytics", () => {
     clearRender();
   });
 
-  it("G003 C001 renders the ready dashboard with company-scoped default range, four chart canvases, matching tables, and a bottleneck callout", () => {
+  it("G003 C001 renders the ready dashboard with a diagnosis, action brief, four chart canvases, and matching evidence tables", () => {
     render(<SpacebogamFunnelAnalytics />);
 
     expect(hookCalls.at(-1)).toEqual({ companyId: "company-1", rangeDays: 28 });
     expect(document.body.textContent).toContain("공간보감 퍼널 분석");
-    expect(document.body.textContent).toContain("가장 큰 병목");
+    expect(document.body.textContent).toContain("현재 진단");
+    expect(document.body.textContent).toContain("문제 구간과 원인은 다릅니다.");
+    expect(document.body.textContent).toContain("바꾸고, 측정하고, 판정하세요.");
+    expect(document.body.textContent).toContain("상담 CTA 위치와 약속 실험");
     expect([...document.querySelectorAll("button")].map((button) => button.textContent)).toEqual(["7일", "28일", "90일"]);
     expect(document.querySelectorAll("canvas[aria-label]")).toHaveLength(4);
     expect(document.querySelectorAll("table[aria-label]")).toHaveLength(4);
@@ -168,7 +171,7 @@ describe("SpacebogamFunnelAnalytics", () => {
     expect(document.body.textContent).toContain("apt-main");
     expect(document.body.textContent).toContain("손실 파레토");
     expect(document.body.textContent).toContain("참여 → 상담 클릭");
-    expect(document.body.textContent).toContain("누적 손실 비중");
+    expect(document.body.textContent).toContain("누적 비중");
     const lossPareto = chartProps.at(-1)?.data as { labels: string[]; datasets: Array<{ data: number[] }> };
     expect(lossPareto.labels).toEqual(["방문 → 참여", "참여 → 상담 클릭", "상담 클릭 → 폼 시작", "폼 시작 → 문의 제출"]);
     expect(lossPareto.datasets[0]?.data).toEqual([1_120, 1_060, 200, 140]);
@@ -182,13 +185,14 @@ describe("SpacebogamFunnelAnalytics", () => {
     expect(regions.map((region) => region.getAttribute("aria-label"))).toEqual([
       "단계별 퍼널 표 스크롤 영역", "일별 방문 및 문의율 표 스크롤 영역", "UTM 캠페인 볼륨 전환 표 스크롤 영역", "손실 파레토 표 스크롤 영역",
     ]);
-    expect(regions.every((region) => region.className.includes("max-h-52"))).toBe(true);
+    expect(regions.every((region) => region.className.includes("max-h-64"))).toBe(true);
     expect(regions.every((region) => region.className.includes("overflow-auto"))).toBe(true);
+    expect(document.querySelectorAll("details:not([open])")).toHaveLength(4);
     expect([...document.querySelectorAll("table[aria-label]")].every((table) => {
       const className = table.className;
       return className.includes("table-fixed") && className.includes("text-xs") && className.includes("sm:text-sm") && !className.includes("min-w-");
     })).toBe(true);
-    expect(regions.map((region) => region.querySelectorAll("tbody tr").length)).toEqual([5, 28, 3, 4]);
+    expect(regions.map((region) => region.querySelectorAll("tbody tr").length)).toEqual([5, 25, 3, 4]);
   });
 
   it("G004 replaces Pareto when ready monotonic data still has a negative loss", () => {
@@ -213,7 +217,7 @@ describe("SpacebogamFunnelAnalytics", () => {
       render(<SpacebogamFunnelAnalytics />);
       expect(document.body.textContent).toContain(message);
       expect(document.body.textContent).toContain("손실 파레토 데이터 점검 필요");
-      expect(document.body.textContent).toContain("단계별 손실이 음수이거나 측정 품질/순서가 손실 해석에 적합하지 않아");
+      expect(document.body.textContent).toContain("단계별 손실이 음수이거나 측정 품질과 순서가 해석에 적합하지 않아");
       expect(document.body.textContent).not.toContain("상담 CTA를 첫 화면에 고정");
       expect([...document.querySelectorAll("canvas[aria-label]")].map((canvas) => canvas.getAttribute("aria-label"))).toEqual(["공간보감 단계별 퍼널 막대 차트", "공간보감 일별 방문 및 문의율 혼합 차트", "공간보감 UTM 캠페인 볼륨 전환 산점도"]);
       expect(document.querySelector("canvas[aria-label='공간보감 손실 파레토 혼합 차트']")).toBeNull();

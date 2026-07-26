@@ -145,15 +145,17 @@ function report(rangeDays: RangeDays, status: SpacebogamFunnelQualityStatus): Sp
 
 async function expectReadySurface(page: Page) {
   await expect(page.getByRole("heading", { name: "공간보감 퍼널 분석", exact: true })).toBeVisible();
-  await expect(page.getByText("가장 큰 병목", { exact: true })).toBeVisible();
+  await expect(page.getByText("현재 진단", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "문제 구간과 원인은 다릅니다.", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "바꾸고, 측정하고, 판정하세요.", exact: true })).toBeVisible();
   const canvases = page.locator("canvas[aria-label]");
   await expect(canvases).toHaveCount(4);
   const labels = await canvases.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("aria-label") ?? ""));
   expect(new Set(labels).size).toBe(4);
   expect(labels).toEqual(["공간보감 단계별 퍼널 막대 차트", "공간보감 일별 방문 및 문의율 혼합 차트", "공간보감 UTM 캠페인 볼륨 전환 산점도", "공간보감 손실 파레토 혼합 차트"]);
   const pairs = await canvases.evaluateAll((nodes) => nodes.map((canvas) => {
-    const card = canvas.closest("[data-slot='card']");
-    const tables = Array.from(card?.querySelectorAll("table[aria-label]") ?? []);
+    const shell = canvas.closest("[data-funnel-chart-shell]");
+    const tables = Array.from(shell?.querySelectorAll("table[aria-label]") ?? []);
     return { canvas: canvas.getAttribute("aria-label") ?? "", tables: tables.map((table) => table.getAttribute("aria-label") ?? "") };
   }));
   expect(pairs).toEqual([{ canvas: "공간보감 단계별 퍼널 막대 차트", tables: ["단계별 퍼널 표"] }, { canvas: "공간보감 일별 방문 및 문의율 혼합 차트", tables: ["일별 방문 및 문의율 표"] }, { canvas: "공간보감 UTM 캠페인 볼륨 전환 산점도", tables: ["UTM 캠페인 볼륨 전환 표"] }, { canvas: "공간보감 손실 파레토 혼합 차트", tables: ["손실 파레토 표"] }]);
@@ -207,6 +209,7 @@ test.describe.serial("Spacebogam funnel analytics", () => {
 
     mock.setStatus("ready");
     await page.goto(`/${seed.prefix}/analytics/funnel`);
+    await page.locator("summary").filter({ hasText: "원본 표 보기" }).nth(2).click();
     await expect(page.getByRole("table", { name: "UTM 캠페인 볼륨 전환 표" }).getByText("apt-main", { exact: true })).toBeVisible();
     const errors: Array<{ mode: ErrorMode; button: string; copy: string }> = [{ mode: "disabled", button: "7일", copy: "공간보감 퍼널 연동이 비활성화되어 있습니다." }, { mode: "timeout", button: "90일", copy: "공간보감 응답 시간이 초과되었습니다." }, { mode: "malformed", button: "다시 시도", copy: "공간보감 응답 형식이 올바르지 않습니다." }];
     for (const item of errors) {
@@ -227,6 +230,7 @@ test.describe.serial("Spacebogam funnel analytics", () => {
     await page.goto(`/${seed.prefix}/analytics/funnel`);
     await expectReadySurface(page);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+    for (const summary of await page.locator("summary").all()) await summary.click();
     const tableMetrics = await page.locator("div[aria-label$='표 스크롤 영역']").evaluateAll((wrappers) => wrappers.map((wrapper) => {
       const table = wrapper.querySelector("table");
       const last = table?.querySelector("thead th:last-child");
