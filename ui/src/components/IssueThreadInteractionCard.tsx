@@ -10,6 +10,7 @@ import {
   getCheckboxConfirmationSelectedLabels,
   getItemVerdictProgress,
   getQuestionAnswerLabels,
+  getRequestConfirmationTargetHref,
   normalizeRequestConfirmationTargetHref,
   type AskUserQuestionsAnswer,
   type AskUserQuestionsInteraction,
@@ -35,6 +36,8 @@ import { PriorityIcon } from "./PriorityIcon";
 import { Textarea } from "./ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { Badge } from "@/components/ui/badge";
+import { DecisionDocumentPreview } from "./issue-thread-interactions/DecisionDocumentPreview";
+import { ToolActionDecisionPreview } from "./issue-thread-interactions/ToolActionDecisionPreview";
 
 const OTHER_ANSWER_ID = "__paperclip_other__";
 
@@ -1230,21 +1233,6 @@ function requestConfirmationTargetLabel(target: RequestConfirmationTarget) {
   return `${target.key}${revision}`;
 }
 
-function requestConfirmationTargetHref({
-  interaction,
-  target,
-}: {
-  interaction: Pick<IssueThreadInteraction, "issueId">;
-  target: RequestConfirmationTarget;
-}) {
-  if (target.href) return target.href;
-  if (target.type === "issue_document") {
-    const issueId = target.issueId ?? interaction.issueId;
-    return `/issues/${issueId}#document-${encodeURIComponent(target.key)}`;
-  }
-  return null;
-}
-
 function RequestConfirmationTargetChip({
   interaction,
   target,
@@ -1256,7 +1244,10 @@ function RequestConfirmationTargetChip({
 }) {
   if (!target) return null;
 
-  const href = requestConfirmationTargetHref({ interaction, target });
+  const href = getRequestConfirmationTargetHref({
+    issueId: interaction.issueId,
+    target,
+  });
   const className = cn(
     "inline-flex max-w-full items-center gap-1.5 rounded-sm border px-2 py-0.5 text-(length:--text-nano) font-medium uppercase tracking-(--tracking-eyebrow)",
     tone === "default"
@@ -1708,6 +1699,11 @@ function RequestToolActionCard({
         </MarkdownBody>
       </div>
 
+      <ToolActionDecisionPreview
+        argumentsSummaryJson={payload.argumentsSummaryJson}
+        externalReferences={externalReferences}
+      />
+
       <ToolActionTechnicalDetails payload={payload} />
 
       {isPending ? (
@@ -1929,6 +1925,13 @@ function RequestConfirmationCard({
             <div className="border-t border-border/60 pt-3 text-sm">
               <MarkdownBody externalReferences={externalReferences}>{interaction.payload.detailsMarkdown}</MarkdownBody>
             </div>
+          ) : null}
+          {isPlan && interaction.payload.target?.type === "issue_document" ? (
+            <DecisionDocumentPreview
+              fallbackIssueId={interaction.issueId}
+              target={interaction.payload.target}
+              externalReferences={externalReferences}
+            />
           ) : null}
           <RequestConfirmationTargetChip
             interaction={interaction}

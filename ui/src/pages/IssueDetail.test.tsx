@@ -81,6 +81,7 @@ const mockLocation = vi.hoisted(() => ({
   hash: "",
   state: null as unknown,
 }));
+const mockIssueRouteParam = vi.hoisted(() => ({ value: "PAP-1" }));
 const mockOpenPanel = vi.hoisted(() => vi.fn());
 const mockClosePanel = vi.hoisted(() => vi.fn());
 const mockSetBreadcrumbs = vi.hoisted(() => vi.fn());
@@ -160,7 +161,7 @@ vi.mock("@/lib/router", () => ({
   useLocation: () => mockLocation,
   useNavigate: () => mockNavigate,
   useNavigationType: () => "PUSH",
-  useParams: () => ({ issueId: "PAP-1" }),
+  useParams: () => ({ issueId: mockIssueRouteParam.value }),
 }));
 
 vi.mock("../context/CompanyContext", () => ({
@@ -999,6 +1000,7 @@ describe("IssueDetail", () => {
     mockLocation.search = "";
     mockLocation.hash = "";
     mockLocation.state = null;
+    mockIssueRouteParam.value = "PAP-1";
   });
 
   afterEach(async () => {
@@ -1034,6 +1036,28 @@ describe("IssueDetail", () => {
         String(call[0]).includes("React has detected a change in the order of Hooks"),
       ),
     ).toBe(false);
+  });
+
+  it("preserves a document hash when a UUID route canonicalizes to an issue identifier", async () => {
+    const issueId = "1ec4ad58-d235-4e2e-a5d9-a707984620e3";
+    mockIssueRouteParam.value = issueId;
+    mockLocation.pathname = `/issues/${issueId}`;
+    mockLocation.hash = "#document-plan";
+    mockIssuesApi.get.mockResolvedValue(createIssue({ id: issueId, identifier: "PAP-21" }));
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <IssueDetail />
+        </QueryClientProvider>,
+      );
+    });
+    await flushReact();
+
+    expect(mockNavigate).toHaveBeenCalledWith(
+      "/issues/PAP-21#document-plan",
+      expect.objectContaining({ replace: true }),
+    );
   });
 
   it("removes an inbox-origin archived issue from cached inbox variants before navigating back", async () => {

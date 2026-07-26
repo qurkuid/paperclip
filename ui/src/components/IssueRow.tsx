@@ -162,39 +162,48 @@ export function IssueRow({
   ) : null;
 
   return (
-    <Link
-      to={createIssueDetailPath(issuePathId)}
-      state={detailState}
-      disableIssueQuicklook
-      issuePrefetch={issue}
-      data-inbox-issue-link
-      id={checklistRowId}
-      aria-current={checklistCurrentStep ? "step" : undefined}
-      onClickCapture={() => rememberIssueDetailLocationState(issuePathId, detailState)}
-      onMouseEnter={onMouseEnter}
+    <div
       className={cn(
         // No color transition on the row band: hover/selection must snap
         // instantly. A fade (transition-colors) leaves a trail of fading bands
         // when scrubbing the mouse fast across the list.
-        "group relative flex items-start gap-2 rounded-lg py-2.5 pl-2 pr-3 text-sm no-underline text-inherit sm:items-center sm:py-2 sm:pl-1",
+        "group relative flex items-start gap-2 rounded-lg py-2.5 pl-2 pr-3 text-sm text-inherit sm:items-center sm:py-2 sm:pl-1",
         !hideDivider && "border-b border-border last:border-b-0",
         selected ? "hover:bg-transparent" : "hover:bg-accent/50",
         checklistCurrentStep ? "bg-primary/5" : null,
         className,
       )}
+      onMouseEnter={onMouseEnter}
+      id={checklistRowId}
     >
-      <span className="flex shrink-0 items-center gap-1 pt-px sm:hidden">
-        {mobileLeading ?? <StatusIcon status={issue.status} blockerAttention={issue.blockerAttention} size="md" className={selectedStatusClass} />}
-        {productivityReviewIndicator}
-        {parkedBlockerIndicator}
-        {recoveryIndicator}
+      <Link
+        to={createIssueDetailPath(issuePathId)}
+        state={detailState}
+        disableIssueQuicklook
+        issuePrefetch={issue}
+        data-inbox-issue-link
+        aria-current={checklistCurrentStep ? "step" : undefined}
+        aria-label={`Open ${identifier}: ${issue.title}`}
+        onClickCapture={() => rememberIssueDetailLocationState(issuePathId, detailState)}
+        className="absolute inset-0 z-0 rounded-lg no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+      />
+      <span
+        className={cn(
+          "pointer-events-none relative z-10 flex shrink-0 items-center gap-1 pt-px sm:hidden",
+          mobileLeading && "pointer-events-auto",
+        )}
+      >
+          {mobileLeading ?? <StatusIcon status={issue.status} blockerAttention={issue.blockerAttention} size="md" className={selectedStatusClass} />}
+          {productivityReviewIndicator}
+          {parkedBlockerIndicator}
+          {recoveryIndicator}
       </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-1 sm:contents">
+      <span className="pointer-events-none relative z-10 flex min-w-0 flex-1 flex-col gap-1 sm:contents">
         <span className={cn("line-clamp-2 text-sm sm:order-2 sm:min-w-0 sm:flex-1 sm:truncate sm:line-clamp-none", titleClassName)}>
           {issue.title}{titleSuffix}
         </span>
         {checklistDependencyChips ? (
-          <span className="flex flex-wrap gap-1 sm:order-3 sm:ml-(--sz-calc-13)">
+          <span className="pointer-events-auto flex flex-wrap gap-1 sm:order-3 sm:ml-(--sz-calc-13)">
             {checklistDependencyChips}
           </span>
         ) : null}
@@ -207,7 +216,7 @@ export function IssueRow({
             // that reserve the same w-4 slot.
             <span
               data-testid="issue-row-unread-slot"
-              className="hidden h-4 w-4 shrink-0 items-center justify-center self-center sm:inline-flex"
+              className="pointer-events-auto hidden h-4 w-4 shrink-0 items-center justify-center self-center sm:inline-flex"
             >
               {showUnreadDot ? unreadDotButton : null}
             </span>
@@ -250,7 +259,9 @@ export function IssueRow({
           {desktopLeadingSpacer ? (
             <span className="hidden w-3.5 shrink-0 sm:block" />
           ) : null}
-          {desktopMetaLeading ?? (
+          {desktopMetaLeading ? (
+            <span className="pointer-events-auto contents">{desktopMetaLeading}</span>
+          ) : (
             <>
               <span className="hidden shrink-0 items-center gap-1 sm:inline-flex">
                 <StatusIcon status={issue.status} blockerAttention={issue.blockerAttention} size="md" className={selectedStatusClass} />
@@ -275,7 +286,7 @@ export function IssueRow({
         </span>
       </span>
       {(onArchive || desktopTrailing || trailingMeta || externalObjectSummary) ? (
-        <span className="ml-auto hidden shrink-0 items-center gap-2 sm:order-3 sm:flex sm:gap-3">
+        <span className="relative z-20 ml-auto hidden shrink-0 items-center gap-2 sm:order-3 sm:flex sm:gap-3">
           {onArchive ? (
             <button
               type="button"
@@ -309,14 +320,11 @@ export function IssueRow({
         </span>
       ) : null}
       {showUnreadDot ? (
-        // Mobile keeps the dot in flow as the leading item (mobile has no
-        // reserved desktop dot gutter). Desktop renders the dot in the reserved
-        // leading slot above instead, so this is mobile-only.
-        <span className="order-first inline-flex h-4 w-4 shrink-0 items-center justify-center self-center sm:hidden">
+        <span className="relative z-20 order-first inline-flex h-4 w-4 shrink-0 items-center justify-center self-center sm:hidden">
           {unreadDotButton}
         </span>
       ) : null}
-    </Link>
+    </div>
   );
 }
 

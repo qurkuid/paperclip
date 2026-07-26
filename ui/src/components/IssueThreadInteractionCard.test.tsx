@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { DocumentRevision } from "@paperclipai/shared";
 import { act as reactAct, type ComponentProps, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IssueThreadInteractionCard } from "./IssueThreadInteractionCard";
 import { ThemeProvider } from "../context/ThemeContext";
 import { TooltipProvider } from "./ui/tooltip";
@@ -32,6 +34,15 @@ import {
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
+let queryClient: QueryClient | null = null;
+
+const mockGetDocumentRevisions = vi.hoisted(() => vi.fn());
+
+vi.mock("../api/issues", () => ({
+  issuesApi: {
+    listDocumentRevisions: mockGetDocumentRevisions,
+  },
+}));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -61,30 +72,71 @@ function renderCard(
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  queryClient = client;
 
   act(() => {
     root?.render(
-      <TooltipProvider>
-        <ThemeProvider>
-          <IssueThreadInteractionCard
-            interaction={pendingAskUserQuestionsInteraction}
-            {...props}
-          />
-        </ThemeProvider>
-      </TooltipProvider>,
+      <QueryClientProvider client={client}>
+        <TooltipProvider>
+          <ThemeProvider>
+            <IssueThreadInteractionCard
+              interaction={pendingAskUserQuestionsInteraction}
+              {...props}
+            />
+          </ThemeProvider>
+        </TooltipProvider>
+      </QueryClientProvider>,
     );
   });
 
   return container;
 }
 
+const planRevisionFixture: DocumentRevision = {
+  id: "11111111-1111-4111-8111-111111111111",
+  companyId: "company-1",
+  documentId: "document-plan",
+  issueId: "11111111-1111-4111-8111-111111111111",
+  key: "plan",
+  revisionNumber: 3,
+  title: "Threads response and conversion operating plan",
+  format: "markdown",
+  body: [
+    "# Threads 운영안",
+    "",
+    "## 측정 기준",
+    "- 반응률과 프로필 방문을 매일 기록합니다.",
+    "- 상담 전환은 UTM 기준으로 판정합니다.",
+    "",
+    "## 중단 기준",
+    "개인정보나 DM 원문은 수집하지 않습니다.",
+  ].join("\n"),
+  changeSummary: null,
+  createdByAgentId: "agent-codex",
+  createdByUserId: null,
+  createdAt: new Date("2026-04-20T14:25:00.000Z"),
+};
+
+beforeEach(() => {
+  mockGetDocumentRevisions.mockReset();
+  mockGetDocumentRevisions.mockResolvedValue([planRevisionFixture]);
+});
+
 afterEach(() => {
   if (root) {
     act(() => root?.unmount());
   }
   container?.remove();
+  queryClient?.clear();
   root = null;
   container = null;
+  queryClient = null;
 });
 
 describe("IssueThreadInteractionCard", () => {
@@ -454,6 +506,27 @@ describe("IssueThreadInteractionCard", () => {
     expect(rejected.textContent).toContain("Changes requested");
   });
 
+  it("loads and renders the exact plan revision inline before approval", async () => {
+    const host = renderCard({
+      interaction: pendingRequestConfirmationInteraction,
+      onAcceptInteraction: vi.fn(),
+      onRejectInteraction: vi.fn(),
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(mockGetDocumentRevisions).toHaveBeenCalledWith(
+      pendingRequestConfirmationInteraction.issueId,
+      "plan",
+    );
+    expect(host.textContent).toContain("Threads 운영안");
+    expect(host.textContent).toContain("반응률과 프로필 방문을 매일 기록합니다.");
+    expect(host.textContent).toContain("개인정보나 DM 원문은 수집하지 않습니다.");
+  });
+
   it("attaches screenshots to a plan request-changes reason as markdown images", async () => {
     const onRejectInteraction = vi.fn(async () => undefined);
     const onUploadImage = vi.fn(async () => "https://cdn.example/shot.png");
@@ -595,6 +668,54 @@ describe("IssueThreadInteractionCard", () => {
 });
 
 describe("IssueThreadInteractionCard tool-action card", () => {
+  it("shows nested publish content, channels, and image inline before approval", () => {
+    const host = renderCard({
+      interaction: {
+        ...pendingToolActionWriteInteraction,
+        payload: {
+          ...pendingToolActionWriteInteraction.payload,
+          toolAction: {
+            ...pendingToolActionWriteInteraction.payload.toolAction!,
+            toolName: "intm_internal_publish_approved_content",
+            toolDisplayName: "Publish approved content",
+            appDisplayName: "INTM internal data",
+            previewMarkdown: "It can change something, so we're checking with you first.",
+            argumentsSummaryJson: JSON.stringify({
+              content: {
+                instagram: {
+                  altText: "밝은 톤의 아파트 거실",
+                  caption: "견적서, 총액보다 먼저 볼 5가지",
+                  imageUrl: "https://intm.kr/api/uploads/paperclip-content/living-room.jpg",
+                },
+                naverBlog: {
+                  title: "인테리어 견적 비교 전 확인하는 5가지",
+                  bodyMarkdown: "## 총액보다 공사 범위부터 맞추기",
+                },
+                threads: {
+                  text: "같은 평수라도 공사 범위가 다르면 견적은 달라집니다.",
+                },
+              },
+              platforms: ["threads", "instagram"],
+            }),
+          },
+        },
+      },
+      onAcceptInteraction: vi.fn(),
+      onRejectInteraction: vi.fn(),
+    });
+
+    expect(host.textContent).toContain("Instagram");
+    expect(host.textContent).toContain("견적서, 총액보다 먼저 볼 5가지");
+    expect(host.textContent).toContain("Naver Blog");
+    expect(host.textContent).toContain("인테리어 견적 비교 전 확인하는 5가지");
+    expect(host.textContent).toContain("같은 평수라도 공사 범위가 다르면 견적은 달라집니다.");
+    expect(host.textContent).toContain("Publishing to");
+    const image = host.querySelector('img[alt="밝은 톤의 아파트 거실"]');
+    expect(image?.getAttribute("src")).toBe(
+      "https://intm.kr/api/uploads/paperclip-content/living-room.jpg",
+    );
+  });
+
   it("selects the pending state with the Approve & run affordance and identity header", () => {
     const host = renderCard({
       interaction: pendingToolActionWriteInteraction,

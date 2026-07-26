@@ -3159,7 +3159,7 @@ export function IssueDetail() {
     const nextState = resolvedIssueDetailState ?? location.state;
     if (issue?.identifier && issueId !== issue.identifier) {
       rememberIssueDetailLocationState(issue.identifier, nextState, location.search);
-      navigate(createIssueDetailPath(issue.identifier), {
+      navigate(`${createIssueDetailPath(issue.identifier)}${location.hash}`, {
         replace: true,
         state: nextState,
       });
@@ -3168,12 +3168,12 @@ export function IssueDetail() {
 
     if (issueId && hasLegacyIssueDetailQuery(location.search)) {
       rememberIssueDetailLocationState(issueId, nextState, location.search);
-      navigate(createIssueDetailPath(issueId), {
+      navigate(`${createIssueDetailPath(issueId)}${location.hash}`, {
         replace: true,
         state: nextState,
       });
     }
-  }, [issue, issueId, navigate, location.state, location.search, resolvedIssueDetailState]);
+  }, [issue, issueId, navigate, location.hash, location.state, location.search, resolvedIssueDetailState]);
 
   useEffect(() => {
     if (!issue?.id) return;

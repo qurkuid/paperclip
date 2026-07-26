@@ -263,14 +263,12 @@ export function attentionImageUrl(assetId: string): string {
   return withAppBasePath(`/api/assets/${assetId}/content`);
 }
 
-/**
- * Decisions-only badge count. Every feed row *is* a pending decision (the
- * server drops anything without a decision verb into Activity, per the §0
- * invariant), and mentions/unread never enter the feed — so the row count is
- * the decisions-only number. `/inbox` keeps its own unread count untouched.
- */
+export function attentionDecisionCount(items: readonly AttentionItem[]): number {
+  return items.filter(isInlineResolvable).length;
+}
+
 export function attentionBadgeCount(feed: AttentionFeed | null | undefined): number {
-  return feed?.items.length ?? 0;
+  return attentionDecisionCount(feed?.items ?? []);
 }
 
 // ---------------------------------------------------------------------------

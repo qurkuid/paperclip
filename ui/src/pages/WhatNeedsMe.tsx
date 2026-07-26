@@ -14,6 +14,7 @@ import { queryKeys } from "../lib/queryKeys";
 import {
   ATTENTION_GROUP_BY_OPTIONS,
   ATTENTION_SORT_OPTIONS,
+  attentionDecisionCount,
   buildAttentionFilterOptions,
   countActiveAttentionFilters,
   defaultAttentionFilterState,
@@ -189,6 +190,10 @@ export function WhatNeedsMe() {
   }, [activeItems, filters, sortOrder, groupBy]);
 
   const visibleCount = useMemo(() => groups.reduce((sum, group) => sum + group.items.length, 0), [groups]);
+  const visibleDecisionCount = useMemo(
+    () => groups.reduce((sum, group) => sum + attentionDecisionCount(group.items), 0),
+    [groups],
+  );
   const keyboardItems = useMemo(
     () => groups.filter((group) => group.label === null || !collapsedGroupKeys.has(group.key)).flatMap((group) => group.items),
     [collapsedGroupKeys, groups],
@@ -430,9 +435,9 @@ export function WhatNeedsMe() {
           </Button>
         </div>
         <div className="flex items-center gap-2">
-          {visibleCount > 0 && (
+          {visibleDecisionCount > 0 && (
             <span className="text-sm text-muted-foreground">
-              {visibleCount} {visibleCount === 1 ? "decision" : "decisions"}
+              {visibleDecisionCount} {visibleDecisionCount === 1 ? "decision" : "decisions"}
             </span>
           )}
           {/* Filter */}

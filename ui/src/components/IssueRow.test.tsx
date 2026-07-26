@@ -7,6 +7,16 @@ import type { Issue } from "@paperclipai/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IssueRow } from "./IssueRow";
 
+const rememberIssueDetailLocationStateMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../lib/issueDetailBreadcrumb", async () => {
+  const actual = await vi.importActual<typeof import("../lib/issueDetailBreadcrumb")>("../lib/issueDetailBreadcrumb");
+  return {
+    ...actual,
+    rememberIssueDetailLocationState: rememberIssueDetailLocationStateMock,
+  };
+});
+
 vi.mock("@/lib/router", () => ({
   Link: ({
     children,
@@ -89,6 +99,7 @@ describe("IssueRow", () => {
   beforeEach(() => {
     container = document.createElement("div");
     document.body.appendChild(container);
+    rememberIssueDetailLocationStateMock.mockReset();
   });
 
   afterEach(() => {
@@ -123,9 +134,10 @@ describe("IssueRow", () => {
     });
 
     const link = container.querySelector("[data-inbox-issue-link]") as HTMLAnchorElement | null;
+    const row = link?.parentElement;
     expect(link).not.toBeNull();
-    expect(link?.className).toContain("hover:bg-transparent");
-    expect(link?.className).not.toContain("hover:bg-accent/50");
+    expect(row?.className).toContain("hover:bg-transparent");
+    expect(row?.className).not.toContain("hover:bg-accent/50");
 
     act(() => {
       root.unmount();
@@ -245,6 +257,79 @@ describe("IssueRow", () => {
     });
   });
 
+  it("keeps every row action outside the navigation anchor", () => {
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(
+        <IssueRow
+          issue={createIssue()}
+          unreadState="visible"
+          onMarkRead={vi.fn()}
+          onArchive={vi.fn()}
+          desktopMetaLeading={<button type="button">Toggle children</button>}
+        />,
+      );
+    });
+
+    const link = container.querySelector("[data-inbox-issue-link]");
+    expect(link).not.toBeNull();
+    expect(link?.querySelector("button")).toBeNull();
+    expect(container.querySelector('button[aria-label="Mark as read"]')).not.toBeNull();
+    expect(container.querySelector('button[aria-label="Archive"]')).not.toBeNull();
+    expect(container.textContent).toContain("Toggle children");
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it("keeps row navigation from firing when mark-read is clicked", () => {
+    const root = createRoot(container);
+    const onMarkRead = vi.fn();
+
+    act(() => {
+      root.render(<IssueRow issue={createIssue()} unreadState="visible" onMarkRead={onMarkRead} />);
+    });
+
+    const markReadButton = container.querySelector('button[aria-label="Mark as read"]') as HTMLButtonElement | null;
+    expect(markReadButton).not.toBeNull();
+
+    act(() => {
+      markReadButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onMarkRead).toHaveBeenCalledTimes(1);
+    expect(rememberIssueDetailLocationStateMock).toHaveBeenCalledTimes(0);
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it("keeps row navigation from firing when archive is clicked", () => {
+    const root = createRoot(container);
+    const onArchive = vi.fn();
+
+    act(() => {
+      root.render(<IssueRow issue={createIssue()} onArchive={onArchive} />);
+    });
+
+    const archiveButton = container.querySelector('button[aria-label="Archive"]') as HTMLButtonElement | null;
+    expect(archiveButton).not.toBeNull();
+
+    act(() => {
+      archiveButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onArchive).toHaveBeenCalledTimes(1);
+    expect(rememberIssueDetailLocationStateMock).toHaveBeenCalledTimes(0);
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
   it("passes the visible row issue into the navigation prefetch path", () => {
     const root = createRoot(container);
 
@@ -297,7 +382,8 @@ describe("IssueRow", () => {
     });
 
     const link = container.querySelector("[data-inbox-issue-link]") as HTMLAnchorElement | null;
-    const metaRow = Array.from(link?.querySelectorAll("span.flex.items-center.gap-2") ?? [])
+    const row = link?.parentElement;
+    const metaRow = Array.from(row?.querySelectorAll("span.flex.items-center.gap-2") ?? [])
       .find((element) => element.textContent?.includes("PAP-42"));
 
     expect(metaRow).not.toBeUndefined();
@@ -322,11 +408,12 @@ describe("IssueRow", () => {
     });
 
     const link = container.querySelector("[data-inbox-issue-link]") as HTMLAnchorElement | null;
+    const row = link?.parentElement;
 
     expect(link).not.toBeNull();
     expect(link?.getAttribute("aria-current")).toBe("step");
-    expect(link?.className).toContain("bg-primary/5");
-    expect(link?.className).not.toContain("border-l-");
+    expect(row?.className).toContain("bg-primary/5");
+    expect(row?.className).not.toContain("border-l-");
 
     act(() => {
       root.unmount();

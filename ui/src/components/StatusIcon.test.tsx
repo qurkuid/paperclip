@@ -67,6 +67,27 @@ describe("StatusIcon", () => {
     expect(html).not.toContain("var(--status-task-icon-in_queue)");
   });
 
+  it("surfaces an unavailable-details label when the attention state has zero blockers", () => {
+    const html = renderToStaticMarkup(
+      <StatusIcon
+        status="blocked"
+        blockerAttention={{
+          state: "needs_attention",
+          reason: "attention_required",
+          unresolvedBlockerCount: 0,
+          coveredBlockerCount: 0,
+          stalledBlockerCount: 0,
+          attentionBlockerCount: 0,
+          sampleBlockerIdentifier: null,
+          sampleStalledBlockerIdentifier: null,
+        }}
+      />,
+    );
+    expect(html).toContain("Blocked · attention details unavailable");
+    expect(html).not.toContain("0 blockers");
+    expect(html).not.toContain("no blockers need attention");
+  });
+
   it("surfaces stalled-review blocked copy on the accessible label", () => {
     const html = renderToStaticMarkup(
       <StatusIcon
