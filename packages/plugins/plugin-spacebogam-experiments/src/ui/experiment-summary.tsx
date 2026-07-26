@@ -1,5 +1,6 @@
 import { ExperimentCharts } from "./charts.js";
 import type { ExperimentDetail } from "./types.js";
+import { VariantResultsTable } from "./variant-results-table.js";
 
 function percent(value: number | null) {
   return value === null ? "—" : `${(value * 100).toFixed(1)}%`;
@@ -59,6 +60,7 @@ export function ExperimentSummary({ detail }: { detail: ExperimentDetail }) {
         </article>
       </section>
       <ExperimentCharts detail={detail} />
+      <VariantResultsTable detail={detail} />
       {detail.recentObservations.length > 0 ? (
         <section className="sbe-observations" aria-label="최근 운영 기록">
           <div>

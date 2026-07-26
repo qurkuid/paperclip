@@ -13,6 +13,7 @@ import {
 } from "chart.js";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
 
+import { buildVariantResultRows } from "./chart-data.js";
 import type { ExperimentDetail, VariantMetric } from "./types.js";
 
 ChartJS.register(
@@ -31,7 +32,7 @@ const COLORS = ["#176b4d", "#bf8a2f", "#5570a1", "#a95652"];
 const chartOptions = {
   responsive: true,
   maintainAspectRatio: false,
-  animation: { duration: 240 },
+  animation: false as const,
   plugins: {
     legend: {
       position: "bottom" as const,
@@ -53,29 +54,30 @@ function total(metrics: VariantMetric[], key: keyof VariantMetric) {
 
 export function ExperimentCharts({ detail }: { detail: ExperimentDetail }) {
   const { variantMetrics, snapshots, variants } = detail;
+  const rows = useMemo(() => buildVariantResultRows(detail), [detail]);
   const outcomeData = useMemo(() => ({
-    labels: variantMetrics.map((metric) => metric.key),
+    labels: rows.map((row) => row.name),
     datasets: [
       {
         label: "계약",
-        data: variantMetrics.map((metric) => metric.won),
+        data: rows.map((row) => row.won),
         backgroundColor: "#176b4d",
         stack: "outcomes",
       },
       {
         label: "실패",
-        data: variantMetrics.map((metric) => metric.lost),
+        data: rows.map((row) => row.lost),
         backgroundColor: "#bf655d",
         stack: "outcomes",
       },
       {
         label: "진행 중",
-        data: variantMetrics.map((metric) => metric.pending),
+        data: rows.map((row) => row.pending),
         backgroundColor: "#d7b96f",
         stack: "outcomes",
       },
     ],
-  }), [variantMetrics]);
+  }), [rows]);
   const mixData = useMemo(() => ({
     labels: ["계약", "실패", "진행 중", "제외"],
     datasets: [{
@@ -90,6 +92,23 @@ export function ExperimentCharts({ detail }: { detail: ExperimentDetail }) {
       borderWidth: 0,
     }],
   }), [variantMetrics]);
+  const progressData = useMemo(() => ({
+    labels: rows.map((row) => row.name),
+    datasets: [
+      {
+        label: "확보",
+        data: rows.map((row) => row.progressPercent),
+        backgroundColor: "#176b4d",
+        stack: "sample",
+      },
+      {
+        label: "남음",
+        data: rows.map((row) => 100 - row.progressPercent),
+        backgroundColor: "#dce4dd",
+        stack: "sample",
+      },
+    ],
+  }), [rows]);
   const trendData = useMemo(() => {
     const recent = [...snapshots]
       .sort((left, right) => left.recordedAt.localeCompare(right.recordedAt))
@@ -140,6 +159,31 @@ export function ExperimentCharts({ detail }: { detail: ExperimentDetail }) {
               maintainAspectRatio: false,
               cutout: "66%",
               plugins: chartOptions.plugins,
+            }}
+          />
+        </div>
+      </article>
+      <article className="sbe-chart full">
+        <h3>변형별 표본 목표 진행률</h3>
+        <p>
+          변형마다 최소 {detail.experiment.minimumSamplePerVariant}명의 표본을
+          확보해야 비교를 시작할 수 있습니다.
+        </p>
+        <div className="sbe-canvas compact" role="img" aria-label="변형별 표본 목표 진행률 누적 막대 차트">
+          <Bar
+            data={progressData}
+            options={{
+              ...chartOptions,
+              indexAxis: "y",
+              scales: {
+                x: {
+                  stacked: true,
+                  max: 100,
+                  grid: { display: false },
+                  ticks: { callback: (value) => `${String(value)}%` },
+                },
+                y: { stacked: true, grid: { display: false } },
+              },
             }}
           />
         </div>
