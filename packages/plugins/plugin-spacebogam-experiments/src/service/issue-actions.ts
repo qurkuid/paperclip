@@ -33,6 +33,9 @@ export function createIssueActionHandlers(
     payload: CreateExperimentPayload,
   ): Promise<ExperimentDetail> {
     const experimentId = deps.newId();
+    const projectId = deps.resolveLinkedProjectId === undefined
+      ? null
+      : await deps.resolveLinkedProjectId(companyId);
     const issue = deps.issueIntegration === undefined
       ? null
       : await deps.issueIntegration.resolveIssue({
@@ -40,7 +43,7 @@ export function createIssueActionHandlers(
           experimentId,
           experimentTitle: payload.title,
           existingIssueId: payload.linkedIssueId ?? null,
-          projectId: null,
+          projectId,
         });
     return deps.repository.createExperiment(experimentSchema.parse({
       id: experimentId,

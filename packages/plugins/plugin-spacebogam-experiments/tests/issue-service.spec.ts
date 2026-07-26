@@ -21,6 +21,7 @@ const USER_ID = "33333333-3333-4333-8333-333333333333";
 const REQUEST_ID = "44444444-4444-4444-8444-444444444444";
 const EXPERIMENT_ID = "55555555-5555-4555-8555-555555555555";
 const SECOND_REQUEST_ID = "66666666-6666-4666-8666-666666666666";
+const PROJECT_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const NOW = "2026-07-27T03:00:00.000Z";
 
 const boardContext = {
@@ -126,6 +127,7 @@ function createService(
     },
     validateAgent: async (companyId, agentId) =>
       companyId === COMPANY_ID && agentId === USER_ID,
+    resolveLinkedProjectId: async () => PROJECT_ID,
     invokeAgent: async ({ companyId, agentId, experimentId }) => ({
       runId: `run:${companyId}:${agentId}:${experimentId}`,
     }),
@@ -159,11 +161,13 @@ describe("Spacebogam board issue actions", () => {
     });
 
     expect(fixture.current()?.linkedIssueId).not.toBeNull();
-    await expect(harness.ctx.issues.list({
+    const issues = await harness.ctx.issues.list({
       companyId: COMPANY_ID,
       originKind: `plugin:${PLUGIN_ID}:experiment`,
       originId: `experiment:${EXPERIMENT_ID}`,
-    })).resolves.toHaveLength(1);
+    });
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.projectId).toBe(PROJECT_ID);
   });
 
   it("rejects a cross-company issue without changing the experiment link", async () => {

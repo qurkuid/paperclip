@@ -76,6 +76,9 @@ function createDefaultBoardActionService(
       generatedAt: null,
     }),
     issueIntegration: createExperimentIssueIntegration(ctx),
+    resolveLinkedProjectId: async (targetCompanyId) =>
+      (await readExperimentPluginConfig(ctx, targetCompanyId))?.linkedProjectId
+      ?? null,
     validateAgent: async (targetCompanyId, agentId) => {
       const agent = await ctx.agents.get(agentId, targetCompanyId);
       return agent !== null && agent.status !== "terminated";

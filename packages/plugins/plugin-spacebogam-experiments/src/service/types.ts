@@ -112,6 +112,9 @@ export type SpacebogamExperimentServiceDeps = {
     experimentId: string,
   ) => Promise<FunnelFreshness>;
   readonly issueIntegration?: ExperimentIssueIntegration;
+  readonly resolveLinkedProjectId?: (
+    companyId: string,
+  ) => Promise<string | null>;
   readonly validateAgent?: (
     companyId: string,
     agentId: string,
