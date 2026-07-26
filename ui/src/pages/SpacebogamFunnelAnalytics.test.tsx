@@ -215,9 +215,14 @@ describe("SpacebogamFunnelAnalytics", () => {
     expect(document.body.textContent).toContain("사이트 문의와 네이버 전환 집계가 연결되지 않았습니다.");
     expect(document.body.textContent).toContain("90,000원");
     expect(document.body.textContent).toContain("현재 진단");
+    expect(document.body.textContent).toContain("지금 한눈에 볼 결론");
+    expect(document.body.textContent).toContain("광고 귀속 상태");
     expect(document.body.textContent).toContain("문제 구간과 원인은 다릅니다.");
     expect(document.body.textContent).toContain("바꾸고, 측정하고, 판정하세요.");
     expect(document.body.textContent).toContain("상담 CTA 위치와 약속 실험");
+    expect(document.body.textContent).toContain("최종 결론");
+    expect(document.body.textContent).toContain("참여 → 상담 클릭 병목을 먼저 검증하고, 광고 성과 판단은 귀속 확인 뒤에 내리세요.");
+    expect(document.body.textContent?.match(/테이블 인사이트/g)).toHaveLength(5);
     expect([...document.querySelectorAll("button")].map((button) => button.textContent)).toEqual(["7일", "28일", "90일"]);
     expect(document.querySelectorAll("canvas[aria-label]")).toHaveLength(5);
     expect(document.querySelectorAll("table[aria-label]")).toHaveLength(5);

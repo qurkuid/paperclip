@@ -177,6 +177,84 @@ function MetricStrip({ report }: { report: SpacebogamFunnelReport }) {
   );
 }
 
+function IntegratedOverview({
+  report,
+  diagnosis,
+}: {
+  report: SpacebogamFunnelReport;
+  diagnosis: FunnelDiagnosis | null;
+}) {
+  const campaignVerdict = buildCampaignVerdict(report);
+  const naverSnapshot = report.naverSearchAds;
+  const naverUtmLeads = report.campaigns
+    .filter((campaign) => campaign.source.toLowerCase().includes("naver"))
+    .reduce((sum, campaign) => sum + campaign.submittedLeads, 0);
+  const attributionNeedsCheck = naverSnapshot?.status === "ready"
+    && naverSnapshot.totals.conversions === 0
+    && naverUtmLeads > 0;
+
+  const signals = [
+    {
+      eyebrow: "확정된 병목",
+      title: diagnosis?.transition ?? "병목 판정 대기",
+      body: diagnosis
+        ? `${formatCount(diagnosis.lostSessions)}세션, ${formatRate(diagnosis.lossRate)}가 이 구간에서 이탈했습니다.`
+        : "수집 품질이 준비 상태가 되면 가장 큰 단계 손실을 판정합니다.",
+      confidence: diagnosis?.confidence ?? "needs_measurement" as const,
+    },
+    {
+      eyebrow: "광고 귀속 상태",
+      title: attributionNeedsCheck
+        ? "네이버 전환 연결을 먼저 확인"
+        : campaignVerdict.headline,
+      body: attributionNeedsCheck
+        ? `네이버 UTM 문의 ${formatCount(naverUtmLeads)}건과 광고 플랫폼 전환 0건이 일치하지 않습니다.`
+        : campaignVerdict.summary,
+      confidence: attributionNeedsCheck ? "needs_measurement" as const : campaignVerdict.confidence,
+    },
+    {
+      eyebrow: "다음 확인",
+      title: diagnosis?.experiment.metric ?? "데이터 수집 품질",
+      body: diagnosis
+        ? `${diagnosis.experiment.title}의 전후 결과를 같은 기간·표본 기준으로 비교합니다.`
+        : "최신성, UTM 태깅률, 단계 순서를 먼저 정상화합니다.",
+      confidence: diagnosis ? "directional" as const : "needs_measurement" as const,
+    },
+  ];
+
+  return (
+    <section aria-labelledby="integrated-overview-title" className="overflow-hidden rounded-xl border border-funnel-line bg-funnel-panel">
+      <header className="grid gap-4 border-b border-funnel-line px-5 py-5 lg:grid-cols-3 lg:px-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-funnel-signal">Integrated readout</p>
+          <h2 id="integrated-overview-title" className="mt-2 text-xl font-semibold text-funnel-ink">지금 한눈에 볼 결론</h2>
+        </div>
+        <p className="max-w-2xl text-sm leading-6 text-funnel-muted lg:col-span-2">
+          사이트 퍼널, UTM 캠페인, 네이버 광고 데이터를 같은 판단 순서로 묶었습니다. 병목은 확정하고, 원인과 광고 기여는 근거 수준을 분리해 봅니다.
+        </p>
+      </header>
+      <div className="grid lg:grid-cols-3">
+        {signals.map((signal, index) => (
+          <article
+            key={signal.eyebrow}
+            className={cn(
+              "space-y-3 px-5 py-5 lg:px-6",
+              index < signals.length - 1 && "border-b border-funnel-line lg:border-b-0 lg:border-r",
+            )}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-medium text-funnel-muted">{signal.eyebrow}</p>
+              <ConfidenceBadge confidence={signal.confidence} />
+            </div>
+            <h3 className="font-semibold text-funnel-ink">{signal.title}</h3>
+            <p className="text-sm leading-6 text-funnel-muted">{signal.body}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function DiagnosisPanel({ diagnosis }: { diagnosis: FunnelDiagnosis }) {
   return (
     <section
@@ -371,6 +449,60 @@ function CampaignInsight({ report }: { report: SpacebogamFunnelReport }) {
   );
 }
 
+function FinalConclusion({
+  report,
+  diagnosis,
+}: {
+  report: SpacebogamFunnelReport;
+  diagnosis: FunnelDiagnosis | null;
+}) {
+  const campaignVerdict = buildCampaignVerdict(report);
+  const naverSnapshot = report.naverSearchAds;
+  const trackingUncertain = naverSnapshot?.status !== "ready"
+    || naverSnapshot.totals.conversions === 0;
+
+  return (
+    <section aria-labelledby="final-conclusion-title" className="overflow-hidden rounded-xl border border-funnel-ink bg-funnel-ink text-funnel-canvas">
+      <div className="grid lg:grid-cols-3">
+        <div className="space-y-4 p-6 sm:p-8 lg:col-span-2">
+          <p className="text-xs font-semibold uppercase tracking-widest text-funnel-canvas/60">최종 결론</p>
+          <h2 id="final-conclusion-title" className="text-2xl font-semibold leading-tight">
+            {diagnosis
+              ? `${diagnosis.transition} 병목을 먼저 검증하고, 광고 성과 판단은 귀속 확인 뒤에 내리세요.`
+              : "성과 결론보다 측정 품질 복구가 먼저입니다."}
+          </h2>
+          <p className="max-w-3xl text-sm leading-6 text-funnel-canvas/72">
+            {diagnosis
+              ? `${diagnosis.transition}에서 ${formatCount(diagnosis.lostSessions)}세션이 빠진 것은 확인됐습니다. 다만 이탈 원인과 광고별 기여는 아직 분리 측정이 필요합니다.`
+              : "현재 표본이나 이벤트 순서로는 개선 우선순위를 확정할 수 없습니다. 경고가 해소된 뒤 같은 화면에서 다시 판정합니다."}
+          </p>
+        </div>
+        <aside className="border-t border-funnel-canvas/20 p-6 sm:p-8 lg:border-l lg:border-t-0">
+          <p className="text-xs font-semibold uppercase tracking-widest text-funnel-canvas/60">다음 결정 기준</p>
+          <dl className="mt-5 space-y-4 text-sm">
+            <div>
+              <dt className="text-funnel-canvas/55">퍼널</dt>
+              <dd className="mt-1 font-medium">
+                {diagnosis ? diagnosis.experiment.decisionRule : "준비 상태가 된 뒤 병목을 재판정"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-funnel-canvas/55">캠페인</dt>
+              <dd className="mt-1 font-medium">{campaignVerdict.headline}</dd>
+            </div>
+            <div>
+              <dt className="text-funnel-canvas/55">귀속 경고</dt>
+              <dd className="mt-1 font-medium">
+                {trackingUncertain ? "광고 플랫폼 전환과 UTM 문의를 연결하기 전까지 인과 판단 보류" : "플랫폼 전환과 사이트 문의 교차 확인 가능"}
+              </dd>
+            </div>
+          </dl>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
 function NaverSearchAdsPanel({ report }: { report: SpacebogamFunnelReport }) {
   const snapshot = report.naverSearchAds;
   if (!snapshot) {
@@ -504,6 +636,7 @@ function Dashboard({ report }: { report: SpacebogamFunnelReport }) {
     <div className="space-y-8">
       <MetricStrip report={report} />
       <QualitySummary report={report} />
+      <IntegratedOverview report={report} diagnosis={diagnosis} />
       <NaverSearchAdsPanel report={report} />
       {diagnosis && (
         <>
@@ -529,6 +662,7 @@ function Dashboard({ report }: { report: SpacebogamFunnelReport }) {
           {canRenderLossPareto(report) ? <LossParetoChart report={report} /> : <LossParetoQualityWarning />}
         </div>
       </section>
+      <FinalConclusion report={report} diagnosis={diagnosis} />
     </div>
   );
 }

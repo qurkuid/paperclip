@@ -93,7 +93,10 @@ function ChartShell({
           <h3 className="text-base font-semibold text-funnel-ink">{title}</h3>
           <p className="max-w-2xl text-sm text-funnel-muted">{description}</p>
         </div>
-        <p className="max-w-sm text-sm font-medium text-funnel-ink sm:text-right">{finding}</p>
+        <div className="max-w-sm border-l border-funnel-signal pl-3 sm:text-right">
+          <p className="text-xs font-medium text-funnel-signal">테이블 인사이트</p>
+          <p className="mt-1 text-sm font-medium text-funnel-ink">{finding}</p>
+        </div>
       </header>
       <div className="min-w-0 pb-3 pt-5">{children}</div>
     </section>
