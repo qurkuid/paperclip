@@ -6,11 +6,13 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   PluginSlotMount,
+  _buildPluginUiUrlForTests,
   _collectRegisterableExportNamesForTests,
   _resetPluginModuleLoader,
   registerPluginWebComponent,
   type ResolvedPluginSlot,
 } from "./slots";
+import type { PluginUiContribution } from "@/api/plugins";
 
 let roots: Root[] = [];
 
@@ -25,6 +27,23 @@ afterEach(() => {
 });
 
 describe("plugin slot export registration", () => {
+  it("loads plugin UI bundles from the configured application base path", () => {
+    const contribution = {
+      pluginId: "plugin id",
+      pluginKey: "paperclip.example",
+      displayName: "Example",
+      version: "1.0.0",
+      updatedAt: "2026-07-27T00:00:00.000Z",
+      uiEntryFile: "index.js",
+      slots: [],
+      launchers: [],
+    } satisfies PluginUiContribution;
+
+    expect(_buildPluginUiUrlForTests(contribution, "/af/")).toBe(
+      "/af/_plugins/plugin%20id/ui/index.js?v=2026-07-27T00%3A00%3A00.000Z",
+    );
+  });
+
   it("keeps declared missing exports visible for diagnostics", () => {
     const exports = _collectRegisterableExportNamesForTests(
       { Page: () => null },

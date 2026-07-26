@@ -41,6 +41,7 @@ import { pluginsApi, type PluginUiContribution } from "@/api/plugins";
 import { authApi } from "@/api/auth";
 import { queryKeys } from "@/lib/queryKeys";
 import { cn } from "@/lib/utils";
+import { withAppBasePath } from "@/lib/base-path";
 import {
   PluginBridgeContext,
   type PluginHostContext,
@@ -248,9 +249,15 @@ function buildPluginModuleKey(contribution: PluginUiContribution): string {
   return `${contribution.pluginId}:${cacheHint}`;
 }
 
-function buildPluginUiUrl(contribution: PluginUiContribution): string {
+function buildPluginUiUrl(
+  contribution: PluginUiContribution,
+  basePath?: string,
+): string {
   const cacheHint = encodeURIComponent(contribution.updatedAt ?? contribution.version ?? "0");
-  return `/_plugins/${encodeURIComponent(contribution.pluginId)}/ui/${contribution.uiEntryFile}?v=${cacheHint}`;
+  return withAppBasePath(
+    `/_plugins/${encodeURIComponent(contribution.pluginId)}/ui/${contribution.uiEntryFile}?v=${cacheHint}`,
+    basePath,
+  );
 }
 
 /**
@@ -952,3 +959,9 @@ export const _applyJsxRuntimeKeyForTests = applyJsxRuntimeKey;
 export const _createReactShimSourceForTests = createReactShimSource;
 export const _rewriteBareSpecifiersForTests = rewriteBareSpecifiers;
 export const _collectRegisterableExportNamesForTests = collectRegisterableExportNames;
+export function _buildPluginUiUrlForTests(
+  contribution: PluginUiContribution,
+  basePath: string,
+): string {
+  return buildPluginUiUrl(contribution, basePath);
+}
