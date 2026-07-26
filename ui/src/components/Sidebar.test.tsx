@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Sidebar } from "./Sidebar";
+import { COMPANY_NAV_ITEMS } from "./sidebar/companyNavigation";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const mockHeartbeatsApi = vi.hoisted(() => ({
@@ -393,6 +394,46 @@ describe("Sidebar", () => {
 
     const timelineLink = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "타임라인");
     expect(timelineLink?.getAttribute("href")).toBe("/timeline");
+
+    flushSync(() => {
+      root.unmount();
+    });
+  });
+
+  it("renders the extracted Company navigation definition in order", async () => {
+    mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableApps: true });
+    const root = await renderSidebar();
+
+    const expectedItems = COMPANY_NAV_ITEMS.map((item) => ({
+      label: item.label,
+      to: item.to,
+    }));
+    expect(expectedItems).toEqual([
+      { label: "Org", to: "/org" },
+      { label: "Apps", to: "/apps" },
+      { label: "Funnel Analytics", to: "/analytics/funnel" },
+      { label: "Timeline", to: "/timeline" },
+      { label: "Costs", to: "/costs" },
+      { label: "Activity", to: "/activity" },
+      { label: "Settings", to: "/company/settings" },
+    ]);
+
+    const companySection = [...container.querySelectorAll("nav > div")]
+      .find((section) => section.textContent?.startsWith("회사"));
+    const links = [...(companySection?.querySelectorAll("a") ?? [])].map((anchor) => ({
+      label: anchor.textContent?.trim(),
+      href: anchor.getAttribute("href"),
+    }));
+
+    expect(links).toEqual([
+      { label: "조직도", href: "/org" },
+      { label: "앱", href: "/apps" },
+      { label: "퍼널 분석", href: "/analytics/funnel" },
+      { label: "타임라인", href: "/timeline" },
+      { label: "비용", href: "/costs" },
+      { label: "활동", href: "/activity" },
+      { label: "설정", href: "/company/settings" },
+    ]);
 
     flushSync(() => {
       root.unmount();

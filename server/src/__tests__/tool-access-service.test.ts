@@ -1427,6 +1427,150 @@ describeEmbeddedPostgres("tool access service", () => {
     ]));
   });
 
+  it("allows only the Spacebogam funnel tool for the analysis agent", async () => {
+    const company = await createCompany(db);
+    const userId = `spacebogam-tester-${randomUUID()}`;
+    await db.insert(companyMemberships).values({
+      companyId: company.id,
+      principalType: "user",
+      principalId: userId,
+      status: "active",
+      membershipRole: "operator",
+    });
+    await db.insert(principalPermissionGrants).values({
+      companyId: company.id,
+      principalType: "user",
+      principalId: userId,
+      permissionKey: "tools:use",
+      scope: { toolName: "intm_internal_spacebogam_funnel" },
+      grantedByUserId: "owner",
+    });
+    await db.insert(principalPermissionGrants).values({
+      companyId: company.id,
+      principalType: "user",
+      principalId: userId,
+      permissionKey: "tools:manage_connections",
+      scope: null,
+      grantedByUserId: "owner",
+    });
+    const agent = await createAgent(db, company.id);
+    const [application] = await db.insert(toolApplications).values({
+      companyId: company.id,
+      applicationKey: `spacebogam-${randomUUID()}`,
+      name: `Spacebogam fixture ${randomUUID()}`,
+      type: "mcp_http",
+      status: "active",
+    }).returning();
+    if (!application) throw new Error("Expected test application to be created");
+    const [connection] = await db.insert(toolConnections).values({
+      companyId: company.id,
+      applicationId: application.id,
+      name: `Spacebogam connection ${randomUUID()}`,
+      uid: `spacebogam/${randomUUID()}`,
+      transport: "mcp_remote",
+      status: "active",
+      enabled: true,
+      config: { url: "https://spacebogam.example.test/mcp" },
+      transportConfig: { url: "https://spacebogam.example.test/mcp" },
+      healthStatus: "ok",
+    }).returning();
+    if (!connection) throw new Error("Expected test connection to be created");
+    const [funnelTool] = await db.insert(toolCatalogEntries).values([
+      {
+        companyId: company.id,
+        applicationId: application.id,
+        connectionId: connection.id,
+        entryKind: "tool",
+        name: "intm_internal_spacebogam_funnel",
+        toolName: "intm_internal_spacebogam_funnel",
+        title: "Spacebogam funnel analytics",
+        riskLevel: "read",
+        isReadOnly: true,
+        isWrite: false,
+        isDestructive: false,
+        status: "active",
+        versionHash: randomUUID(),
+        schemaHash: randomUUID(),
+      },
+      {
+        companyId: company.id,
+        applicationId: application.id,
+        connectionId: connection.id,
+        entryKind: "tool",
+        name: "intm_internal_search_projects",
+        toolName: "intm_internal_search_projects",
+        title: "Search projects",
+        riskLevel: "read",
+        isReadOnly: true,
+        isWrite: false,
+        isDestructive: false,
+        status: "active",
+        versionHash: randomUUID(),
+        schemaHash: randomUUID(),
+      },
+    ]).returning();
+    if (!funnelTool) throw new Error("Expected funnel catalog tool to be created");
+    const service = toolAccessService(db);
+    const profile = await service.createProfile(company.id, {
+      profileKey: `spacebogam-analysis-${randomUUID()}`,
+      name: "Spacebogam analysis tools",
+      defaultAction: "deny",
+      entries: [{
+        selectorType: "tool_name",
+        effect: "include",
+        toolName: "intm_internal_spacebogam_funnel",
+      }],
+    });
+    await service.bindProfile(profile.id, { targetType: "agent", targetId: agent.id }, { actorType: "user", actorId: userId });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      expect(JSON.parse(String(init?.body))).toMatchObject({
+        method: "tools/call",
+        params: {
+          name: "intm_internal_spacebogam_funnel",
+          arguments: { rangeDays: 28 },
+        },
+      });
+      return mcpHttpResponse({
+        jsonrpc: "2.0",
+        id: "paperclip-tool-test",
+        result: {
+          content: [{ type: "text", text: JSON.stringify({ schemaVersion: 1, report: { visits: 3 } }) }],
+        },
+      });
+    });
+    const app = createRouteApp(
+      db,
+      boardSessionActor(company.id, "operator", userId),
+      createToolGatewayService(db, { toolActionSigningSecret: "test-secret" }),
+    );
+
+    const effective = await request(app)
+      .get(`/api/companies/${company.id}/tools/profiles/effective/agents/${agent.id}`)
+      .expect(200);
+
+    expect(effective.body.allowedToolNames).toEqual(["intm_internal_spacebogam_funnel"]);
+    expect(effective.body.allowedTools).toEqual([
+      expect.objectContaining({ id: funnelTool.id, toolName: "intm_internal_spacebogam_funnel" }),
+    ]);
+
+    const allowed = await request(app)
+      .post(`/api/tool-connections/${connection.id}/test-calls`)
+      .send({ agentId: agent.id, toolName: "intm_internal_spacebogam_funnel", parameters: { rangeDays: 28 } })
+      .expect(200);
+    expect(allowed.body.decision).toBe("allowed");
+    const [content] = allowed.body.result.data.content;
+    expect(JSON.parse(content.text)).toMatchObject({ schemaVersion: 1 });
+    expect(fetchMock).toHaveBeenCalledOnce();
+
+    const denied = await request(app)
+      .post(`/api/tool-connections/${connection.id}/test-calls`)
+      .send({ agentId: agent.id, toolName: "intm_internal_search_projects", parameters: {} })
+      .expect(200);
+
+    expect(denied.body.decision).toBe("off");
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it("turns ask-first test calls into real pending action requests", async () => {
     const company = await createCompany(db);
     const userId = `tool-tester-${randomUUID()}`;

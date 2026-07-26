@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { registerCompanyAnalyticsOpenApiRoutes } from "./openapi/company-analytics.js";
 import {
   // Agent
   createAgentSchema,
@@ -462,8 +463,6 @@ class OpenAPIRegistry {
 
 const registry = new OpenAPIRegistry();
 
-// ─── Common schemas ──────────────────────────────────────────────────────────
-
 const ErrorSchema = registry.register(
   "Error",
   z.object({ error: z.string() }),
@@ -695,9 +694,9 @@ const PUBLIC_OPERATIONS = new Set([
 ]);
 
 const BOARD_ONLY_PREFIXES = [
-  "/api/auth/",
-  "/api/admin/",
+  "/api/auth/", "/api/admin/",
   "/api/cloud-upstreams",
+  "/api/companies/{companyId}/analytics/",
   "/api/plugins",
   "/api/instance/",
 ];
@@ -1008,8 +1007,6 @@ function applyDocumentFixups(document: any): any {
   return document;
 }
 
-// ─── Health ──────────────────────────────────────────────────────────────────
-
 registry.registerPath({
   method: "get",
   path: "/api/health",
@@ -1095,8 +1092,6 @@ registry.registerPath({
   summary: "Get the generated OpenAPI document",
   responses: { 200: r.ok() },
 });
-
-// ─── Companies ───────────────────────────────────────────────────────────────
 
 registry.registerPath({
   method: "get",
@@ -1257,8 +1252,6 @@ registry.registerPath({
   request: { params: z.object({ companyId: z.string() }) },
   responses: { 200: r.ok(), 400: r.badRequest, 401: r.unauthorized },
 });
-
-// ─── Teams Catalog ──────────────────────────────────────────────────────────
 
 for (const route of [
   ["get", "/api/teams/catalog", "List catalog teams"],
@@ -3041,8 +3034,6 @@ registry.registerPath({
   responses: { 200: r.ok(), 401: r.unauthorized },
 });
 
-// ─── Dashboard ───────────────────────────────────────────────────────────────
-
 registry.registerPath({
   method: "get",
   path: "/api/companies/{companyId}/dashboard",
@@ -3067,7 +3058,7 @@ registry.registerPath({
   responses: { 200: r.ok(), 401: r.unauthorized },
 });
 
-// ─── Sidebar ─────────────────────────────────────────────────────────────────
+registerCompanyAnalyticsOpenApiRoutes(registerCurrentRoute);
 
 registry.registerPath({
   method: "get",

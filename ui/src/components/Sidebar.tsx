@@ -4,28 +4,17 @@ import {
   CircleDot,
   Target,
   LayoutDashboard,
-  DollarSign,
-  History,
-  Search,
   SquarePen,
-  Network,
   Boxes,
   Repeat,
   Layers,
   GitBranch,
   Package,
-  Settings,
   FolderOpen,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Pin,
-  AppWindow,
   MessagesSquare,
-  GanttChartSquare,
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { NavLink } from "@/lib/router";
 import { SidebarSection } from "./SidebarSection";
 import { SidebarNavItem } from "./SidebarNavItem";
 import { SidebarAgents } from "./SidebarAgents";
@@ -41,12 +30,12 @@ import { queryKeys } from "../lib/queryKeys";
 import { attentionBadgeCount } from "../lib/attention";
 import { useInboxBadge } from "../hooks/useInboxBadge";
 import { usePublishSharedQueryData, useSharedPollingQuery } from "../hooks/useSharedPolling";
-import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn, SIDEBAR_RAIL_HIDDEN_LABEL } from "../lib/utils";
+import { SIDEBAR_RAIL_HIDDEN_LABEL } from "../lib/utils";
 import { PluginSlotOutlet } from "@/plugins/slots";
 import { PluginLauncherOutlet } from "@/plugins/launchers";
-import { SidebarCompanyMenu } from "./SidebarCompanyMenu";
+import { SidebarCompanyNavigation } from "./sidebar/SidebarCompanyNavigation";
+import { SidebarHeader } from "./sidebar/SidebarHeader";
 import { koMenu } from "@/i18n/korean-menu";
 
 export function Sidebar() {
@@ -54,9 +43,8 @@ export function Sidebar() {
   // Every labeled section is collapsible (session-scoped, default open) —
   // one policy across static nav groups and the data-driven sections.
   const [workOpen, setWorkOpen] = useState(true);
-  const [companyOpen, setCompanyOpen] = useState(true);
   const { selectedCompanyId, selectedCompany } = useCompany();
-  const { isMobile, collapsed, collapseLocked, peeking, toggleCollapsed, setCollapsed } = useSidebar();
+  const { collapsed, peeking } = useSidebar();
   const rail = collapsed && !peeking;
   const inboxBadge = useInboxBadge(selectedCompanyId);
   const { data: experimentalSettings } = useQuery({
@@ -118,63 +106,7 @@ export function Sidebar() {
 
   return (
     <aside className="w-full h-full min-h-0 border-r border-border bg-background flex flex-col">
-      {/* Top bar: Company name (bold) + Search — aligned with top sections (no visible border) */}
-      <div className="flex items-center gap-1 px-3 h-12 shrink-0">
-        <SidebarCompanyMenu />
-        {/* In the collapsed rail the search/toggle controls don't fit beside the
-            logo — keeping them would overflow the 64px rail and squeeze the logo
-            out of alignment with the icon column below it (PAP-10676). They return
-            as soon as the panel is expanded (pinned) or peeking. Expansion in the
-            rail is still reachable via hover-peek + Pin and Cmd/Ctrl+B. */}
-        {!rail ? (
-          <>
-            <Button
-              asChild
-              variant="ghost"
-              size="icon-sm"
-              className="text-muted-foreground shrink-0"
-              aria-label={koMenu("Open search")}
-              title={koMenu("Open search")}
-            >
-              <NavLink to="/search">
-                <Search className="h-4 w-4" />
-              </NavLink>
-            </Button>
-            {/* Desktop-only collapse/expand affordance. While peeking (hover flyout
-                over the collapsed rail) it becomes a Pin that promotes the peek to a
-                pinned-expanded sidebar; otherwise it toggles the pinned rail. Mobile
-                uses the off-canvas drawer, so this control is hidden there. It is
-                also hidden while a secondary sidebar forces the rail (collapseLocked):
-                the user cannot expand the primary while a secondary sidebar is shown. */}
-            {!isMobile && !collapseLocked ? (
-              peeking ? (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-muted-foreground shrink-0"
-                  aria-label={koMenu("Keep sidebar expanded")}
-                  title={koMenu("Keep sidebar expanded")}
-                  onClick={() => setCollapsed(false)}
-                >
-                  <Pin className="h-4 w-4" />
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-muted-foreground shrink-0"
-                  aria-expanded={!collapsed}
-                  aria-label={collapsed ? koMenu("Expand sidebar") : koMenu("Collapse sidebar")}
-                  title={collapsed ? koMenu("Expand sidebar") : koMenu("Collapse sidebar")}
-                  onClick={() => toggleCollapsed()}
-                >
-                  {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-                </Button>
-              )
-            ) : null}
-          </>
-        ) : null}
-      </div>
+      <SidebarHeader />
 
       <nav className="flex-1 min-h-0 overflow-y-auto scrollbar-auto-hide flex flex-col gap-4 pointer-coarse:gap-3 px-3 py-2">
         <div className="flex flex-col gap-0.5">
@@ -273,14 +205,7 @@ export function Sidebar() {
 
         <SidebarAgents streamlined={streamlined} />
 
-        <SidebarSection label={koMenu("Company")} collapsible={{ open: companyOpen, onOpenChange: setCompanyOpen }}>
-          <SidebarNavItem to="/org" label={koMenu("Org")} icon={Network} />
-          {showApps ? <SidebarNavItem to="/apps" label={koMenu("Apps")} icon={AppWindow} /> : null}
-          <SidebarNavItem to="/timeline" label={koMenu("Timeline")} icon={GanttChartSquare} />
-          <SidebarNavItem to="/costs" label={koMenu("Costs")} icon={DollarSign} />
-          <SidebarNavItem to="/activity" label={koMenu("Activity")} icon={History} />
-          <SidebarNavItem to="/company/settings" label={koMenu("Settings")} icon={Settings} />
-        </SidebarSection>
+        <SidebarCompanyNavigation showApps={showApps} />
 
         <PluginSlotOutlet
           slotTypes={["sidebarPanel"]}

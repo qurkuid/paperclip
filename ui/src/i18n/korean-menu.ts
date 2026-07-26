@@ -17,6 +17,7 @@ export const KOREAN_MENU_LABELS = {
   Company: "회사",
   Org: "조직도",
   Apps: "앱",
+  "Funnel Analytics": "퍼널 분석",
   Timeline: "타임라인",
   Costs: "비용",
   Activity: "활동",

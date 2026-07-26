@@ -5,6 +5,11 @@ import {
   isBoardPathWithoutPrefix,
   toCompanyRelativePath,
 } from "./company-routes";
+import appSource from "../App.tsx?raw";
+import companyBoardRoutesSource from "../routes/company-board-routes.tsx?raw";
+import companyBoardRedirectRoutesSource from "../routes/company-board-redirect-routes.tsx?raw";
+import companyBoardSettingsRoutesSource from "../routes/company-board-settings-routes.tsx?raw";
+import companyBoardWorkRoutesSource from "../routes/company-board-work-routes.tsx?raw";
 
 describe("company routes", () => {
   it("treats execution workspace paths as board routes that need a company prefix", () => {
@@ -117,6 +122,19 @@ describe("company routes", () => {
     expect(toCompanyRelativePath("/PAP/timeline")).toBe("/timeline");
   });
 
+  it("treats analytics routes as board routes that need a company prefix", () => {
+    expect(isBoardPathWithoutPrefix("/analytics/funnel")).toBe(true);
+    expect(extractCompanyPrefixFromPath("/analytics/funnel")).toBeNull();
+    expect(applyCompanyPrefix("/analytics/funnel", "PAP")).toBe("/PAP/analytics/funnel");
+    expect(applyCompanyPrefix("/analytics/funnel?range=90#dropoff", "PAP")).toBe(
+      "/PAP/analytics/funnel?range=90#dropoff",
+    );
+    expect(applyCompanyPrefix("/PAP/analytics/funnel", "PAP")).toBe("/PAP/analytics/funnel");
+    expect(toCompanyRelativePath("/PAP/analytics/funnel?range=90")).toBe(
+      "/analytics/funnel?range=90",
+    );
+  });
+
   it("treats Skill Studio create mode as an unprefixed board route", () => {
     expect(isBoardPathWithoutPrefix("/skills/studio/new")).toBe(true);
     expect(extractCompanyPrefixFromPath("/skills/studio/new")).toBeNull();
@@ -137,5 +155,29 @@ describe("company routes", () => {
     );
     // Already-prefixed paths are returned untouched.
     expect(applyCompanyPrefix("/PAP/artifacts", "PAP")).toBe("/PAP/artifacts");
+  });
+});
+
+describe("company route composition", () => {
+  it("keeps company-scoped route declarations in extracted route modules", () => {
+    const extractedRouteSources = [
+      companyBoardRoutesSource,
+      companyBoardRedirectRoutesSource,
+      companyBoardSettingsRoutesSource,
+      companyBoardWorkRoutesSource,
+    ].join("\n");
+
+    expect(appSource).toContain("{companyBoardRoutes()}");
+    expect(appSource).toContain("{companylessBoardRedirectRoutes()}");
+    expect(appSource).not.toContain("function boardRoutes");
+
+    expect(companyBoardRoutesSource).toContain("export function companyBoardRoutes");
+    expect(companyBoardRedirectRoutesSource).toContain("export function companylessBoardRedirectRoutes");
+    expect(companyBoardWorkRoutesSource).toContain('path="projects/:projectId/budget"');
+    expect(companyBoardWorkRoutesSource).toContain('path="execution-workspaces/:workspaceId/runtime-logs"');
+    expect(companyBoardRoutesSource).toContain('path="analytics/funnel"');
+    expect(companyBoardRoutesSource).toContain("SpacebogamFunnelAnalytics");
+    expect(companyBoardRedirectRoutesSource).toContain('path="analytics/funnel"');
+    expect(extractedRouteSources).toContain('path="analytics/funnel"');
   });
 });

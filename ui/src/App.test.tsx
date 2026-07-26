@@ -6,7 +6,9 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CloudAccessGate } from "./components/CloudAccessGate";
-import appSource from "./App.tsx?raw";
+import companyBoardRoutesSource from "./routes/company-board-routes.tsx?raw";
+import companyBoardRedirectRoutesSource from "./routes/company-board-redirect-routes.tsx?raw";
+import companyBoardSettingsRoutesSource from "./routes/company-board-settings-routes.tsx?raw";
 
 const mockHealthApi = vi.hoisted(() => ({
   get: vi.fn(),
@@ -233,12 +235,31 @@ describe("Skill Studio routes", () => {
   it("registers create mode before the skillId route in prefixed and unprefixed routing", () => {
     const createRoute = 'path="skills/studio/new"';
     const detailRoute = 'path="skills/studio/:skillId"';
-    const createIndexes = [...appSource.matchAll(new RegExp(createRoute, "g"))].map((match) => match.index ?? -1);
-    const detailIndexes = [...appSource.matchAll(new RegExp(detailRoute, "g"))].map((match) => match.index ?? -1);
+    const routeSource = `${companyBoardSettingsRoutesSource}\n${companyBoardRedirectRoutesSource}`;
+    const createIndexes = [...routeSource.matchAll(new RegExp(createRoute, "g"))].map(
+      (match) => match.index ?? -1,
+    );
+    const detailIndexes = [...routeSource.matchAll(new RegExp(detailRoute, "g"))].map(
+      (match) => match.index ?? -1,
+    );
+    const orderedPairs = createIndexes.map((createIndex, index) => ({
+      createIndex,
+      detailIndex: detailIndexes[index] ?? -1,
+    }));
 
     expect(createIndexes).toHaveLength(2);
     expect(detailIndexes).toHaveLength(2);
-    expect(createIndexes[0]).toBeLessThan(detailIndexes[0]!);
-    expect(createIndexes[1]).toBeLessThan(detailIndexes[1]!);
+    for (const pair of orderedPairs) {
+      expect(pair.createIndex).toBeLessThan(pair.detailIndex);
+    }
+  });
+});
+
+describe("Funnel analytics routes", () => {
+  it("registers prefixed and companyless refresh routes for analytics funnel", () => {
+    expect(companyBoardRoutesSource).toContain('path="analytics/funnel"');
+    expect(companyBoardRoutesSource).toContain("SpacebogamFunnelAnalytics");
+    expect(companyBoardRedirectRoutesSource).toContain('path="analytics/funnel"');
+    expect(companyBoardRedirectRoutesSource).toContain("<UnprefixedBoardRedirect />");
   });
 });
