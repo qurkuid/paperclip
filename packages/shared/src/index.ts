@@ -2231,4 +2231,11 @@ export {
   type CreateEnvironmentCustomImageTerminalSessionToken,
   type EnvironmentCustomImageTerminalSessionToken,
 } from "./validators/environment-custom-images.js";
+export {
+  createDebugRequestSchema,
+  debugElementContextSchema,
+  debugElementRectSchema,
+  type CreateDebugRequest,
+  type DebugElementContext,
+} from "./validators/debug-request.js";
 export * from "./validators/skill-policy.js";

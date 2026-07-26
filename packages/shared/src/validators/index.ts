@@ -85,6 +85,13 @@ export {
   type UpsertIssueFeedbackVote,
 } from "./feedback.js";
 export {
+  createDebugRequestSchema,
+  debugElementContextSchema,
+  debugElementRectSchema,
+  type CreateDebugRequest,
+  type DebugElementContext,
+} from "./debug-request.js";
+export {
   sidebarOrderPreferenceSchema,
   upsertSidebarOrderPreferenceSchema,
   type UpsertSidebarOrderPreference,

@@ -21,6 +21,7 @@ export { smokeLabRoutes } from "./smoke-lab.js";
 export { costRoutes } from "./costs.js";
 export { activityRoutes } from "./activity.js";
 export { dashboardRoutes } from "./dashboard.js";
+export { debugRequestRoutes } from "./debug-requests.js";
 export { spacebogamFunnelRoutes } from "./spacebogam-funnel.js";
 export { attentionRoutes } from "./attention.js";
 export { sidebarBadgeRoutes } from "./sidebar-badges.js";

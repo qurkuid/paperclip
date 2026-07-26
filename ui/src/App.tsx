@@ -1,5 +1,5 @@
 import { Route, Routes } from "@/lib/router";
-import { Layout } from "./components/Layout";
+import { CompanyBoardShell } from "./components/CompanyBoardShell";
 import { OnboardingWizardVariant } from "./components/OnboardingWizardVariant";
 import { CloudAccessGate } from "./components/CloudAccessGate";
 import { IssueChatLongThreadPerf } from "./pages/IssueChatLongThreadPerf";
@@ -39,7 +39,7 @@ export function App() {
           <Route path="instance/settings" element={<LegacySettingsRedirect />} />
           <Route path="instance/settings/*" element={<LegacySettingsRedirect />} />
           {companylessBoardRedirectRoutes()}
-          <Route path=":companyPrefix" element={<Layout />}>
+          <Route path=":companyPrefix" element={<CompanyBoardShell />}>
             {companyBoardRoutes()}
           </Route>
           <Route path="*" element={<NotFoundPage scope="global" />} />

@@ -39,6 +39,7 @@ import { smokeLabRoutes } from "./routes/smoke-lab.js";
 import { costRoutes } from "./routes/costs.js";
 import { activityRoutes } from "./routes/activity.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
+import { debugRequestRoutes } from "./routes/debug-requests.js";
 import { spacebogamFunnelRoutes } from "./routes/spacebogam-funnel.js";
 import { attentionRoutes } from "./routes/attention.js";
 import { decisionTrainingRoutes } from "./routes/decision-training.js";
@@ -268,6 +269,7 @@ export async function createApp(
   api.use(costRoutes(db, { pluginWorkerManager: workerManager }));
   api.use(activityRoutes(db));
   api.use(dashboardRoutes(db));
+  api.use(debugRequestRoutes(db));
   api.use(spacebogamFunnelRoutes());
   api.use(attentionRoutes(db));
   api.use(decisionTrainingRoutes(db));
