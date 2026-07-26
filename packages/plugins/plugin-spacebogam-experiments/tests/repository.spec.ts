@@ -69,6 +69,18 @@ describe("Spacebogam experiment repository", () => {
     expect(database.calls.every((call) => call.sql.includes("company_id"))).toBe(true);
   });
 
+  it("normalizes PostgreSQL timestamptz text returned by namespaced queries", async () => {
+    const database = new RecordingDatabase((sql) =>
+      sql.includes("experiments")
+        ? [{ ...experimentRow, updated_at: "2026-07-27 03:00:00+00" }]
+        : []);
+    const repository = createExperimentRepository(database);
+
+    await expect(repository.listExperiments(COMPANY_A)).resolves.toEqual([
+      expect.objectContaining({ updatedAt: NOW }),
+    ]);
+  });
+
   it("uses company and expected version in lifecycle updates", async () => {
     const database = new RecordingDatabase(
       (sql, params) =>

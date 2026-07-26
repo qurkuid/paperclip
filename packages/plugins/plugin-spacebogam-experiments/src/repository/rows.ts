@@ -20,7 +20,7 @@ import {
 } from "../contracts/index.js";
 
 const uuid = z.string().uuid();
-const timestamp = z.string().datetime({ offset: true });
+const timestamp = z.coerce.date().transform((value) => value.toISOString());
 const nullableTimestamp = timestamp.nullable();
 
 const experimentRowSchema = z.object({
