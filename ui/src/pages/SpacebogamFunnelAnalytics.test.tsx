@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
-import { act, type ReactNode } from "react";
+import type { ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import type { SpacebogamFunnelReport } from "@paperclipai/shared/validators/spacebogam-funnel";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -176,13 +177,13 @@ function render(node: ReactNode) {
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
-  act(() => {
+  flushSync(() => {
     root?.render(node);
   });
 }
 
 function clearRender() {
-  act(() => {
+  flushSync(() => {
     root?.unmount();
   });
   host?.remove();
