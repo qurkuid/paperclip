@@ -108,7 +108,7 @@ export function DebugRequestLauncher() {
     <div data-debug-request-ui>
       {hoveredRect ? (
         <div
-          className="pointer-events-none fixed z-[10000] rounded-sm border-2 border-amber-300 bg-amber-300/10 shadow-[0_0_0_1px_rgba(0,0,0,0.65),0_0_28px_rgba(252,211,77,0.28)]"
+          className="pointer-events-none fixed z-(--z-10000) rounded-sm border-2 border-amber-300 bg-amber-300/10 shadow-[0_0_0_1px_rgba(0,0,0,0.65),0_0_28px_rgba(252,211,77,0.28)]"
           style={{
             left: hoveredRect.x,
             top: hoveredRect.y,
@@ -119,7 +119,7 @@ export function DebugRequestLauncher() {
       ) : null}
 
       {selecting ? (
-        <div className="fixed left-1/2 top-5 z-[10001] flex -translate-x-1/2 items-center gap-3 rounded-full border border-amber-300/40 bg-zinc-950 px-4 py-2.5 text-zinc-100 shadow-2xl">
+        <div className="fixed left-1/2 top-5 z-(--z-10001) flex -translate-x-1/2 items-center gap-3 rounded-full border border-amber-300/40 bg-zinc-950 px-4 py-2.5 text-zinc-100 shadow-2xl">
           <span className="flex size-7 items-center justify-center rounded-full bg-amber-300 text-zinc-950">
             <MousePointer2 className="size-3.5" />
           </span>
@@ -133,7 +133,7 @@ export function DebugRequestLauncher() {
         aria-label="화면 수정 요청"
         aria-pressed={selecting}
         title={selecting ? "요소 선택 취소" : "화면 요소를 선택해 수정 요청"}
-        className="fixed bottom-6 right-6 z-[10001] flex size-12 items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-950 text-amber-300 shadow-[0_14px_40px_rgba(0,0,0,0.34)] transition hover:-translate-y-0.5 hover:border-amber-300/70 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+        className="fixed bottom-6 right-6 z-(--z-10001) flex size-12 items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-950 text-amber-300 shadow-[0_14px_40px_rgba(0,0,0,0.34)] transition hover:-translate-y-0.5 hover:border-amber-300/70 hover:bg-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
         onClick={() => {
           setSelecting((current) => !current);
           setHoveredRect(null);

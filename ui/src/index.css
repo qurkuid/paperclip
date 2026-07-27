@@ -1926,6 +1926,8 @@ span.paperclip-mention-chip[data-mention-kind="external-object"] {
   --z-1: 1; /* Extracted from ui/src/components/IssueDocumentAnnotations.tsx (z-[1]). */
   --z-200: 200; /* Extracted from ui/src/components/Layout.tsx (z-[200]). */
   --z-9999: 9999; /* Extracted from ui/src/components/MarkdownEditor.tsx (z-[9999]). */
+  --z-10000: 10000; /* Debug element highlight above the application shell. */
+  --z-10001: 10001; /* Debug request controls above the element highlight. */
   --z-120: 120; /* Extracted from ui/src/components/ToastViewport.tsx (z-[120]). */
   --s-0_98: 0.98; /* Extracted from ui/src/pages/Inbox.tsx (scale-[0.98]). */
   --s-1_02: 1.02; /* Extracted from ui/src/components/CaseAttachmentsGallery.tsx (scale-[1.02]). */

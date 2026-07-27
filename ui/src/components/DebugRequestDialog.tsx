@@ -58,7 +58,7 @@ export function DebugRequestDialog({
       >
         <form onSubmit={handleSubmit}>
           <DialogHeader className="border-b border-zinc-800 px-6 py-5 text-left">
-            <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-300">
+            <div className="mb-3 flex items-center gap-2 text-(length:--text-micro) font-semibold uppercase tracking-(--tracking-caps) text-amber-300">
               <Code2 className="size-3.5" />
               Paperclip UI Debug
             </div>
@@ -82,7 +82,7 @@ export function DebugRequestDialog({
                       {element.selector}
                     </p>
                   </div>
-                  <span className="shrink-0 rounded-md border border-zinc-700 px-2 py-1 font-mono text-[10px] uppercase text-zinc-400">
+                  <span className="shrink-0 rounded-md border border-zinc-700 px-2 py-1 font-mono text-(length:--text-nano) uppercase text-zinc-400">
                     {element.tagName}
                   </span>
                 </div>

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
-import { act, type ReactNode } from "react";
+import type { ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DebugRequestLauncher } from "./DebugRequestLauncher";
@@ -41,10 +42,8 @@ vi.mock("@/components/ui/dialog", () => ({
 }));
 
 async function flushReact() {
-  await act(async () => {
-    await Promise.resolve();
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
-  });
+  await Promise.resolve();
+  await new Promise((resolve) => window.setTimeout(resolve, 0));
 }
 
 describe("DebugRequestLauncher", () => {
@@ -59,7 +58,7 @@ describe("DebugRequestLauncher", () => {
     target.id = "approve-action";
     document.body.append(container, target);
     root = createRoot(container);
-    act(() => root.render(<DebugRequestLauncher />));
+    flushSync(() => root.render(<DebugRequestLauncher />));
     createDebugRequestMock.mockResolvedValue({
       id: "issue-1",
       identifier: "CMP-99",
@@ -67,7 +66,7 @@ describe("DebugRequestLauncher", () => {
   });
 
   afterEach(() => {
-    act(() => root.unmount());
+    flushSync(() => root.unmount());
     document.body.innerHTML = "";
     vi.clearAllMocks();
   });
@@ -76,16 +75,16 @@ describe("DebugRequestLauncher", () => {
     const launcher = container.querySelector<HTMLButtonElement>("[aria-label='화면 수정 요청']");
     if (!launcher) throw new Error("debug launcher missing");
 
-    act(() => launcher.click());
+    flushSync(() => launcher.click());
     expect(document.body.textContent).toContain("수정할 요소를 선택하세요");
 
-    act(() => target.click());
+    flushSync(() => target.click());
     expect(document.body.textContent).toContain("선택한 요소 수정 요청");
     expect(document.body.textContent).toContain("Approve action");
 
     const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
     if (!textarea) throw new Error("request textarea missing");
-    act(() => {
+    flushSync(() => {
       const setter = Object.getOwnPropertyDescriptor(
         HTMLTextAreaElement.prototype,
         "value",
@@ -98,7 +97,7 @@ describe("DebugRequestLauncher", () => {
       (button) => button.textContent?.includes("수정 요청 보내기"),
     );
     if (!submit) throw new Error("submit button missing");
-    act(() => submit.click());
+    flushSync(() => submit.click());
     await flushReact();
 
     expect(createDebugRequestMock).toHaveBeenCalledWith(
