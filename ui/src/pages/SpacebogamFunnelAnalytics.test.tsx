@@ -217,6 +217,7 @@ describe("SpacebogamFunnelAnalytics", () => {
     expect(document.body.textContent).toContain("현재 진단");
     expect(document.body.textContent).toContain("지금 한눈에 볼 결론");
     expect(document.body.textContent).toContain("광고 귀속 상태");
+    expect(document.body.textContent).toContain("유입·문의 통합 비교");
     expect(document.body.textContent).toContain("문제 구간과 원인은 다릅니다.");
     expect(document.body.textContent).toContain("바꾸고, 측정하고, 판정하세요.");
     expect(document.body.textContent).toContain("상담 CTA 위치와 약속 실험");
@@ -226,8 +227,18 @@ describe("SpacebogamFunnelAnalytics", () => {
     expect([...document.querySelectorAll("button")].map((button) => button.textContent)).toEqual(["7일", "28일", "90일"]);
     expect(document.querySelectorAll("canvas[aria-label]")).toHaveLength(5);
     expect(document.querySelectorAll("table[aria-label]")).toHaveLength(5);
+    expect(document.querySelector("table[aria-label='UTM 캠페인 볼륨 전환 표']")).toBeNull();
     expect(chartProps.map((props) => props.label)).toEqual(["네이버 캠페인 광고비 및 클릭 혼합 차트", "공간보감 단계별 퍼널 막대 차트", "공간보감 일별 방문 및 문의율 혼합 차트", "공간보감 UTM 캠페인 볼륨 전환 산점도", "공간보감 손실 파레토 혼합 차트"]);
     expect(document.body.textContent).toContain("apt-main");
+    const comparisonRows = [...document.querySelectorAll("table[aria-label='유입 및 문의 통합 비교 표'] tbody tr")];
+    const naverBlogRow = comparisonRows.find((row) => row.textContent?.includes("네이버 블로그"));
+    expect(naverBlogRow?.textContent).toContain("blog/블로그 UTM 신호 없음");
+    expect(naverBlogRow?.textContent?.match(/0/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(naverBlogRow?.textContent).toContain("추가 측정 필요");
+    const unattributedRow = comparisonRows.find((row) => row.textContent?.includes("미분류"));
+    expect(unattributedRow?.textContent).toContain("1,100");
+    expect(unattributedRow?.textContent).toContain("105");
+    expect(document.body.textContent).toContain("UTM 누락 여부를 확인하기 전까지 채널 귀속은 불확실합니다.");
     expect(document.body.textContent).toContain("손실 파레토");
     expect(document.body.textContent).toContain("참여 → 상담 클릭");
     expect(document.body.textContent).toContain("누적 비중");
@@ -242,16 +253,44 @@ describe("SpacebogamFunnelAnalytics", () => {
 
     const regions = [...document.querySelectorAll("div[tabindex='0'][aria-label]")];
     expect(regions.map((region) => region.getAttribute("aria-label"))).toEqual([
-      "네이버 캠페인 성과 표 스크롤 영역", "단계별 퍼널 표 스크롤 영역", "일별 방문 및 문의율 표 스크롤 영역", "UTM 캠페인 볼륨 전환 표 스크롤 영역", "손실 파레토 표 스크롤 영역",
+      "유입 및 문의 통합 비교 표 스크롤 영역", "네이버 캠페인 성과 표 스크롤 영역", "단계별 퍼널 표 스크롤 영역", "일별 방문 및 문의율 표 스크롤 영역", "손실 파레토 표 스크롤 영역",
     ]);
-    expect(regions.every((region) => region.className.includes("max-h-64"))).toBe(true);
-    expect(regions.every((region) => region.className.includes("overflow-auto"))).toBe(true);
-    expect(document.querySelectorAll("details:not([open])")).toHaveLength(5);
-    expect([...document.querySelectorAll("table[aria-label]")].every((table) => {
+    const chartTableRegions = regions.filter((region) => region.getAttribute("aria-label") !== "유입 및 문의 통합 비교 표 스크롤 영역");
+    expect(chartTableRegions.every((region) => region.className.includes("max-h-64"))).toBe(true);
+    expect(regions.every((region) => (
+      region.className.includes("overflow-auto") || region.className.includes("overflow-x-auto")
+    ))).toBe(true);
+    expect(document.querySelectorAll("details:not([open])")).toHaveLength(4);
+    expect([...document.querySelectorAll("details table[aria-label]")].every((table) => {
       const className = table.className;
       return className.includes("table-fixed") && className.includes("text-xs") && className.includes("sm:text-sm") && !className.includes("min-w-");
     })).toBe(true);
-    expect(regions.map((region) => region.querySelectorAll("tbody tr").length)).toEqual([2, 5, 25, 3, 4]);
+    expect(regions.map((region) => region.querySelectorAll("tbody tr").length)).toEqual([6, 2, 5, 25, 4]);
+  });
+
+  it("keeps Naver Blog separate from Naver search and surfaces UTM over-attribution", () => {
+    const base = report();
+    funnelState.data = report({
+      counts: { ...base.counts, visits: 1_000, submittedLeads: 100 },
+      campaigns: [
+        { source: "naver", medium: "search", campaign: "apt-main", visits: 900, submittedLeads: 80, visitToLeadRate: 0.089, sampleStatus: "usable" },
+        { source: "naver", medium: "블로그", campaign: "interior-story", visits: 300, submittedLeads: 12, visitToLeadRate: 0.04, sampleStatus: "usable" },
+        { source: "google", medium: "cpc", campaign: "brand-blog-retarget", visits: 100, submittedLeads: 3, visitToLeadRate: 0.03, sampleStatus: "usable" },
+      ],
+    });
+    render(<SpacebogamFunnelAnalytics />);
+
+    const comparisonRows = [...document.querySelectorAll("table[aria-label='유입 및 문의 통합 비교 표'] tbody tr")];
+    const naverBlogRow = comparisonRows.find((row) => row.textContent?.includes("네이버 블로그"));
+    expect(naverBlogRow?.textContent).toContain("300");
+    expect(naverBlogRow?.textContent).toContain("12");
+    expect(naverBlogRow?.textContent).toContain("4%");
+    expect(naverBlogRow?.textContent).not.toContain("brand-blog-retarget");
+    expect(document.body.textContent).toContain("네이버 UTM 유입에서 문의 80건이 보이지만 광고 플랫폼 전환은 0건입니다.");
+    expect(document.body.textContent).toContain("UTM 합계가 전체보다 방문 300회, 문의 0건 많습니다.");
+    const unattributedRow = comparisonRows.find((row) => row.textContent?.includes("미분류"));
+    expect(unattributedRow?.textContent?.match(/0/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(unattributedRow?.textContent).toContain("추가 측정 필요");
   });
 
   it("G004 replaces Pareto when ready monotonic data still has a negative loss", () => {

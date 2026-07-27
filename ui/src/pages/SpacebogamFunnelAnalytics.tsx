@@ -85,6 +85,16 @@ function ratio(numerator: number, denominator: number): number | null {
   return denominator > 0 ? numerator / denominator : null;
 }
 
+function hasBlogSignal(campaign: SpacebogamFunnelReport["campaigns"][number]): boolean {
+  const attributionSignals = [campaign.source, campaign.medium, campaign.campaign];
+  return attributionSignals.some((value) => /naver|네이버/i.test(value))
+    && attributionSignals.some((value) => /blog|블로그/i.test(value));
+}
+
+function isNaverSearchCampaign(campaign: SpacebogamFunnelReport["campaigns"][number]): boolean {
+  return campaign.source.toLowerCase().includes("naver") && !hasBlogSignal(campaign);
+}
+
 function ConfidenceBadge({ confidence }: { confidence: FunnelInsightConfidence }) {
   return (
     <Badge
@@ -187,11 +197,67 @@ function IntegratedOverview({
   const campaignVerdict = buildCampaignVerdict(report);
   const naverSnapshot = report.naverSearchAds;
   const naverUtmLeads = report.campaigns
-    .filter((campaign) => campaign.source.toLowerCase().includes("naver"))
+    .filter(isNaverSearchCampaign)
     .reduce((sum, campaign) => sum + campaign.submittedLeads, 0);
   const attributionNeedsCheck = naverSnapshot?.status === "ready"
     && naverSnapshot.totals.conversions === 0
     && naverUtmLeads > 0;
+  const naverBlogCampaigns = report.campaigns.filter(hasBlogSignal);
+  const naverBlogVisits = naverBlogCampaigns.reduce((sum, campaign) => sum + campaign.visits, 0);
+  const naverBlogLeads = naverBlogCampaigns.reduce((sum, campaign) => sum + campaign.submittedLeads, 0);
+  const utmVisits = report.campaigns.reduce((sum, campaign) => sum + campaign.visits, 0);
+  const utmLeads = report.campaigns.reduce((sum, campaign) => sum + campaign.submittedLeads, 0);
+  const unattributedVisits = Math.max(report.counts.visits - utmVisits, 0);
+  const unattributedLeads = Math.max(report.counts.submittedLeads - utmLeads, 0);
+  const visitOverAttribution = Math.max(utmVisits - report.counts.visits, 0);
+  const leadOverAttribution = Math.max(utmLeads - report.counts.submittedLeads, 0);
+  const hasOverAttribution = visitOverAttribution > 0 || leadOverAttribution > 0;
+  const comparisonRows = [
+    {
+      key: "website-total",
+      scope: "전체",
+      label: "웹사이트 전체",
+      detail: `${report.rangeDays}일 집계`,
+      visits: report.counts.visits,
+      leads: report.counts.submittedLeads,
+      rate: ratio(report.counts.submittedLeads, report.counts.visits),
+      confidence: "confirmed" as const,
+    },
+    {
+      key: "naver-blog",
+      scope: "채널",
+      label: "네이버 블로그",
+      detail: naverBlogCampaigns.length > 0
+        ? `blog/블로그 신호 ${formatCount(naverBlogCampaigns.length)}개 UTM`
+        : "blog/블로그 UTM 신호 없음",
+      visits: naverBlogVisits,
+      leads: naverBlogLeads,
+      rate: ratio(naverBlogLeads, naverBlogVisits),
+      confidence: naverBlogCampaigns.length > 0 ? "directional" as const : "needs_measurement" as const,
+    },
+    ...report.campaigns.map((campaign, index) => ({
+      key: `campaign-${index}-${campaign.source}-${campaign.medium}-${campaign.campaign}`,
+      scope: "UTM",
+      label: campaign.campaign || "캠페인 값 없음",
+      detail: `${campaign.source || "source 없음"} / ${campaign.medium || "medium 없음"}`,
+      visits: campaign.visits,
+      leads: campaign.submittedLeads,
+      rate: campaign.visitToLeadRate,
+      confidence: campaign.sampleStatus === "usable" ? "directional" as const : "needs_measurement" as const,
+    })),
+    {
+      key: "unattributed",
+      scope: "추정",
+      label: "미분류",
+      detail: "전체 − UTM 합계, 0 미만은 0으로 보정",
+      visits: unattributedVisits,
+      leads: unattributedLeads,
+      rate: ratio(unattributedLeads, unattributedVisits),
+      confidence: (unattributedVisits > 0 || unattributedLeads > 0 || hasOverAttribution)
+        ? "needs_measurement" as const
+        : "directional" as const,
+    },
+  ];
 
   const signals = [
     {
@@ -250,6 +316,62 @@ function IntegratedOverview({
             <p className="text-sm leading-6 text-funnel-muted">{signal.body}</p>
           </article>
         ))}
+      </div>
+      <div className="border-t border-funnel-line">
+        <div className="flex flex-col gap-2 px-5 py-4 lg:flex-row lg:items-end lg:justify-between lg:px-6">
+          <div>
+            <h3 className="font-semibold text-funnel-ink">유입·문의 통합 비교</h3>
+            <p className="mt-1 text-sm text-funnel-muted">
+              전체 집계, 채널 소계, UTM 캠페인 상세, 미분류 추정치를 같은 기준으로 비교합니다.
+            </p>
+          </div>
+          <p className="text-xs text-funnel-muted">채널 소계와 UTM 상세는 포함 관계이므로 서로 더하지 않습니다.</p>
+        </div>
+        <div className="overflow-x-auto" tabIndex={0} aria-label="유입 및 문의 통합 비교 표 스크롤 영역">
+          <table className="w-full text-xs sm:text-sm" aria-label="유입 및 문의 통합 비교 표">
+            <thead>
+              <tr>
+                <th className="border-y border-funnel-line px-5 py-2 text-left font-medium text-funnel-muted lg:px-6">구분</th>
+                <th className="border-y border-funnel-line px-2 py-2 text-left font-medium text-funnel-muted">유입 경로</th>
+                <th className="border-y border-funnel-line px-2 py-2 text-right font-medium text-funnel-muted">방문</th>
+                <th className="border-y border-funnel-line px-2 py-2 text-right font-medium text-funnel-muted">문의</th>
+                <th className="border-y border-funnel-line px-2 py-2 text-right font-medium text-funnel-muted">문의율</th>
+                <th className="border-y border-funnel-line px-5 py-2 text-right font-medium text-funnel-muted lg:px-6">측정 상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparisonRows.map((row) => (
+                <tr key={row.key}>
+                  <td className="border-b border-funnel-line px-5 py-3 font-mono text-funnel-muted lg:px-6">{row.scope}</td>
+                  <td className="border-b border-funnel-line px-2 py-3">
+                    <p className="font-medium text-funnel-ink">{row.label}</p>
+                    <p className="mt-1 text-xs text-funnel-muted">{row.detail}</p>
+                  </td>
+                  <td className="border-b border-funnel-line px-2 py-3 text-right font-mono text-funnel-ink">{formatCount(row.visits)}</td>
+                  <td className="border-b border-funnel-line px-2 py-3 text-right font-mono text-funnel-ink">{formatCount(row.leads)}</td>
+                  <td className="border-b border-funnel-line px-2 py-3 text-right font-mono text-funnel-ink">
+                    {row.rate === null ? "측정 필요" : formatRate(row.rate)}
+                  </td>
+                  <td className="border-b border-funnel-line px-5 py-3 text-right lg:px-6">
+                    <ConfidenceBadge confidence={row.confidence} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className={cn(
+          "px-5 py-4 text-sm leading-6 lg:px-6",
+          (hasOverAttribution || unattributedVisits > 0 || unattributedLeads > 0)
+            ? "bg-funnel-critical-wash text-funnel-ink"
+            : "text-funnel-muted",
+        )}>
+          {hasOverAttribution
+            ? `UTM 합계가 전체보다 방문 ${formatCount(visitOverAttribution)}회, 문의 ${formatCount(leadOverAttribution)}건 많습니다. 중복 집계나 기간 불일치 가능성이 있어 미분류를 0으로 보정했으며 귀속 판단은 보류합니다.`
+            : unattributedVisits > 0 || unattributedLeads > 0
+              ? `미분류 방문 ${formatCount(unattributedVisits)}회와 문의 ${formatCount(unattributedLeads)}건은 전체에서 UTM 합계를 뺀 추정치입니다. UTM 누락 여부를 확인하기 전까지 채널 귀속은 불확실합니다.`
+              : "전체와 UTM 합계가 일치합니다. UTM은 유입 경로를 보여주지만 문의의 인과를 확정하지는 않습니다."}
+        </div>
       </div>
     </section>
   );
@@ -521,7 +643,7 @@ function NaverSearchAdsPanel({ report }: { report: SpacebogamFunnelReport }) {
   }
 
   const naverCampaigns = report.campaigns.filter((campaign) => (
-    campaign.source.toLowerCase().includes("naver")
+    isNaverSearchCampaign(campaign)
   ));
   const naverUtmLeads = naverCampaigns.reduce((sum, campaign) => sum + campaign.submittedLeads, 0);
   const trackingMismatch = snapshot.totals.conversions === 0 && naverUtmLeads > 0;

@@ -329,26 +329,6 @@ export function UtmBubbleChart({ report }: Props) {
           }}
         />
       </div>
-      <EvidenceTable label="UTM 캠페인 볼륨 전환 표 스크롤 영역">
-        <table className={tableClass} aria-label="UTM 캠페인 볼륨 전환 표">
-          <thead>
-            <tr>
-              <th className={`${headerClass} text-left`}>캠페인</th>
-              <th className={`${headerClass} text-left`}>소스</th>
-              <th className={`${headerClass} text-right`}>방문</th>
-              <th className={`${headerClass} text-right`}>문의율</th>
-            </tr>
-          </thead>
-          <tbody>{rows.map((row) => (
-            <tr key={row.id}>
-              <td className={labelCellClass}>{row.campaign}</td>
-              <td className={labelCellClass}>{row.sourceMedium}</td>
-              <td className={valueCellClass}>{formatCount(row.visits)}</td>
-              <td className={valueCellClass}>{formatRate(row.leadRate)}</td>
-            </tr>
-          ))}</tbody>
-        </table>
-      </EvidenceTable>
     </ChartShell>
   );
 }
