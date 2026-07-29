@@ -30,18 +30,52 @@ export type HeartbeatRunScratchCleanupResult =
   | { removed: false; dir: string; reason: "missing" | "unmarked" | "owner_mismatch" | "process_group_alive" };
 
 const TEMP_ENV_KEYS = ["TMPDIR", "TEMP", "TMP"] as const;
-const ISSUE_SEGMENT_MAX_CHARS = 32;
 
-function sanitizePathSegment(value: string | null | undefined, fallback: string): string {
+/**
+ * macOS caps unix domain socket paths at 104 bytes (sockaddr_un.sun_path).
+ * A run exports TMPDIR=<scratch dir>, so every tool launched inside the run
+ * creates its sockets under that directory — tsx, for example, listens on
+ * `$TMPDIR/tsx-<uid>/<pid>.pipe`. Keep the directory name short enough that
+ * those nested paths still fit: an overflow fails with EINVAL inside the
+ * tool's own bootstrap, before it can run a single line of our code.
+ */
+export const UNIX_SOCKET_PATH_MAX_BYTES = 104;
+/** macOS per-user TMPDIR (`/var/folders/<2>/<30>/T`) plus the separator after it. */
+const MACOS_TMPDIR_PREFIX_BYTES = 49;
+/** Worst case a nested tool appends under TMPDIR, e.g. tsx's `/tsx-<uid>/<pid>.pipe`. */
+const NESTED_SOCKET_SUFFIX_BYTES = 24;
+/**
+ * Byte budget for the scratch directory name itself. Tests assert against this
+ * rather than a locally built path, so the limit still holds when the runner's
+ * tmpdir is short (a Linux `/tmp` runner passes any name otherwise).
+ */
+export const RUN_SCRATCH_DIR_NAME_MAX_BYTES =
+  UNIX_SOCKET_PATH_MAX_BYTES - MACOS_TMPDIR_PREFIX_BYTES - NESTED_SOCKET_SUFFIX_BYTES;
+const RUN_SCRATCH_DIR_PREFIX = "pcrun-";
+const LEGACY_RUN_SCRATCH_DIR_PREFIX = "paperclip-run-";
+// Only the run id goes in the name. The issue identifier does not fit the byte
+// budget intact, and a truncated one is worse than none: "CMP-230" and "CMP-23"
+// both render as "cmp-23". It stays available in full in the scratch marker.
+const RUN_SEGMENT_MAX_CHARS = 12;
+
+function sanitizePathSegment(
+  value: string | null | undefined,
+  fallback: string,
+  maxChars: number,
+): string {
   const normalized = (value ?? "")
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, ISSUE_SEGMENT_MAX_CHARS)
+    .slice(0, maxChars)
     .replace(/[.-]+$/g, "");
   return normalized || fallback;
+}
+
+function isRunScratchDirName(name: string): boolean {
+  return name.startsWith(RUN_SCRATCH_DIR_PREFIX) || name.startsWith(LEGACY_RUN_SCRATCH_DIR_PREFIX);
 }
 
 function isPathInside(parent: string, child: string): boolean {
@@ -85,9 +119,10 @@ export async function prepareHeartbeatRunScratch(input: {
   issueIdentifier?: string | null;
   now?: Date;
 }): Promise<HeartbeatRunScratch> {
-  const issueSegment = sanitizePathSegment(input.issueIdentifier, "unassigned");
-  const runSegment = sanitizePathSegment(input.runId.slice(0, 12), "run");
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), `paperclip-run-${issueSegment}-${runSegment}-`));
+  const runSegment = sanitizePathSegment(input.runId, "run", RUN_SEGMENT_MAX_CHARS);
+  const dir = await fs.mkdtemp(
+    path.join(os.tmpdir(), `${RUN_SCRATCH_DIR_PREFIX}${runSegment}-`),
+  );
   const markerPath = path.join(dir, HEARTBEAT_RUN_SCRATCH_MARKER);
   const metadata: HeartbeatRunScratchMetadata = {
     version: 1,
@@ -129,7 +164,7 @@ export async function cleanupHeartbeatRunScratch(input: {
 }): Promise<HeartbeatRunScratchCleanupResult> {
   const tmpRoot = path.resolve(os.tmpdir());
   const dir = path.resolve(input.scratch.dir);
-  if (!isPathInside(tmpRoot, dir) || !path.basename(dir).startsWith("paperclip-run-")) {
+  if (!isPathInside(tmpRoot, dir) || !isRunScratchDirName(path.basename(dir))) {
     return { removed: false, dir, reason: "unmarked" };
   }
   try {
