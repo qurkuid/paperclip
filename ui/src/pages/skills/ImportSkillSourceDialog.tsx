@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 interface ImportSkillSourceDialogProps {
   open: boolean;
   source: string;
+  previewSource: string | null;
   preview: CompanySkillImportPreviewResult | null;
   validationError: string | null;
   previewPending: boolean;
@@ -40,6 +41,7 @@ function compatibilityLabel(value: CompanySkillImportPreviewResult["candidates"]
 export function ImportSkillSourceDialog({
   open,
   source,
+  previewSource,
   preview,
   validationError,
   previewPending,
@@ -49,6 +51,8 @@ export function ImportSkillSourceDialog({
   onPreview,
   onInstall,
 }: ImportSkillSourceDialogProps) {
+  const verifiedPreview = previewSource === source.trim() ? preview : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-(--sz-85vh) overflow-y-auto sm:max-w-lg">
@@ -63,7 +67,7 @@ export function ImportSkillSourceDialog({
           className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
-            if (preview) onInstall();
+            if (verifiedPreview) onInstall();
             else onPreview();
           }}
         >
@@ -72,9 +76,10 @@ export function ImportSkillSourceDialog({
             onChange={(event) => onSourceChange(event.target.value)}
             placeholder="https://github.com/owner/repository"
             aria-label="Skill source"
+            disabled={installPending}
           />
 
-          {!preview ? (
+          {!verifiedPreview ? (
             <div className="grid gap-2">
               <a
                 href="https://skills.sh"
@@ -113,15 +118,15 @@ export function ImportSkillSourceDialog({
             </div>
           ) : null}
 
-          {preview ? (
+          {verifiedPreview ? (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm text-foreground">
+              <div role="status" className="flex items-center gap-2 text-sm text-foreground">
                 <CheckCircle2 className="h-4 w-4 text-primary" />
                 <span className="font-medium">
-                  Valid Agent Skill source · {preview.candidates.length} detected
+                  Valid Agent Skill source · {verifiedPreview.candidates.length} detected
                 </span>
               </div>
-              {preview.candidates.map((candidate) => (
+              {verifiedPreview.candidates.map((candidate) => (
                 <div key={candidate.key} className="space-y-2 rounded-md border border-border px-3 py-3">
                   <div>
                     <p className="font-medium text-foreground">{candidate.name}</p>
@@ -137,10 +142,10 @@ export function ImportSkillSourceDialog({
                 </div>
               ))}
               <div className="text-sm text-muted-foreground">
-                {preview.warnings.length > 0 ? (
+                {verifiedPreview.warnings.length > 0 ? (
                   <div className="space-y-1">
                     <p className="font-medium text-foreground">Warnings</p>
-                    {preview.warnings.map((warning) => <p key={warning}>{warning}</p>)}
+                    {verifiedPreview.warnings.map((warning) => <p key={warning}>{warning}</p>)}
                   </div>
                 ) : (
                   <p>No validation warnings.</p>
@@ -153,7 +158,7 @@ export function ImportSkillSourceDialog({
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            {preview ? (
+            {verifiedPreview ? (
               <Button type="submit" disabled={installPending}>
                 {installPending ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {installPending ? "Installing..." : "Install verified skill"}

@@ -82,6 +82,7 @@ describe("ImportSkillSourceDialog", () => {
         <ImportSkillSourceDialog
           open
           source="https://github.com/acme/review"
+          previewSource={validated ? "https://github.com/acme/review" : null}
           preview={validated}
           validationError={null}
           previewPending={false}
@@ -133,6 +134,7 @@ describe("ImportSkillSourceDialog", () => {
       <ImportSkillSourceDialog
         open
         source="https://github.com/acme/not-a-skill"
+        previewSource={null}
         preview={null}
         validationError="YAML frontmatter must include name and description."
         previewPending={false}
@@ -149,5 +151,47 @@ describe("ImportSkillSourceDialog", () => {
     );
     expect(buttonNamed("Install verified skill")).toBeUndefined();
     expect(buttonNamed("Verify source")).toBeTruthy();
+  });
+
+  it("does not expose or submit an install for a preview from a changed source", async () => {
+    const onInstall = vi.fn();
+
+    function Harness() {
+      const [source, setSource] = useState("https://github.com/acme/review");
+      return (
+        <ImportSkillSourceDialog
+          open
+          source={source}
+          previewSource="https://github.com/acme/review"
+          preview={preview}
+          validationError={null}
+          previewPending={false}
+          installPending={false}
+          onOpenChange={vi.fn()}
+          onSourceChange={setSource}
+          onPreview={vi.fn()}
+          onInstall={onInstall}
+        />
+      );
+    }
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    flushSync(() => root?.render(<Harness />));
+
+    const input = container.querySelector('input[aria-label="Skill source"]') as HTMLInputElement;
+    flushSync(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      setter?.call(input, "https://github.com/acme/changed");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    expect(buttonNamed("Install verified skill")).toBeUndefined();
+    expect(buttonNamed("Verify source")).toBeTruthy();
+    expect(onInstall).not.toHaveBeenCalled();
   });
 });

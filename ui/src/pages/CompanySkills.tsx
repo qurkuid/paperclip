@@ -5179,6 +5179,7 @@ export function CompanySkills() {
       <ImportSkillSourceDialog
         open={importDialogOpen}
         source={source}
+        previewSource={importPreview?.source ?? null}
         preview={importPreview?.source === source.trim() ? importPreview.result : null}
         validationError={
           importValidationError?.source === source.trim()

@@ -31,6 +31,76 @@ if (!embeddedPostgresSupport.supported) {
   );
 }
 
+describe("companySkillService import preview", () => {
+  it("discovers all six Agent Skills in a repository-root skills collection without writes", async () => {
+    const companyId = randomUUID();
+    const commit = "0123456789abcdef0123456789abcdef01234567";
+    const slugs = [
+      "ponytail",
+      "ponytail-audit",
+      "ponytail-debt",
+      "ponytail-gain",
+      "ponytail-help",
+      "ponytail-review",
+    ];
+    const db = {
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn(() => Promise.resolve([{ id: companyId }])),
+        })),
+      })),
+    } as unknown as ReturnType<typeof createDb>;
+    const previewService = companySkillService(db);
+
+    vi.stubGlobal("fetch", async (url: string | URL) => {
+      const value = String(url);
+      if (value.endsWith("/repos/dietrichgebert/ponytail")) {
+        return Response.json({ default_branch: "main" });
+      }
+      if (value.includes("/commits/main")) {
+        return Response.json({ sha: commit });
+      }
+      if (value.includes("/git/trees/")) {
+        return Response.json({
+          tree: slugs.map((slug) => ({
+            path: `skills/${slug}/SKILL.md`,
+            type: "blob",
+          })),
+        });
+      }
+      const slug = slugs.find((candidate) => value.includes(`/skills/${candidate}/SKILL.md`));
+      if (slug) {
+        return new Response(
+          `---\nname: ${slug}\ndescription: ${slug} Agent Skill.\n---\n\n# ${slug}\n`,
+          { status: 200 },
+        );
+      }
+      return new Response("Not found", { status: 404 });
+    });
+    try {
+      const result = await previewService.importFromSource(
+        companyId,
+        "https://github.com/DietrichGebert/ponytail",
+        "preview",
+      );
+
+      expect(result).toMatchObject({
+        mode: "preview",
+        valid: true,
+      });
+      if (!("candidates" in result)) throw new Error("Expected an import preview");
+      expect(result.candidates.map((candidate) => candidate.slug).sort()).toEqual([...slugs].sort());
+      expect(result.candidates.every((candidate) => candidate.sourceRef === commit)).toBe(true);
+      expect(db.select).toHaveBeenCalledOnce();
+      expect(db).not.toHaveProperty("insert");
+      expect(db).not.toHaveProperty("update");
+      expect(db).not.toHaveProperty("delete");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
 describeEmbeddedPostgres("companySkillService.list", () => {
   let db!: ReturnType<typeof createDb>;
   let svc!: ReturnType<typeof companySkillService>;
