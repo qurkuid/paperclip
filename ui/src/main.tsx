@@ -18,7 +18,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { initPluginBridge } from "./plugins/bridge-init";
 import { PluginLauncherProvider } from "./plugins/launchers";
 import { startPerfMeasureReaper } from "./lib/perf-measure-reaper";
-import { appBasePath, withAppBasePath } from "./lib/base-path";
+import { appBasePath, resolveRouterBasename, withAppBasePath } from "./lib/base-path";
 import "@mdxeditor/editor/style.css";
 import "./index.css";
 
@@ -59,7 +59,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <BrowserRouter basename={appBasePath || undefined}>
+        <BrowserRouter basename={resolveRouterBasename(window.location.pathname)}>
           <CompanyProvider>
             <EditorAutocompleteProvider>
               <ToastProvider>

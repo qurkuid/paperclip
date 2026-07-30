@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { resolveAppResourceUrl, withAppBasePath } from "./base-path";
+import { resolveAppResourceUrl, resolveRouterBasename, withAppBasePath } from "./base-path";
+
+describe("resolveRouterBasename", () => {
+  it("uses the configured base only when the current URL is under it", () => {
+    expect(resolveRouterBasename("/af/CMP/skills", "/af")).toBe("/af");
+    expect(resolveRouterBasename("/CMP/skills", "/af")).toBeUndefined();
+  });
+});
 
 describe("withAppBasePath", () => {
   it("prefixes root-relative paths for a sub-path deployment", () => {

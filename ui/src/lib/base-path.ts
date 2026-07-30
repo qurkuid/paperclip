@@ -6,6 +6,16 @@ function normalizeBasePath(value: string): string {
 
 export const appBasePath = normalizeBasePath(import.meta.env.BASE_URL);
 
+export function resolveRouterBasename(
+  pathname: string,
+  basePath = appBasePath,
+): string | undefined {
+  const normalizedBase = normalizeBasePath(basePath);
+  return normalizedBase && (pathname === normalizedBase || pathname.startsWith(`${normalizedBase}/`))
+    ? normalizedBase
+    : undefined;
+}
+
 export function withAppBasePath(path: string, basePath = appBasePath): string {
   if (!path || !path.startsWith("/") || path.startsWith("//")) return path;
   const normalizedBase = normalizeBasePath(basePath);
