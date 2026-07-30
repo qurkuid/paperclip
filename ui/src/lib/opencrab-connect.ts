@@ -151,6 +151,7 @@ async function persistOpenCrabUrl(input: {
 
 export async function connectOfficialOpenCrab(input: {
   companyId: string;
+  agentId: string;
   mcpUrl: string;
   connections: OpenCrabConnectionRecord[];
   client: OpenCrabConnectionClient;
@@ -209,23 +210,6 @@ export async function connectOfficialOpenCrab(input: {
   }
 
   await input.client.refreshCatalog(connection.id);
-  const snapshot = await input.client.getConnectionInstalls(connection.id);
-  const installedForCompany = snapshot.installs.some(
-    (target) => target.targetType === "company" && target.targetId === input.companyId,
-  );
-  const hasRedundantAgentInstalls = snapshot.installs.some(
-    (target) => target.targetType === "agent",
-  );
-  if (!installedForCompany || hasRedundantAgentInstalls) {
-    await input.client.putConnectionInstalls(connection.id, [
-      ...snapshot.installs
-        .filter((target) => target.targetType !== "agent")
-        .map(({ targetType, targetId }) => ({ targetType, targetId })),
-      ...(installedForCompany
-        ? []
-        : [{ targetType: "company" as const, targetId: input.companyId }]),
-    ]);
-  }
   const { catalog } = await input.client.listCatalog(connection.id);
   const enabledCatalogEntryIds = catalog.flatMap((entry) =>
     entry.id
@@ -242,5 +226,18 @@ export async function connectOfficialOpenCrab(input: {
     askFirstCatalogEntryIds: [],
     access: "all_agents",
   });
+  const snapshot = await input.client.getConnectionInstalls(connection.id);
+  const installs = snapshot.installs.map(({ targetType, targetId }) => ({ targetType, targetId }));
+  const installedForCompany = installs.some(
+    (target) => target.targetType === "company" && target.targetId === input.companyId,
+  );
+  const installedForAgent = installs.some(
+    (target) => target.targetType === "agent" && target.targetId === input.agentId,
+  );
+  await input.client.putConnectionInstalls(connection.id, [
+    ...installs,
+    ...(installedForCompany ? [] : [{ targetType: "company" as const, targetId: input.companyId }]),
+    ...(installedForAgent ? [] : [{ targetType: "agent" as const, targetId: input.agentId }]),
+  ]);
   return { connection, created };
 }

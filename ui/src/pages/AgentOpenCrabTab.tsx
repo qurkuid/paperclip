@@ -101,6 +101,7 @@ export function AgentOpenCrabTab({
   const connect = useMutation({
     mutationFn: () => connectOfficialOpenCrab({
       companyId,
+      agentId: agent.id,
       mcpUrl: mcpUrl.trim(),
       connections,
       client: {

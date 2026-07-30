@@ -18,7 +18,7 @@ function remoteConnection() {
 }
 
 describe("official OpenCrab connection", () => {
-  it("creates the account-scoped remote MCP and installs it for the company", async () => {
+  it("creates the account-scoped remote MCP and installs it for the company and selected agent", async () => {
     const connection = remoteConnection();
     const client = {
       listSecrets: vi.fn().mockResolvedValue([]),
@@ -47,6 +47,7 @@ describe("official OpenCrab connection", () => {
 
     const result = await connectOfficialOpenCrab({
       companyId: "company-1",
+      agentId: "agent-1",
       mcpUrl: OFFICIAL_URL,
       connections: [],
       client,
@@ -79,6 +80,7 @@ describe("official OpenCrab connection", () => {
     expect(client.refreshCatalog).toHaveBeenCalledWith(connection.id);
     expect(client.putConnectionInstalls).toHaveBeenCalledWith(connection.id, [
       { targetType: "company", targetId: "company-1" },
+      { targetType: "agent", targetId: "agent-1" },
     ]);
     expect(client.finishApp).toHaveBeenCalledWith("company-1", connection.id, {
       enabledCatalogEntryIds: ["read-1"],
@@ -131,6 +133,7 @@ describe("official OpenCrab connection", () => {
 
     await connectOfficialOpenCrab({
       companyId: "company-1",
+      agentId: "agent-1",
       mcpUrl: "",
       connections: [connection],
       client,
@@ -140,6 +143,49 @@ describe("official OpenCrab connection", () => {
     expect(client.rotateSecret).not.toHaveBeenCalled();
     expect(client.updateConnection).not.toHaveBeenCalled();
     expect(client.refreshCatalog).toHaveBeenCalledWith(connection.id);
+  });
+
+  it("restores agent-scoped access after rebuilding the all-agent profile", async () => {
+    const connection = {
+      ...remoteConnection(),
+      credentialSecretRefs: [{
+        secretId: "secret-1",
+        configPath: "transport.url",
+      }],
+    };
+    const client = {
+      listSecrets: vi.fn(),
+      createSecret: vi.fn(),
+      rotateSecret: vi.fn(),
+      createConnection: vi.fn(),
+      updateConnection: vi.fn(),
+      refreshCatalog: vi.fn().mockResolvedValue({}),
+      listCatalog: vi.fn().mockResolvedValue({
+        catalog: [{ id: "read-1", toolName: "opencrab_search_packs", status: "active", isReadOnly: true }],
+      }),
+      finishApp: vi.fn().mockResolvedValue({}),
+      getConnectionInstalls: vi.fn().mockResolvedValue({
+        connectionId: connection.id,
+        installs: [{ targetType: "company", targetId: "company-1" }],
+      }),
+      putConnectionInstalls: vi.fn().mockResolvedValue({}),
+    };
+
+    await connectOfficialOpenCrab({
+      companyId: "company-1",
+      agentId: "agent-1",
+      mcpUrl: "",
+      connections: [connection],
+      client,
+    });
+
+    expect(client.putConnectionInstalls).toHaveBeenCalledWith(connection.id, [
+      { targetType: "company", targetId: "company-1" },
+      { targetType: "agent", targetId: "agent-1" },
+    ]);
+    expect(client.finishApp.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY).toBeLessThan(
+      client.putConnectionInstalls.mock.invocationCallOrder[0] ?? Number.NEGATIVE_INFINITY,
+    );
   });
 
   it("does not mistake the old local LocalCrab runtime for the hosted service", () => {
@@ -155,6 +201,7 @@ describe("official OpenCrab connection", () => {
   it("rejects URLs that are not official account-scoped MCP endpoints", async () => {
     await expect(connectOfficialOpenCrab({
       companyId: "company-1",
+      agentId: "agent-1",
       mcpUrl: "http://localhost:9000/mcp",
       connections: [],
       client: {} as never,
@@ -162,6 +209,7 @@ describe("official OpenCrab connection", () => {
 
     await expect(connectOfficialOpenCrab({
       companyId: "company-1",
+      agentId: "agent-1",
       mcpUrl: "https://opencrab.sh/api/mcp/not-a-key",
       connections: [],
       client: {} as never,
