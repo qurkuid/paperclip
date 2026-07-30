@@ -60,13 +60,14 @@ export function DebugRequestDialog({
           <DialogHeader className="border-b border-zinc-800 px-6 py-5 text-left">
             <div className="mb-3 flex items-center gap-2 text-(length:--text-micro) font-semibold uppercase tracking-(--tracking-caps) text-amber-300">
               <Code2 className="size-3.5" />
-              Paperclip UI Debug
+              Paperclip Developer
             </div>
             <DialogTitle className="text-xl font-semibold tracking-tight">
-              선택한 요소 수정 요청
+              선택한 요소 개발 요청
             </DialogTitle>
             <DialogDescription className="text-sm leading-6 text-zinc-400">
-              화면 위치와 요소 정보가 함께 전달됩니다. 입력값, 쿠키, 비밀값은 수집하지 않습니다.
+              화면 위치와 요소 정보가 함께 전달됩니다. UI뿐 아니라 API·데이터베이스 원인도
+              추적할 수 있으며, 입력값·쿠키·비밀값은 수집하지 않습니다.
             </DialogDescription>
           </DialogHeader>
 
@@ -91,7 +92,7 @@ export function DebugRequestDialog({
 
             <div>
               <label htmlFor="debug-request-detail" className="mb-2 block text-sm font-medium text-zinc-200">
-                무엇을 어떻게 바꾸면 될까요?
+                무엇을 확인하거나 바꾸면 될까요?
               </label>
               <Textarea
                 ref={textareaRef}
@@ -132,7 +133,7 @@ export function DebugRequestDialog({
               className="bg-amber-300 text-zinc-950 hover:bg-amber-200"
               disabled={pending || request.trim().length < 3}
             >
-              {pending ? "작업 생성 중…" : "수정 요청 보내기"}
+              {pending ? "개발 요청 전달 중…" : "개발 요청 보내기"}
             </Button>
           </DialogFooter>
         </form>

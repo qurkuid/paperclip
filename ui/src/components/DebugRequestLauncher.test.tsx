@@ -68,18 +68,23 @@ describe("DebugRequestLauncher", () => {
   afterEach(() => {
     flushSync(() => root.unmount());
     document.body.innerHTML = "";
+    document.head
+      .querySelector("meta[name='paperclip-developer-console-url']")
+      ?.remove();
+    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
   it("selects an element, opens a request modal, and creates an assigned task", async () => {
-    const launcher = container.querySelector<HTMLButtonElement>("[aria-label='화면 수정 요청']");
+    const launcher = container.querySelector<HTMLButtonElement>("[aria-label='개발할 요소 선택']");
     if (!launcher) throw new Error("debug launcher missing");
 
     flushSync(() => launcher.click());
-    expect(document.body.textContent).toContain("수정할 요소를 선택하세요");
+    expect(document.body.textContent).toContain("개발할 요소를 선택하세요");
 
     flushSync(() => target.click());
-    expect(document.body.textContent).toContain("선택한 요소 수정 요청");
+    expect(document.body.textContent).toContain("Paperclip Developer");
+    expect(document.body.textContent).toContain("선택한 요소 개발 요청");
     expect(document.body.textContent).toContain("Approve action");
 
     const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
@@ -94,7 +99,7 @@ describe("DebugRequestLauncher", () => {
     });
 
     const submit = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent?.includes("수정 요청 보내기"),
+      (button) => button.textContent?.includes("개발 요청 보내기"),
     );
     if (!submit) throw new Error("submit button missing");
     flushSync(() => submit.click());
@@ -114,5 +119,46 @@ describe("DebugRequestLauncher", () => {
     expect(pushToastMock).toHaveBeenCalledWith(
       expect.objectContaining({ title: "CMP-99 작업을 생성했습니다" }),
     );
+  });
+
+  it("opens the independent developer console when its URL is configured", async () => {
+    const developerConsoleMeta = document.createElement("meta");
+    developerConsoleMeta.name = "paperclip-developer-console-url";
+    developerConsoleMeta.content = "https://developer.example.test/paperclip";
+    document.head.append(developerConsoleMeta);
+    const openMock = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    const launcher = container.querySelector<HTMLButtonElement>("[aria-label='개발할 요소 선택']");
+    if (!launcher) throw new Error("debug launcher missing");
+
+    flushSync(() => launcher.click());
+    flushSync(() => target.click());
+
+    const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+    if (!textarea) throw new Error("request textarea missing");
+    flushSync(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      )?.set;
+      setter?.call(textarea, "승인 결과가 저장되지 않는 원인을 풀스택으로 확인해 주세요.");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    const submit = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.includes("개발 요청 보내기"),
+    );
+    if (!submit) throw new Error("submit button missing");
+    flushSync(() => submit.click());
+    await flushReact();
+
+    expect(createDebugRequestMock).not.toHaveBeenCalled();
+    expect(openMock).toHaveBeenCalledOnce();
+    const openedUrl = openMock.mock.calls[0]?.[0];
+    if (typeof openedUrl !== "string") throw new Error("developer console URL missing");
+    const parsedUrl = new URL(openedUrl);
+    expect(parsedUrl.origin).toBe("https://developer.example.test");
+    expect(parsedUrl.pathname).toBe("/paperclip");
+    expect(parsedUrl.hash).toContain("paperclip-debug=");
   });
 });
