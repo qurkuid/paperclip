@@ -15,6 +15,7 @@ import type {
   CompanySkillForkPrecheckResult,
   CompanySkillForkRequest,
   CompanySkillForkResult,
+  CompanySkillImportPreviewResult,
   CompanySkillImportResult,
   CompanySkillInstallCatalogRequest,
   CompanySkillInstallCatalogResult,
@@ -213,7 +214,12 @@ export const companySkillsApi = {
   importFromSource: (companyId: string, source: string) =>
     api.post<CompanySkillImportResult>(
       `/companies/${encodeURIComponent(companyId)}/skills/import`,
-      { source },
+      { source, mode: "import" },
+    ),
+  previewImportSource: (companyId: string, source: string) =>
+    api.post<CompanySkillImportPreviewResult>(
+      `/companies/${encodeURIComponent(companyId)}/skills/import`,
+      { source, mode: "preview" },
     ),
   scanProjects: (companyId: string, payload: CompanySkillProjectScanRequest = {}) =>
     api.post<CompanySkillProjectScanResult>(

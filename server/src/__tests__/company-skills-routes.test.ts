@@ -717,6 +717,52 @@ describe("company skill mutation permissions", () => {
     });
   });
 
+  it("previews skill imports without activity, telemetry, or a successful import response", async () => {
+    mockCompanySkillService.importFromSource.mockResolvedValue({
+      mode: "preview",
+      valid: true,
+      candidates: [{
+        key: "acme/review",
+        slug: "review",
+        name: "Review",
+        description: "Review pull requests.",
+        sourceType: "github",
+        sourceRef: "0123456789abcdef0123456789abcdef01234567",
+        trustLevel: "markdown_only",
+        compatibility: "compatible",
+        fileCount: 1,
+      }],
+      warnings: [],
+    });
+
+    const res = await request(await createApp({
+      type: "board",
+      userId: "local-board",
+      companyIds: ["company-1"],
+      source: "local_implicit",
+      isInstanceAdmin: false,
+    }))
+      .post("/api/companies/company-1/skills/import")
+      .send({
+        source: "https://github.com/acme/review",
+        mode: "preview",
+      });
+
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body).toMatchObject({
+      mode: "preview",
+      valid: true,
+      candidates: [{ name: "Review", trustLevel: "markdown_only" }],
+    });
+    expect(mockCompanySkillService.importFromSource).toHaveBeenCalledWith(
+      "company-1",
+      "https://github.com/acme/review",
+      "preview",
+    );
+    expect(mockLogActivity).not.toHaveBeenCalled();
+    expect(mockTrackSkillImported).not.toHaveBeenCalled();
+  });
+
   it("forwards preview and selective scan-projects requests through the existing skill mutation gate", async () => {
     const workspaceId = "11111111-1111-4111-8111-111111111111";
     mockCompanySkillService.scanProjectWorkspaces.mockResolvedValue({
@@ -1678,6 +1724,7 @@ describe("company skill mutation permissions", () => {
     expect(mockCompanySkillService.importFromSource).toHaveBeenCalledWith(
       "company-1",
       "https://github.com/vercel-labs/agent-browser",
+      "import",
     );
   });
 
@@ -1754,6 +1801,7 @@ describe("company skill mutation permissions", () => {
     expect(mockCompanySkillService.importFromSource).toHaveBeenCalledWith(
       "company-1",
       "https://github.com/vercel-labs/agent-browser",
+      "import",
     );
   });
 

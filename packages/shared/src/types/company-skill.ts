@@ -309,6 +309,26 @@ export interface CompanySkillResetRequest {
 
 export interface CompanySkillImportRequest {
   source: string;
+  mode?: "preview" | "import";
+}
+
+export interface CompanySkillImportPreviewCandidate {
+  key: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  sourceType: CompanySkillSourceType;
+  sourceRef: string | null;
+  trustLevel: CompanySkillTrustLevel;
+  compatibility: CompanySkillCompatibility;
+  fileCount: number;
+}
+
+export interface CompanySkillImportPreviewResult {
+  mode: "preview";
+  valid: true;
+  candidates: CompanySkillImportPreviewCandidate[];
+  warnings: string[];
 }
 
 export interface CompanySkillImportResult {

@@ -12,6 +12,7 @@ import type {
   CompanySkillDetail,
   CompanySkillFileDetail,
   CompanySkillFileInventoryEntry,
+  CompanySkillImportPreviewResult,
   CompanySkillListItem,
   CompanySkillProjectScanResult,
   CompanySkillSharingScope,
@@ -87,6 +88,7 @@ import {
 } from "../lib/skill-create";
 import { SkillCardIcon } from "../components/SkillCardIcon";
 import { ImportSkillsFromProjectDialog } from "./skills/ImportSkillsFromProjectDialog";
+import { ImportSkillSourceDialog } from "./skills/ImportSkillSourceDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -3932,6 +3934,14 @@ export function CompanySkills() {
   };
   const [skillFilter, setSkillFilter] = useState("");
   const [source, setSource] = useState("");
+  const [importPreview, setImportPreview] = useState<{
+    source: string;
+    result: CompanySkillImportPreviewResult;
+  } | null>(null);
+  const [importValidationError, setImportValidationError] = useState<{
+    source: string;
+    message: string;
+  } | null>(null);
   const [emptySourceHelpOpen, setEmptySourceHelpOpen] = useState(false);
   const [expandedSkillId, setExpandedSkillId] = useState<string | null>(null);
   const [expandedDirs, setExpandedDirs] = useState<Record<string, Set<string>>>({});
@@ -4269,9 +4279,29 @@ export function CompanySkills() {
         pushToast({ tone: "warn", title: "Import warnings", body: result.warnings[0] });
       }
       setSource("");
+      setImportPreview(null);
+      setImportValidationError(null);
+      setImportDialogOpen(false);
     },
     onError: (error) => {
       reportSkillError(error, "Skill import failed", "Failed to import skill source.", "Importing skills");
+    },
+  });
+
+  const previewImportSkill = useMutation({
+    mutationFn: (importSource: string) => companySkillsApi.previewImportSource(selectedCompanyId!, importSource),
+    onSuccess: (result, importSource) => {
+      setImportPreview({ source: importSource, result });
+      setImportValidationError(null);
+    },
+    onError: (error, importSource) => {
+      setImportPreview(null);
+      setImportValidationError({
+        source: importSource,
+        message: error instanceof Error && error.message
+          ? error.message
+          : "Paperclip could not verify this source as an Agent Skill.",
+      });
     },
   });
 
@@ -4993,7 +5023,8 @@ export function CompanySkills() {
       setEmptySourceHelpOpen(true);
       return;
     }
-    importSkill.mutate(trimmedSource);
+    setImportValidationError(null);
+    previewImportSkill.mutate(trimmedSource);
   }
 
   // Opening a card stays inside the new store and always lands on a regular full
@@ -5145,53 +5176,35 @@ export function CompanySkills() {
         }}
       />
 
-      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Import a skill</DialogTitle>
-            <DialogDescription>
-              Paste a local path, GitHub URL, or `skills.sh` command to import a skill into this company.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 border-b border-border pb-2">
-              <Input
-                value={source}
-                onChange={(event) => setSource(event.target.value)}
-                placeholder="Paste path, GitHub URL, or skills.sh command"
-                className="h-9 rounded-none border-0 px-0 shadow-none focus-visible:ring-0"
-              />
-              <Button size="sm" onClick={handleAddSkillSource} disabled={importSkill.isPending}>
-                {importSkill.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : "Import"}
-              </Button>
-            </div>
-            <a
-              href="https://skills.sh"
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-start justify-between rounded-md border border-border px-3 py-3 text-sm text-foreground no-underline transition-colors hover:bg-accent/40"
-            >
-              <span>
-                <span className="block font-medium">Browse skills.sh</span>
-                <span className="mt-1 block text-muted-foreground">Find install commands and paste one here.</span>
-              </span>
-              <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-            </a>
-            <a
-              href="https://github.com/search?q=SKILL.md&type=code"
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-start justify-between rounded-md border border-border px-3 py-3 text-sm text-foreground no-underline transition-colors hover:bg-accent/40"
-            >
-              <span>
-                <span className="block font-medium">Search GitHub</span>
-                <span className="mt-1 block text-muted-foreground">Look for repositories with `SKILL.md`, then paste the repo URL.</span>
-              </span>
-              <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-            </a>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ImportSkillSourceDialog
+        open={importDialogOpen}
+        source={source}
+        preview={importPreview?.source === source.trim() ? importPreview.result : null}
+        validationError={
+          importValidationError?.source === source.trim()
+            ? importValidationError.message
+            : null
+        }
+        previewPending={previewImportSkill.isPending}
+        installPending={importSkill.isPending}
+        onOpenChange={(open) => {
+          setImportDialogOpen(open);
+          if (!open) {
+            setImportPreview(null);
+            setImportValidationError(null);
+          }
+        }}
+        onSourceChange={(nextSource) => {
+          setSource(nextSource);
+          setImportPreview(null);
+          setImportValidationError(null);
+        }}
+        onPreview={handleAddSkillSource}
+        onInstall={() => {
+          const trimmedSource = source.trim();
+          if (importPreview?.source === trimmedSource) importSkill.mutate(trimmedSource);
+        }}
+      />
 
       {selectedCompanyId ? (
         <ImportSkillsFromProjectDialog

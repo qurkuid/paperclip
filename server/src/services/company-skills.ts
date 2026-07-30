@@ -50,6 +50,7 @@ import type {
   CompanySkillForkReassignment,
   CompanySkillForkSummary,
   CompanySkillImportResult,
+  CompanySkillImportPreviewResult,
   CompanySkillInstallCatalogRequest,
   CompanySkillInstallCatalogResult,
   CompanySkillListQuery,
@@ -899,6 +900,18 @@ function deriveImportedSkillSlug(frontmatter: Record<string, unknown>, fallback:
     ?? "skill";
 }
 
+function assertValidImportedAgentSkill(
+  parsed: ReturnType<typeof parseFrontmatterMarkdown>,
+) {
+  const name = asString(parsed.frontmatter.name);
+  const description = asString(parsed.frontmatter.description);
+  if (parsed.hasFrontmatter && name && description) return;
+  throw unprocessable(
+    "SKILL.md is not a valid Agent Skill. YAML frontmatter must include name and description.",
+    { code: "skill_source_validation_failed" },
+  );
+}
+
 function deriveImportedSkillSource(
   frontmatter: Record<string, unknown>,
   fallbackSlug: string,
@@ -1421,6 +1434,7 @@ async function readLocalSkillImports(companyId: string, sourcePath: string): Pro
     const markdown = await fs.readFile(resolvedPath, "utf8");
     const sourceDir = path.dirname(resolvedPath);
     const parsed = parseFrontmatterMarkdown(markdown);
+    assertValidImportedAgentSkill(parsed);
     const slug = deriveImportedSkillSlug(parsed.frontmatter, path.basename(sourceDir));
     const parsedMetadata = isPlainRecord(parsed.frontmatter.metadata) ? parsed.frontmatter.metadata : null;
     const skillKey = readCanonicalSkillKey(parsed.frontmatter, parsedMetadata);
@@ -1474,6 +1488,7 @@ async function readLocalSkillImports(companyId: string, sourcePath: string): Pro
       })
       .sort((left, right) => left.path.localeCompare(right.path));
     const imported = await readLocalSkillImportFromDirectory(companyId, path.join(root, skillDir));
+    assertValidImportedAgentSkill(parseFrontmatterMarkdown(imported.markdown));
     imported.fileInventory = inventory;
     imported.trustLevel = deriveTrustLevel(inventory);
     imports.push(imported);
@@ -1525,6 +1540,7 @@ async function readUrlSkillImports(
       const repoSkillPath = basePrefix ? `${basePrefix}${relativeSkillPath}` : relativeSkillPath;
       const markdown = await fetchText(resolveRawGitHubUrl(parsed.hostname, parsed.owner, parsed.repo, ref, repoSkillPath));
       const parsedMarkdown = parseFrontmatterMarkdown(markdown);
+      assertValidImportedAgentSkill(parsedMarkdown);
       const skillDir = path.posix.dirname(relativeSkillPath);
       const slug = deriveImportedSkillSlug(parsedMarkdown.frontmatter, path.posix.basename(skillDir));
       const skillKey = readCanonicalSkillKey(
@@ -1587,6 +1603,7 @@ async function readUrlSkillImports(
   if (url.startsWith("http://") || url.startsWith("https://")) {
     const markdown = await fetchText(url);
     const parsedMarkdown = parseFrontmatterMarkdown(markdown);
+    assertValidImportedAgentSkill(parsedMarkdown);
     const urlObj = new URL(url);
     const fileName = path.posix.basename(urlObj.pathname);
     const slug = deriveImportedSkillSlug(parsedMarkdown.frontmatter, fileName.replace(/\.md$/i, ""));
@@ -5604,8 +5621,17 @@ export function companySkillService(db: Db) {
     return out;
   }
 
-  async function importFromSource(companyId: string, source: string): Promise<CompanySkillImportResult> {
-    await ensureSkillInventoryCurrent(companyId);
+  async function importFromSource(
+    companyId: string,
+    source: string,
+    mode: "preview" | "import" = "import",
+  ): Promise<CompanySkillImportPreviewResult | CompanySkillImportResult> {
+    const companyExists = await db
+      .select({ id: companies.id })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .then((rows) => rows.length > 0);
+    if (!companyExists) throw notFound("Company not found");
     const parsed = parseSkillImportSourceInput(source);
     const local = !/^https?:\/\//i.test(parsed.resolvedSource);
     if (local) {
@@ -5643,7 +5669,33 @@ export function companySkillService(db: Db) {
         skill.key = deriveCanonicalSkillKey(companyId, skill);
       }
     }
-    const imported = await upsertImportedSkills(companyId, filteredSkills);
+    const uniqueSkills = Array.from(
+      new Map(filteredSkills.map((skill) => [skill.key, skill])).values(),
+    );
+    for (const skill of uniqueSkills) {
+      assertImportedSkillKeyAllowed(skill);
+      assertImportedSkillSourceAllowed(skill);
+    }
+    if (mode === "preview") {
+      return {
+        mode: "preview",
+        valid: true,
+        candidates: uniqueSkills.map((skill) => ({
+          key: skill.key,
+          slug: skill.slug,
+          name: skill.name,
+          description: skill.description,
+          sourceType: skill.sourceType,
+          sourceRef: skill.sourceRef,
+          trustLevel: skill.trustLevel,
+          compatibility: skill.compatibility,
+          fileCount: skill.fileInventory.length,
+        })),
+        warnings,
+      };
+    }
+    await ensureSkillInventoryCurrent(companyId);
+    const imported = await upsertImportedSkills(companyId, uniqueSkills);
     return { imported, warnings };
   }
 

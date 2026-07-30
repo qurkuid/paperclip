@@ -6,6 +6,7 @@ import {
   companySkillInstallCatalogResultSchema,
   companySkillInstallCatalogSchema,
   companySkillInstallUpdateSchema,
+  companySkillImportSchema,
   companySkillResetSchema,
   companySkillUpdateStatusSchema,
 } from "./company-skill.js";
@@ -179,5 +180,23 @@ describe("company skill catalog validators", () => {
     expect(companySkillInstallUpdateSchema.parse({ force: true })).toEqual({ force: true });
     expect(companySkillResetSchema.parse(undefined)).toEqual({});
     expect(companySkillResetSchema.parse({ force: true })).toEqual({ force: true });
+  });
+
+  it("accepts explicit preview and import modes for source validation", () => {
+    expect(companySkillImportSchema.parse({
+      source: "https://github.com/example/review-skill",
+      mode: "preview",
+    })).toEqual({
+      source: "https://github.com/example/review-skill",
+      mode: "preview",
+    });
+    expect(companySkillImportSchema.parse({
+      source: "https://github.com/example/review-skill",
+      mode: "import",
+    }).mode).toBe("import");
+    expect(() => companySkillImportSchema.parse({
+      source: "https://github.com/example/review-skill",
+      mode: "validate-and-install",
+    })).toThrow();
   });
 });

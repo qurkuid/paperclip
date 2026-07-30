@@ -147,6 +147,8 @@ export type {
   CompanySkillInstallUpdateRequest,
   CompanySkillResetRequest,
   CompanySkillImportRequest,
+  CompanySkillImportPreviewCandidate,
+  CompanySkillImportPreviewResult,
   CompanySkillImportResult,
   CompanySkillProjectScanRequest,
   CompanySkillProjectScanCandidateStatus,

@@ -410,7 +410,7 @@ describeEmbeddedPostgres("companySkillService.list", () => {
     const skillDir = await createManagedSkillDir(companyId, "idempotent-import-skill-");
     await fs.writeFile(
       path.join(skillDir, "SKILL.md"),
-      "---\nname: Idempotent Import Skill\n---\n\n# Idempotent Import Skill\n",
+      "---\nname: Idempotent Import Skill\ndescription: Verify idempotent local imports.\n---\n\n# Idempotent Import Skill\n",
       "utf8",
     );
     await db.insert(companies).values({
@@ -437,12 +437,175 @@ describeEmbeddedPostgres("companySkillService.list", () => {
     expect(stored?.updatedAt.toISOString()).toBe(preservedUpdatedAt.toISOString());
   });
 
+  it("previews a valid skill source without mutating the company skill library", async () => {
+    const companyId = randomUUID();
+    const skillDir = await createManagedSkillDir(companyId, "preview-skill-");
+    await fs.writeFile(
+      path.join(skillDir, "SKILL.md"),
+      "---\nname: Preview Skill\ndescription: Verify this skill before install.\n---\n\n# Preview Skill\n",
+      "utf8",
+    );
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    const beforeSkills = await db
+      .select({ id: companySkills.id })
+      .from(companySkills)
+      .where(eq(companySkills.companyId, companyId));
+    const beforeVersions = await db
+      .select({ id: companySkillVersions.id })
+      .from(companySkillVersions)
+      .where(eq(companySkillVersions.companyId, companyId));
+
+    const result = await svc.importFromSource(companyId, skillDir, "preview");
+
+    const afterSkills = await db
+      .select({ id: companySkills.id })
+      .from(companySkills)
+      .where(eq(companySkills.companyId, companyId));
+    const afterVersions = await db
+      .select({ id: companySkillVersions.id })
+      .from(companySkillVersions)
+      .where(eq(companySkillVersions.companyId, companyId));
+
+    expect(result).toMatchObject({
+      mode: "preview",
+      valid: true,
+      candidates: [{
+        name: "Preview Skill",
+        trustLevel: "markdown_only",
+        compatibility: "compatible",
+      }],
+    });
+    expect(beforeSkills).toEqual([]);
+    expect(beforeVersions).toEqual([]);
+    expect(afterSkills).toEqual([]);
+    expect(afterVersions).toEqual([]);
+  });
+
+  it("rejects invalid GitHub SKILL.md content in both preview and import modes", async () => {
+    const companyId = randomUUID();
+    const commit = "0123456789abcdef0123456789abcdef01234567";
+    const source = `https://github.com/acme/not-a-skill/tree/${commit}`;
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    vi.stubGlobal("fetch", async (url: string | URL) => {
+      if (String(url).includes("/git/trees/")) {
+        return Response.json({ tree: [{ path: "SKILL.md", type: "blob" }] });
+      }
+      return new Response("# This is markdown, but not an Agent Skill.\n", { status: 200 });
+    });
+    try {
+      await expect(svc.importFromSource(companyId, source, "preview")).rejects.toThrow(
+        "SKILL.md is not a valid Agent Skill",
+      );
+      await expect(svc.importFromSource(companyId, source, "import")).rejects.toThrow(
+        "SKILL.md is not a valid Agent Skill",
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    const storedSkills = await db
+      .select({ id: companySkills.id })
+      .from(companySkills)
+      .where(eq(companySkills.companyId, companyId));
+    expect(storedSkills).toEqual([]);
+  });
+
+  it("deduplicates GitHub skill copies that resolve to the same canonical key", async () => {
+    const companyId = randomUUID();
+    const commit = "0123456789abcdef0123456789abcdef01234567";
+    const source = `https://github.com/acme/collection/tree/${commit}`;
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    vi.stubGlobal("fetch", async (url: string | URL) => {
+      if (String(url).includes("/git/trees/")) {
+        return Response.json({
+          tree: [
+            { path: ".openclaw/skills/review/SKILL.md", type: "blob" },
+            { path: "skills/review/SKILL.md", type: "blob" },
+          ],
+        });
+      }
+      return new Response(
+        "---\nname: Review\ndescription: Review code with the canonical skill copy.\n---\n",
+        { status: 200 },
+      );
+    });
+    try {
+      const preview = await svc.importFromSource(companyId, source, "preview");
+      const imported = await svc.importFromSource(companyId, source, "import");
+
+      expect(preview).toMatchObject({
+        mode: "preview",
+        candidates: [{ key: "acme/collection/review", name: "Review" }],
+      });
+      if (!("candidates" in preview)) throw new Error("Expected an import preview");
+      expect(preview.candidates).toHaveLength(1);
+      expect(imported.imported).toHaveLength(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    const storedSkills = await db
+      .select({ key: companySkills.key })
+      .from(companySkills)
+      .where(eq(companySkills.companyId, companyId));
+    expect(storedSkills.filter((skill) => skill.key === "acme/collection/review")).toEqual([
+      { key: "acme/collection/review" },
+    ]);
+  });
+
+  it("rejects local SKILL.md content without required frontmatter before persistence", async () => {
+    const companyId = randomUUID();
+    const skillDir = await createManagedSkillDir(companyId, "invalid-local-import-skill-");
+    await fs.writeFile(
+      path.join(skillDir, "SKILL.md"),
+      "---\nname: Missing Description\n---\n\n# Missing Description\n",
+      "utf8",
+    );
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await expect(svc.importFromSource(companyId, skillDir, "preview")).rejects.toThrow(
+      "SKILL.md is not a valid Agent Skill",
+    );
+    await expect(svc.importFromSource(companyId, skillDir, "import")).rejects.toThrow(
+      "SKILL.md is not a valid Agent Skill",
+    );
+
+    const storedSkills = await db
+      .select({ id: companySkills.id })
+      .from(companySkills)
+      .where(eq(companySkills.companyId, companyId));
+    expect(storedSkills).toEqual([]);
+  });
+
   it("refreshes local-path imports with legacy null metadata fields", async () => {
     const companyId = randomUUID();
     const skillDir = await createManagedSkillDir(companyId, "null-metadata-import-skill-");
     await fs.writeFile(
       path.join(skillDir, "SKILL.md"),
-      "---\nname: Null Metadata Import Skill\n---\n\n# Null Metadata Import Skill\n",
+      "---\nname: Null Metadata Import Skill\ndescription: Refresh legacy null metadata.\n---\n\n# Null Metadata Import Skill\n",
       "utf8",
     );
     await db.insert(companies).values({
@@ -1486,7 +1649,7 @@ describeEmbeddedPostgres("companySkillService.list", () => {
     await fs.mkdir(path.join(skillDir, "references"), { recursive: true });
     await fs.writeFile(
       path.join(skillDir, "SKILL.md"),
-      "---\nname: File Import Skill\n---\n\n# File Import Skill\n",
+      "---\nname: File Import Skill\ndescription: Import sibling reference files.\n---\n\n# File Import Skill\n",
       "utf8",
     );
     await fs.writeFile(path.join(skillDir, "references", "checklist.md"), "# Checklist\n", "utf8");
@@ -1514,7 +1677,7 @@ describeEmbeddedPostgres("companySkillService.list", () => {
     await fs.mkdir(path.join(repoDir, "server", "src"), { recursive: true });
     await fs.writeFile(
       path.join(repoDir, "SKILL.md"),
-      "---\nname: Root Skill\n---\n\n# Root Skill\n",
+      "---\nname: Root Skill\ndescription: Bound direct root imports.\n---\n\n# Root Skill\n",
       "utf8",
     );
     await fs.writeFile(path.join(repoDir, "references", "guide.md"), "# Guide\n", "utf8");

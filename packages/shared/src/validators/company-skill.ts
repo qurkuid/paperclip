@@ -260,6 +260,7 @@ export const companySkillResetSchema = z.object({
 
 export const companySkillImportSchema = z.object({
   source: z.string().min(1),
+  mode: z.enum(["preview", "import"]).optional(),
 });
 
 export const companySkillProjectScanRequestSchema = z.object({
