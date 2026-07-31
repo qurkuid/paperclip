@@ -40,6 +40,13 @@ output from being automatically promoted into higher-trust agent context.
 Low-trust agents cannot read or mutate agent configuration, instruction bundles,
 or company skill configuration through direct grants. Configuration changes from
 low-trust work must go through higher-trust review and promotion paths instead.
+Task assignment to a low-trust agent also evaluates this boundary: the target
+issue must be inside the resolved company-local issue or project scope, and the
+assigning actor must retain its normal explicit assignment authority.
+
+Restricted peer-agent reads expose only the effective, non-secret heartbeat
+controls (`enabled`, `wakeOnDemand`, and `maxConcurrentRuns`) from
+`runtimeConfig`; adapter configuration and other runtime fields remain redacted.
 
 ## Runtime Containment
 

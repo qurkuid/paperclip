@@ -3419,7 +3419,11 @@ export function issueRoutes(
   async function assertIssueReadAllowed(req: Request, res: Response, issue: Parameters<typeof decideIssueAccess>[1]) {
     const decision = await decideIssueAccess(req, issue, "issue:read");
     if (decision.allowed) return true;
-    res.status(403).json({ error: "Issue is outside this actor's authorization boundary" });
+    res.status(403).json({
+      error: "Issue is outside this actor's authorization boundary",
+      code: decision.code ?? "ACTOR_AUTHORIZATION_BOUNDARY",
+      details: authorizationDeniedDetails(decision),
+    });
     return false;
   }
 
@@ -3459,7 +3463,11 @@ export function issueRoutes(
     }
     const boundaryDecision = await decideIssueAccess(req, issue, "issue:comment");
     if (!boundaryDecision.allowed) {
-      res.status(403).json({ error: "Issue is outside this actor's authorization boundary" });
+      res.status(403).json({
+        error: "Issue is outside this actor's authorization boundary",
+        code: boundaryDecision.code ?? "ACTOR_AUTHORIZATION_BOUNDARY",
+        details: authorizationDeniedDetails(boundaryDecision),
+      });
       return false;
     }
     return boundaryDecision;
@@ -3548,7 +3556,11 @@ export function issueRoutes(
     }
     const boundaryDecision = await decideIssueAccess(req, issue, "issue:mutate");
     if (!boundaryDecision.allowed) {
-      res.status(403).json({ error: "Issue is outside this actor's authorization boundary" });
+      res.status(403).json({
+        error: "Issue is outside this actor's authorization boundary",
+        code: boundaryDecision.code ?? "ACTOR_AUTHORIZATION_BOUNDARY",
+        details: authorizationDeniedDetails(boundaryDecision),
+      });
       return false;
     }
     if (issue.assigneeAgentId === null) {

@@ -399,8 +399,8 @@ async function seedLowTrustFixture(db: Db) {
   }).returning();
   const [cto] = await db.insert(agents).values({
     companyId: company!.id,
-    name: "CTO",
-    role: "cto",
+    name: "CEO",
+    role: "ceo",
     adapterType: "process",
     adapterConfig: { token: canaries.agentConfig },
     runtimeConfig: { env: { SECRET_MARKER: canaries.agentConfig } },
@@ -449,10 +449,18 @@ async function seedLowTrustFixture(db: Db) {
     role: "engineer",
     adapterType: "process",
     adapterConfig: { token: canaries.agentConfig },
-    runtimeConfig: { env: { SECRET_MARKER: canaries.agentConfig } },
+    runtimeConfig: {
+      env: { SECRET_MARKER: canaries.agentConfig },
+      heartbeat: {
+        enabled: false,
+        wakeOnDemand: true,
+        maxConcurrentRuns: 1,
+      },
+    },
     permissions: {
       trustPreset: LOW_TRUST_REVIEW_PRESET,
       authorizationPolicy: {
+        trustPreset: LOW_TRUST_REVIEW_PRESET,
         trustBoundary: {
           mode: LOW_TRUST_REVIEW_PRESET,
           companyId: company!.id,
@@ -460,6 +468,8 @@ async function seedLowTrustFixture(db: Db) {
           rootIssueId: reviewRoot!.id,
           issueIds: [reviewRoot!.id, assignedReview!.id, sameBoundaryChild!.id],
           allowedAgentIds: [collaborator!.id],
+          allowedSecretBindingIds: [],
+          allowedToolClasses: [],
         },
       },
     },
@@ -797,6 +807,76 @@ describeEmbeddedPostgres("low-trust red-team HTTP route regression suite", () =>
 
     expect(res.status, JSON.stringify(res.body)).toBe(403);
     expect(res.body.error).toBe("Low-trust boundary root issue scopes do not overlap.");
+  });
+
+  it("assigns only scoped issues to low-trust agents and reads back effective heartbeat controls", async () => {
+    const fixture = await seedLowTrustFixture(db);
+    await db.update(issues)
+      .set({ status: "backlog" })
+      .where(eq(issues.id, fixture.issues.sameBoundaryChild.id));
+    await db.insert(companyMemberships).values({
+      companyId: fixture.company.id,
+      principalType: "agent",
+      principalId: fixture.agents.cto.id,
+      status: "active",
+      membershipRole: "member",
+    });
+    await db.insert(principalPermissionGrants).values({
+      companyId: fixture.company.id,
+      principalType: "agent",
+      principalId: fixture.agents.cto.id,
+      permissionKey: "tasks:assign",
+      grantedByUserId: null,
+    });
+
+    const ceoApp = createApp(db, agentActor(fixture, fixture.agents.cto.id));
+    const allowed = await request(ceoApp)
+      .patch(`/api/issues/${fixture.issues.sameBoundaryChild.id}`)
+      .send({ assigneeAgentId: fixture.agents.lowTrust.id });
+    expect(allowed.status, JSON.stringify(allowed.body)).toBe(200);
+    expect(allowed.body.assigneeAgentId).toBe(fixture.agents.lowTrust.id);
+
+    const canonicalIssue = await request(ceoApp)
+      .get(`/api/issues/${fixture.issues.sameBoundaryChild.id}`);
+    expect(canonicalIssue.status, JSON.stringify(canonicalIssue.body)).toBe(200);
+    expect(canonicalIssue.body.assigneeAgentId).toBe(fixture.agents.lowTrust.id);
+
+    const canonicalAgent = await request(ceoApp)
+      .get(`/api/agents/${fixture.agents.lowTrust.id}`);
+    expect(canonicalAgent.status, JSON.stringify(canonicalAgent.body)).toBe(200);
+    expect(canonicalAgent.body).toMatchObject({
+      budgetMonthlyCents: 0,
+      runtimeConfig: {
+        heartbeat: {
+          enabled: false,
+          wakeOnDemand: true,
+          maxConcurrentRuns: 1,
+        },
+      },
+      permissions: {
+        trustPreset: LOW_TRUST_REVIEW_PRESET,
+        authorizationPolicy: {
+          trustPreset: LOW_TRUST_REVIEW_PRESET,
+          trustBoundary: {
+            allowedSecretBindingIds: [],
+            allowedToolClasses: [],
+          },
+        },
+      },
+    });
+    expectNoCanary(canonicalAgent.body, fixture.canaries.agentConfig);
+
+    const outsideTarget = await request(ceoApp)
+      .patch(`/api/issues/${fixture.issues.siblingOutOfScope.id}`)
+      .send({ assigneeAgentId: fixture.agents.lowTrust.id });
+    expect(outsideTarget.status, JSON.stringify(outsideTarget.body)).toBe(403);
+    expect(outsideTarget.body.code).toBe("TARGET_ASSIGNMENT_BOUNDARY");
+
+    const actorBoundary = await request(createApp(db, agentActor(fixture)))
+      .patch(`/api/issues/${fixture.issues.siblingOutOfScope.id}`)
+      .send({ assigneeAgentId: fixture.agents.lowTrust.id });
+    expect(actorBoundary.status, JSON.stringify(actorBoundary.body)).toBe(403);
+    expect(actorBoundary.body.code).toBe("ACTOR_AUTHORIZATION_BOUNDARY");
   });
 
   it("restricts low-trust self inspection without changing standard-agent visibility", async () => {

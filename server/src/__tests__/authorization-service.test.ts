@@ -932,6 +932,31 @@ describeEmbeddedPostgres("authorization service", () => {
     expect(decision.explanation).toContain("requires approval");
   });
 
+  it("returns a target-policy code when assignment policy data is not evaluable", async () => {
+    const company = await createCompany(db, "UnknownAssignmentPolicy");
+    const actorAgent = await createAgent(db, company.id);
+    const targetAgent = await createAgent(db, company.id, {
+      permissions: {
+        authorizationPolicy: {
+          unknownAssignmentControl: { mode: "custom" },
+        },
+      },
+    });
+
+    const decision = await authorizationService(db).decide({
+      actor: { type: "agent", agentId: actorAgent.id, companyId: company.id, source: "agent_key" },
+      action: "tasks:assign",
+      resource: { type: "issue", companyId: company.id, assigneeAgentId: targetAgent.id },
+      scope: { assigneeAgentId: targetAgent.id },
+    });
+
+    expect(decision).toMatchObject({
+      allowed: false,
+      code: "TARGET_ASSIGNMENT_POLICY_UNEVALUABLE",
+      reason: "deny_policy_restricted",
+    });
+  });
+
   it("requires an explicit grant before assigning to a private target agent", async () => {
     const company = await createCompany(db, "PrivateAssignment");
     const actorAgent = await createAgent(db, company.id, { role: "engineer" });

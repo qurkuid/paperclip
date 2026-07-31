@@ -92,7 +92,12 @@ export type AuthorizationDecision = {
   action: AuthorizationAction;
   explanation: string;
   inboxPolicyMode?: InboxAgentPolicyMode | "grant_override";
-  code?: "RESPONSIBLE_USER_UNAUTHORIZED" | "RESPONSIBLE_USER_UNAVAILABLE";
+  code?:
+    | "ACTOR_AUTHORIZATION_BOUNDARY"
+    | "TARGET_ASSIGNMENT_BOUNDARY"
+    | "TARGET_ASSIGNMENT_POLICY_UNEVALUABLE"
+    | "RESPONSIBLE_USER_UNAUTHORIZED"
+    | "RESPONSIBLE_USER_UNAVAILABLE";
   reason:
     | "allow_low_trust_boundary"
     | "allow_local_board"
@@ -212,9 +217,9 @@ function readBoolean(value: unknown): boolean | null {
 
 type AssignmentPolicyEffect =
   | { kind: "none" }
-  | { kind: "restricted"; explanation: string }
-  | { kind: "requires_approval"; explanation: string }
-  | { kind: "unknown"; explanation: string };
+  | { kind: "restricted"; explanation: string; code?: AuthorizationDecision["code"] }
+  | { kind: "requires_approval"; explanation: string; code?: AuthorizationDecision["code"] }
+  | { kind: "unknown"; explanation: string; code?: AuthorizationDecision["code"] };
 
 type AgentHierarchyRow = { id: string; reportsTo: string | null };
 type LowTrustBoundaryWithCompany = LowTrustBoundary & { companyId: string };
@@ -258,12 +263,23 @@ function evaluateAuthorizationPolicyForAssignment(
     "assignmentPolicy",
     "protectedAgent",
     "managedBy",
+    "trustPreset",
+    "reviewPreset",
+    "trustBoundary",
   ]);
   const hasUnknownTopLevelKey = Object.keys(policy).some((key) => !knownTopLevelKeys.has(key));
-  const hasKnownPolicySection = Boolean(agentVisibility || assignmentPolicy || protectedAgent);
+  const hasKnownPolicySection = Boolean(
+    agentVisibility ||
+    assignmentPolicy ||
+    protectedAgent ||
+    policy.trustPreset ||
+    policy.reviewPreset ||
+    policy.trustBoundary,
+  );
   if (hasUnknownTopLevelKey || !hasKnownPolicySection) {
     return {
       kind: "unknown",
+      code: "TARGET_ASSIGNMENT_POLICY_UNEVALUABLE",
       explanation: `${label} has authorization policy data that core cannot evaluate for task assignment.`,
     };
   }
@@ -272,6 +288,7 @@ function evaluateAuthorizationPolicyForAssignment(
   if (visibilityMode && visibilityMode !== "discoverable" && visibilityMode !== "private") {
     return {
       kind: "unknown",
+      code: "TARGET_ASSIGNMENT_POLICY_UNEVALUABLE",
       explanation: `${label} has an unsupported agent visibility policy mode.`,
     };
   }
@@ -280,6 +297,7 @@ function evaluateAuthorizationPolicyForAssignment(
   if (assignmentMode && assignmentMode !== "company_default" && assignmentMode !== "protected") {
     return {
       kind: "unknown",
+      code: "TARGET_ASSIGNMENT_POLICY_UNEVALUABLE",
       explanation: `${label} has an unsupported assignment policy mode.`,
     };
   }
@@ -772,24 +790,6 @@ export function authorizationService(db: Db) {
       : null;
   }
 
-  async function loadProjectAuthorizationPolicy(companyId: string, projectId: string) {
-    const row = await db
-      .select({ executionWorkspacePolicy: projects.executionWorkspacePolicy })
-      .from(projects)
-      .where(and(eq(projects.id, projectId), eq(projects.companyId, companyId)))
-      .then((rows) => rows[0] ?? null);
-    return readPolicyObject(row?.executionWorkspacePolicy, "authorizationPolicy");
-  }
-
-  async function loadIssueAuthorizationPolicy(companyId: string, issueId: string) {
-    const row = await db
-      .select({ executionPolicy: issues.executionPolicy })
-      .from(issues)
-      .where(and(eq(issues.id, issueId), eq(issues.companyId, companyId)))
-      .then((rows) => rows[0] ?? null);
-    return readPolicyObject(row?.executionPolicy, "authorizationPolicy");
-  }
-
   async function loadResourceContext(resource: AuthorizationResource) {
     const issue = resource.type === "issue" && resource.issueId ? await loadIssue(resource.issueId) : null;
     const projectId =
@@ -913,6 +913,7 @@ export function authorizationService(db: Db) {
     const lowTrustDeny = (explanation: string) =>
       deny({
         action: input.action,
+        code: "ACTOR_AUTHORIZATION_BOUNDARY",
         reason: "deny_low_trust_boundary",
         explanation,
       });
@@ -1188,45 +1189,67 @@ export function authorizationService(db: Db) {
   async function assignmentPolicyEffect(resource: AuthorizationResource): Promise<AssignmentPolicyEffect> {
     if (resource.type !== "issue") return { kind: "none" };
 
-    const checks: Array<Promise<AssignmentPolicyEffect>> = [];
-    if (resource.assigneeAgentId) {
-      checks.push(
-        loadAgent(resource.assigneeAgentId).then((agent) =>
-          evaluateAuthorizationPolicyForAssignment(
-            readPolicyObject(agent?.permissions, "authorizationPolicy"),
-            "Target agent",
-          ),
-        ),
-      );
+    const [targetAgent, issue, parentIssue] = await Promise.all([
+      resource.assigneeAgentId ? loadAgent(resource.assigneeAgentId) : null,
+      resource.issueId ? loadIssue(resource.issueId) : null,
+      resource.parentIssueId && resource.parentIssueId !== resource.issueId
+        ? loadIssue(resource.parentIssueId)
+        : null,
+    ]);
+    const projectId = issue?.projectId ?? resource.projectId ?? parentIssue?.projectId ?? null;
+    const project = projectId ? await loadProject(projectId) : null;
+    const trustResolution = resolveCoreTrustPreset({
+      companyId: resource.companyId,
+      agent: targetAgent,
+      project,
+      issue: issue ?? parentIssue,
+    });
+    if (trustResolution.kind === "denied") {
+      return {
+        kind: "unknown",
+        code: "TARGET_ASSIGNMENT_POLICY_UNEVALUABLE",
+        explanation: `Target assignment policy cannot be evaluated: ${trustResolution.detail}`,
+      };
     }
-    if (resource.projectId) {
-      checks.push(
-        loadProjectAuthorizationPolicy(resource.companyId, resource.projectId).then((policy) =>
-          evaluateAuthorizationPolicyForAssignment(policy, "Target project"),
-        ),
-      );
+    if (
+      trustResolution.kind === "low_trust_review" &&
+      !(await issueResourceWithinLowTrustBoundary(trustResolution.boundary, resource))
+    ) {
+      return {
+        kind: "unknown",
+        code: "TARGET_ASSIGNMENT_BOUNDARY",
+        explanation: "Target low-trust agent cannot be assigned outside its authorization boundary.",
+      };
     }
-    if (resource.issueId) {
-      checks.push(
-        loadIssueAuthorizationPolicy(resource.companyId, resource.issueId).then((policy) =>
-          evaluateAuthorizationPolicyForAssignment(policy, "Target issue"),
-        ),
-      );
-    }
-    if (resource.parentIssueId && resource.parentIssueId !== resource.issueId) {
-      checks.push(
-        loadIssueAuthorizationPolicy(resource.companyId, resource.parentIssueId).then((policy) =>
-          evaluateAuthorizationPolicyForAssignment(policy, "Parent issue"),
-        ),
-      );
-    }
-    if (checks.length === 0) return { kind: "none" };
 
-    const effects = await Promise.all(checks);
+    const effects = [
+      evaluateAuthorizationPolicyForAssignment(
+        readPolicyObject(targetAgent?.permissions, "authorizationPolicy"),
+        "Target agent",
+      ),
+      evaluateAuthorizationPolicyForAssignment(
+        readPolicyObject(project?.executionWorkspacePolicy, "authorizationPolicy"),
+        "Target project",
+      ),
+      evaluateAuthorizationPolicyForAssignment(
+        readPolicyObject(issue?.executionPolicy, "authorizationPolicy"),
+        "Target issue",
+      ),
+      evaluateAuthorizationPolicyForAssignment(
+        readPolicyObject(parentIssue?.executionPolicy, "authorizationPolicy"),
+        "Parent issue",
+      ),
+    ];
     return (
       effects.find((effect) => effect.kind === "unknown") ??
       effects.find((effect) => effect.kind === "requires_approval") ??
       effects.find((effect) => effect.kind === "restricted") ??
+      (trustResolution.kind === "low_trust_review"
+        ? {
+            kind: "restricted",
+            explanation: "Target low-trust assignment requires an explicit task-assignment grant.",
+          }
+        : null) ??
       { kind: "none" }
     );
   }
@@ -1450,6 +1473,7 @@ export function authorizationService(db: Db) {
       if (policyEffect.kind === "none" || policyEffect.kind === "restricted") return null;
       return deny({
         action: input.action,
+        code: policyEffect.code,
         reason: "deny_policy_restricted",
         explanation: policyEffect.explanation,
       });
@@ -1458,6 +1482,7 @@ export function authorizationService(db: Db) {
     function denyRestrictedAssignmentPolicy(policyEffect: AssignmentPolicyEffect): AuthorizationDecision {
       return deny({
         action: input.action,
+        code: policyEffect.kind === "none" ? undefined : policyEffect.code,
         reason: "deny_policy_restricted",
         explanation:
           policyEffect.kind === "restricted"

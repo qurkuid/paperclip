@@ -1628,10 +1628,26 @@ export function agentRoutes(
 
   function redactForRestrictedAgentView(agent: Awaited<ReturnType<typeof svc.getById>>) {
     if (!agent) return null;
+    const heartbeat = asRecord(asRecord(agent.runtimeConfig)?.heartbeat) ?? {};
+    const maxConcurrentRuns = Math.floor(
+      parseNumberLike(heartbeat.maxConcurrentRuns) ?? AGENT_DEFAULT_MAX_CONCURRENT_RUNS,
+    );
     return {
       ...agent,
       adapterConfig: {},
-      runtimeConfig: {},
+      runtimeConfig: {
+        heartbeat: {
+          enabled: parseBooleanLike(heartbeat.enabled) ?? false,
+          wakeOnDemand:
+            parseBooleanLike(
+              heartbeat.wakeOnDemand ??
+              heartbeat.wakeOnAssignment ??
+              heartbeat.wakeOnOnDemand ??
+              heartbeat.wakeOnAutomation,
+            ) ?? true,
+          maxConcurrentRuns: Math.max(1, Math.min(50, maxConcurrentRuns)),
+        },
+      },
     };
   }
 

@@ -412,27 +412,45 @@ describe.sequential("agent permission routes", () => {
     mockLogActivity.mockResolvedValue(undefined);
   });
 
-  it("redacts agent detail for authenticated company members without agent admin permission", async () => {
+  it("redacts peer agent detail but reads back effective heartbeat controls", async () => {
     mockAccessService.canUser.mockResolvedValue(false);
     mockAccessService.decide.mockImplementation(async (input: { action?: string }) => ({
       allowed: input.action === "agent:read",
       reason: input.action === "agent:read" ? "allow_test_read" : "deny_missing_grant",
       explanation: input.action === "agent:read" ? "Allowed by test read grant." : "Missing test grant.",
     }));
+    mockAgentService.getById.mockResolvedValue({
+      ...baseAgent,
+      adapterConfig: { token: "must-not-leak" },
+      runtimeConfig: {
+        env: { API_KEY: "must-not-leak" },
+        heartbeat: {
+          enabled: false,
+          wakeOnDemand: true,
+          maxConcurrentRuns: 1,
+        },
+      },
+    });
 
     const app = await createApp({
-      type: "board",
-      userId: "member-user",
-      source: "session",
-      isInstanceAdmin: false,
-      companyIds: [companyId],
+      type: "agent",
+      agentId: "33333333-3333-4333-8333-333333333333",
+      companyId,
+      source: "agent_key",
     });
 
     const res = await requestApp(app, (baseUrl) => request(baseUrl).get(`/api/agents/${agentId}`));
 
     expect(res.status).toBe(200);
     expect(res.body.adapterConfig).toEqual({});
-    expect(res.body.runtimeConfig).toEqual({});
+    expect(res.body.runtimeConfig).toEqual({
+      heartbeat: {
+        enabled: false,
+        wakeOnDemand: true,
+        maxConcurrentRuns: 1,
+      },
+    });
+    expect(JSON.stringify(res.body)).not.toContain("must-not-leak");
   }, 20_000);
 
   it("keeps board agent detail unredacted for low-trust agents", async () => {
