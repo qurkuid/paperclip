@@ -65,6 +65,8 @@ describe("adapter model listing", () => {
     expect(models[0]?.id).toBe("claude-opus-4-8");
     expect(models.some((model) => model.id === "claude-fable-5")).toBe(true);
     expect(models.some((model) => model.id === "claude-mythos-5")).toBe(true);
+    // The current Sonnet-tier model backs the adapter's cheap lane, so it must stay listed.
+    expect(models.some((model) => model.id === "claude-sonnet-5")).toBe(true);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
