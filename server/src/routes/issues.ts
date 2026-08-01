@@ -10473,26 +10473,44 @@ export function issueRoutes(
     }
 
     const actor = getActorInfo(req);
-    const stored = await storage.putFile({
-      companyId,
-      namespace: `issues/${issueId}`,
-      originalFilename: file.originalname || null,
-      contentType,
-      body: file.buffer,
-    });
+    let stored;
+    try {
+      stored = await storage.putFile({
+        companyId,
+        namespace: `issues/${issueId}`,
+        originalFilename: file.originalname || null,
+        contentType,
+        body: file.buffer,
+      });
+    } catch (err) {
+      logger.warn({ err, companyId, issueId }, "failed to store issue attachment");
+      throw new HttpError(503, "Attachment could not be stored. Try again.");
+    }
 
-    const attachment = await svc.createAttachment({
-      issueId,
-      issueCommentId: parsedMeta.data.issueCommentId ?? null,
-      provider: stored.provider,
-      objectKey: stored.objectKey,
-      contentType: stored.contentType,
-      byteSize: stored.byteSize,
-      sha256: stored.sha256,
-      originalFilename: stored.originalFilename,
-      createdByAgentId: actor.agentId,
-      createdByUserId: actor.actorType === "user" ? actor.actorId : null,
-    });
+    let attachment;
+    try {
+      attachment = await svc.createAttachment({
+        issueId,
+        issueCommentId: parsedMeta.data.issueCommentId ?? null,
+        provider: stored.provider,
+        objectKey: stored.objectKey,
+        contentType: stored.contentType,
+        byteSize: stored.byteSize,
+        sha256: stored.sha256,
+        originalFilename: stored.originalFilename,
+        createdByAgentId: actor.agentId,
+        createdByUserId: actor.actorType === "user" ? actor.actorId : null,
+      });
+    } catch (err) {
+      try {
+        await storage.deleteObject(companyId, stored.objectKey);
+      } catch (cleanupErr) {
+        logger.warn({ err: cleanupErr, companyId, issueId }, "failed to clean up unlinked issue attachment");
+      }
+      if (err instanceof HttpError) throw err;
+      logger.warn({ err, companyId, issueId }, "failed to create issue attachment record");
+      throw new HttpError(503, "Attachment could not be saved. Try again.");
+    }
 
     await logActivity(db, {
       companyId,
@@ -10538,11 +10556,19 @@ export function issueRoutes(
       return;
     }
 
-    const object = await storage.getObject(
-      attachment.companyId,
-      attachment.objectKey,
-      range.kind === "range" ? { range: { start: range.start, end: range.end } } : undefined,
-    );
+    let object;
+    try {
+      object = await storage.getObject(
+        attachment.companyId,
+        attachment.objectKey,
+        range.kind === "range" ? { range: { start: range.start, end: range.end } } : undefined,
+      );
+    } catch (err) {
+      if ((err instanceof HttpError || typeof err === "object") && (err as { status?: unknown })?.status === 404) {
+        throw notFound("Attachment file is unavailable");
+      }
+      throw err;
+    }
     const responseContentType = resolveAttachmentResponseContentType({
       storedContentType: attachment.contentType,
       objectContentType: object.contentType,

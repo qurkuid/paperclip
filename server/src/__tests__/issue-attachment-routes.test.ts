@@ -3,6 +3,7 @@ import type { IncomingMessage } from "node:http";
 import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { notFound } from "../errors.js";
 import type { StorageService } from "../storage/types.js";
 
 const mockIssueService = vi.hoisted(() => ({
@@ -481,6 +482,39 @@ describe("issue attachment routes", () => {
     expect(mockIssueService.createAttachment).not.toHaveBeenCalled();
   });
 
+  it("returns a retryable error without creating an attachment when storage fails", async () => {
+    const storage = createStorageService();
+    storage.putFile = vi.fn(async () => {
+      throw new Error("storage unavailable");
+    });
+
+    const app = await createApp(storage);
+    const res = await request(app)
+      .post("/api/companies/company-1/issues/11111111-1111-4111-8111-111111111111/attachments")
+      .attach("file", Buffer.from("report"), { filename: "report.txt", contentType: "text/plain" });
+
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe("Attachment could not be stored. Try again.");
+    expect(mockIssueService.createAttachment).not.toHaveBeenCalled();
+  });
+
+  it("cleans up stored content when creating the attachment record fails", async () => {
+    const storage = createStorageService();
+    mockIssueService.createAttachment.mockRejectedValue(new Error("database unavailable"));
+
+    const app = await createApp(storage);
+    const res = await request(app)
+      .post("/api/companies/company-1/issues/11111111-1111-4111-8111-111111111111/attachments")
+      .attach("file", Buffer.from("report"), { filename: "report.txt", contentType: "text/plain" });
+
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe("Attachment could not be saved. Try again.");
+    expect(storage.deleteObject).toHaveBeenCalledWith(
+      "company-1",
+      expect.stringContaining("issues/11111111-1111-4111-8111-111111111111/"),
+    );
+  });
+
   it("serves html attachments as downloads with nosniff", async () => {
     const storage = createStorageService();
     mockIssueService.getAttachmentById.mockResolvedValue(makeAttachment("text/html", "report.html"));
@@ -497,6 +531,20 @@ describe("issue attachment routes", () => {
       'attachment; filename="report.html"',
     ]).toContain(res.headers["content-disposition"]);
     expect(res.headers["x-content-type-options"]).toBe("nosniff");
+  });
+
+  it("distinguishes a missing stored file from an inaccessible attachment", async () => {
+    const storage = createStorageService();
+    storage.getObject = vi.fn(async () => {
+      throw notFound("Object not found");
+    });
+    mockIssueService.getAttachmentById.mockResolvedValue(makeAttachment("application/pdf", "report.pdf"));
+
+    const app = await createApp(storage);
+    const res = await request(app).get("/api/attachments/attachment-1/content");
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe("Attachment file is unavailable");
   });
 
   it("serves arbitrary binary attachments as downloads with nosniff", async () => {

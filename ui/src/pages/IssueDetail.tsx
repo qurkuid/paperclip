@@ -135,6 +135,7 @@ import { PluginLauncherOutlet } from "@/plugins/launchers";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarGroup, AvatarImage } from "@/components/ui/avatar";
@@ -172,6 +173,7 @@ import {
   Copy,
   Eye,
   EyeOff,
+  ExternalLink,
   ScanEye,
   Flag,
   FileCode2,
@@ -219,6 +221,16 @@ import {
 type StopAndFinalizeRunError = Error & {
   runCancelledBeforeStatusUpdateFailed?: boolean;
 };
+
+function isHttpUrl(value: string | null): value is string {
+  if (!value) return false;
+  try {
+    const protocol = new URL(value).protocol;
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 function createRunCancelledStatusUpdateError(err: unknown): StopAndFinalizeRunError {
   const message = err instanceof Error
@@ -3411,6 +3423,10 @@ export function IssueDetail() {
     () => (attachments ?? []).filter((attachment) => !promotedOutputAttachmentIds.has(attachment.id)),
     [attachments, promotedOutputAttachmentIds],
   );
+  const linkedResources = useMemo(
+    () => (workProducts ?? []).filter((workProduct) => isHttpUrl(workProduct.url)),
+    [workProducts],
+  );
   const mediaGalleryItems = useMemo<GalleryMediaItem[]>(() => {
     const items: GalleryMediaItem[] = [];
     const seen = new Set<string>();
@@ -4659,9 +4675,40 @@ export function IssueDetail() {
         }}
       />
 
+      {linkedResources.length > 0 ? (
+        <section className="space-y-3" aria-label="Linked resources">
+          <div className="flex items-center gap-2">
+            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+            <h3 className="text-sm font-medium text-muted-foreground">Resources</h3>
+            <span className="text-xs text-muted-foreground">{linkedResources.length}</span>
+          </div>
+          <div className="space-y-2">
+            {linkedResources.map((resource) => (
+              <Card key={resource.id} className="flex-row items-center gap-2.5 p-2">
+                <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <a
+                    href={resource.url!}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block truncate text-sm font-medium text-foreground hover:underline"
+                    title={resource.title}
+                  >
+                    {resource.title}
+                  </a>
+                  {resource.summary ? (
+                    <p className="truncate text-(length:--text-micro) text-muted-foreground">{resource.summary}</p>
+                  ) : null}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {attachmentsInitialLoading ? (
         <IssueSectionSkeleton titleWidth="w-24" rows={2} />
-      ) : hasAttachments ? (
+      ) : hasAttachments || attachmentError ? (
         <IssueAttachmentsSection
           attachments={attachmentList}
           uploadButton={attachmentUploadButton}

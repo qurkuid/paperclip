@@ -2342,6 +2342,47 @@ describe("IssueDetail", () => {
     ]);
   });
 
+  it("renders saved web resources without requiring an execution workspace", async () => {
+    mockIssuesApi.get.mockResolvedValue(createIssue());
+    mockIssuesApi.listWorkProducts.mockResolvedValue([{
+      id: "resource-1",
+      companyId: "company-1",
+      projectId: null,
+      issueId: "issue-1",
+      executionWorkspaceId: null,
+      runtimeServiceId: null,
+      type: "preview_url",
+      provider: "custom",
+      externalId: null,
+      title: "Spacebogam source",
+      url: "https://example.com/source",
+      status: "ready_for_review",
+      reviewState: "none",
+      isPrimary: false,
+      healthStatus: "unknown",
+      summary: "Saved source URL",
+      metadata: null,
+      createdByRunId: null,
+      createdAt: new Date("2026-04-21T00:00:00.000Z"),
+      updatedAt: new Date("2026-04-21T00:00:00.000Z"),
+    } satisfies IssueWorkProduct]);
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <IssueDetail />
+        </QueryClientProvider>,
+      );
+    });
+    await flushReact();
+    await flushReact();
+
+    expect(container.textContent).toContain("Resources");
+    const resource = container.querySelector<HTMLAnchorElement>('a[href="https://example.com/source"]');
+    expect(resource?.textContent).toContain("Spacebogam source");
+    expect(resource?.target).toBe("_blank");
+  });
+
   it("renders Paused by board distinctly and defaults leaf resume to wake the assignee", async () => {
     const activeHold = createPauseHold();
     const releasedHold = createPauseHold({

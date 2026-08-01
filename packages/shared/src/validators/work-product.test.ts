@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attachmentArtifactWorkProductMetadataSchema } from "./work-product.js";
+import { attachmentArtifactWorkProductMetadataSchema, createIssueWorkProductSchema } from "./work-product.js";
 
 describe("attachmentArtifactWorkProductMetadataSchema", () => {
   it("accepts the attachment-backed artifact metadata contract", () => {
@@ -37,5 +37,26 @@ describe("attachmentArtifactWorkProductMetadataSchema", () => {
       "openPath",
       "downloadPath",
     ]);
+  });
+});
+
+describe("createIssueWorkProductSchema", () => {
+  const webResource = {
+    type: "preview_url",
+    provider: "paperclip",
+    title: "Saved web source",
+  };
+
+  it("accepts HTTP(S) web resources", () => {
+    expect(createIssueWorkProductSchema.safeParse({
+      ...webResource,
+      url: "https://spacebogam.example/reference",
+    }).success).toBe(true);
+  });
+
+  it("rejects local and non-web resource URLs", () => {
+    for (const url of ["file:///private/report.html", "javascript:alert(1)", "mailto:ops@example.com"]) {
+      expect(createIssueWorkProductSchema.safeParse({ ...webResource, url }).success).toBe(false);
+    }
   });
 });

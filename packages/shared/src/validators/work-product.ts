@@ -5,6 +5,11 @@ function attachmentContentPath(attachmentId: string): string {
   return `/api/attachments/${attachmentId}/content`;
 }
 
+const webUrlSchema = z.string().url().refine((value) => {
+  const protocol = new URL(value).protocol;
+  return protocol === "http:" || protocol === "https:";
+}, "URL must use http or https");
+
 export const issueWorkProductTypeSchema = z.enum([
   "preview_url",
   "runtime_service",
@@ -85,7 +90,7 @@ export const createIssueWorkProductSchema = z.object({
   provider: z.string().min(1),
   externalId: z.string().optional().nullable(),
   title: z.string().min(1),
-  url: z.string().url().optional().nullable(),
+  url: webUrlSchema.optional().nullable(),
   status: issueWorkProductStatusSchema.default("active"),
   reviewState: issueWorkProductReviewStateSchema.optional().default("none"),
   isPrimary: z.boolean().optional().default(false),
