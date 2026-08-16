@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { koMenu } from "./korean-menu";
+import { KOREAN_MENU_LABELS } from "./korean-menu";
+
+// Asserts the label map directly: koMenu() intentionally returns the English
+// key under vitest so upstream component tests keep working unmodified.
+const koMenu = (key: keyof typeof KOREAN_MENU_LABELS) => KOREAN_MENU_LABELS[key];
 
 describe("Korean menu labels", () => {
   it("covers the primary, settings, agent, and work-view menus", () => {

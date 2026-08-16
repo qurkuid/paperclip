@@ -232,6 +232,7 @@ import {
   type WorkspaceFileRef,
   workspaceFileRefSchema,
 } from "@paperclipai/shared";
+import { koMenu } from "@/i18n/korean-menu";
 
 // Stable empty array for React Query `data` defaults. A literal `= []` default
 // creates a new array reference on every render while `data` is undefined
@@ -548,7 +549,8 @@ function AttributionAvatar({
   actor: AttributionActor;
   via?: string | null;
 }) {
-  const accessibleLabel = via ? `${label}: ${actor.name} · via ${via}` : `${label}: ${actor.name}`;
+  const displayLabel = koMenu(label);
+  const accessibleLabel = via ? `${displayLabel}: ${actor.name} · via ${via}` : `${displayLabel}: ${actor.name}`;
   const testIdLabel = label.toLowerCase();
 
   return (
@@ -889,7 +891,7 @@ function InboxMobileToolbar({
             navigate(backHref);
           }
         }}
-        aria-label="Back to inbox"
+        aria-label={koMenu("Back to inbox")}
       >
         <ArrowLeft className="h-5 w-5" />
       </Button>
@@ -901,7 +903,7 @@ function InboxMobileToolbar({
             size="icon-sm"
             onClick={onArchive}
             disabled={archivePending}
-            aria-label="Archive from inbox"
+            aria-label={koMenu("Archive from inbox")}
           >
             <Archive className="h-5 w-5" />
           </Button>
@@ -909,7 +911,7 @@ function InboxMobileToolbar({
 
         <Popover open={menuOpen} onOpenChange={setMenuOpen}>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="More actions">
+            <Button variant="ghost" size="icon-sm" aria-label={koMenu("More actions")}>
               <MoreVertical className="h-5 w-5" />
             </Button>
           </PopoverTrigger>
@@ -919,14 +921,14 @@ function InboxMobileToolbar({
               onClick={() => { onCopy(); setMenuOpen(false); }}
             >
               <Copy className="h-3 w-3" />
-              Copy as markdown
+              {koMenu("Copy as markdown")}
             </button>
             <button
               className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
               onClick={() => { onProperties(); setMenuOpen(false); }}
             >
               <SlidersHorizontal className="h-3 w-3" />
-              Properties
+              {koMenu("Properties")}
             </button>
             {issueIdProp && (
               <button
@@ -934,7 +936,7 @@ function InboxMobileToolbar({
                 onClick={() => { onHide(); setMenuOpen(false); }}
               >
                 <EyeOff className="h-3 w-3" />
-                Hide this task
+                {koMenu("Hide this task")}
               </button>
             )}
           </PopoverContent>
@@ -1878,7 +1880,7 @@ export function IssueDetail() {
     }
   }, [hasLiveRuns, locallyQueuedCommentRunIds.size]);
   const sourceBreadcrumb = useMemo(
-    () => readIssueDetailBreadcrumb(issueId, location.state, location.search) ?? { label: "Tasks", href: "/issues" },
+    () => readIssueDetailBreadcrumb(issueId, location.state, location.search) ?? { label: koMenu("Tasks"), href: "/issues" },
     [issueId, location.state, location.search],
   );
 
@@ -4314,8 +4316,7 @@ export function IssueDetail() {
       : treeControlMode === "restore"
           ? `Restore ${previewAffectedIssueCount} tasks`
           : treeControlScope === "leaf"
-            ? "Resume work"
-            : "Resume subtree";
+            ? koMenu("Resume work") : koMenu("Resume subtree");
   const treePreviewAffectedIssueRows = treePreviewDisplayIssues.map((candidate) => ({
     candidate,
     issue: {
@@ -4374,8 +4375,8 @@ export function IssueDetail() {
         <Paperclip className="h-3.5 w-3.5 mr-1.5" />
         {uploadAttachment.isPending || importMarkdownDocument.isPending ? "Uploading..." : (
           <>
-            <span className="hidden sm:inline">Upload attachment</span>
-            <span className="sm:hidden">Upload</span>
+            <span className="hidden sm:inline">{koMenu("Upload attachment")}</span>
+            <span className="sm:hidden">{koMenu("Upload")}</span>
           </>
         )}
       </Button>
@@ -4475,7 +4476,7 @@ export function IssueDetail() {
               title="This task is a generated watchdog task. It verifies whether stopped work in the watched task tree is legitimate."
             >
               <ScanEye className="h-3 w-3" />
-              Watchdog
+              {koMenu("Watchdog")}
             </Badge>
           ) : null}
 
@@ -4564,7 +4565,7 @@ export function IssueDetail() {
                 variant="ghost"
                 size="icon-xs"
                 onClick={copyIssueToClipboard}
-                title="Copy task as markdown"
+                title={koMenu("Copy task as markdown")}
               >
                 {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
               </Button>
@@ -4572,7 +4573,7 @@ export function IssueDetail() {
                 variant="ghost"
                 size="icon-xs"
                 onClick={() => setMobilePropsOpen(true)}
-                title="Properties"
+                title={koMenu("Properties")}
               >
                 <SlidersHorizontal className="h-4 w-4" />
               </Button>
@@ -4588,8 +4589,8 @@ export function IssueDetail() {
                   if (!archivePending && issue?.id) archiveFromInbox.mutate(issue.id);
                 }}
                 disabled={archivePending}
-                title="Archive from inbox"
-                aria-label="Archive from inbox"
+                title={koMenu("Archive from inbox")}
+                aria-label={koMenu("Archive from inbox")}
               >
                 <Archive className="h-4 w-4" />
               </Button>
@@ -4599,8 +4600,8 @@ export function IssueDetail() {
                 variant="ghost"
                 size="icon-xs"
                 onClick={() => setFileViewerPromptOpen(true)}
-                title="Open file... (g f)"
-                aria-label="Open file in this issue"
+                title={koMenu("Open file... (g f)")}
+                aria-label={koMenu("Open file in this issue")}
               >
                 <FileCode2 className="h-4 w-4" />
               </Button>
@@ -4609,7 +4610,7 @@ export function IssueDetail() {
               variant="ghost"
               size="icon-xs"
               onClick={copyIssueToClipboard}
-              title="Copy task as markdown"
+              title={koMenu("Copy task as markdown")}
             >
               {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
             </Button>
@@ -4628,7 +4629,7 @@ export function IssueDetail() {
                 }
                 setPanelVisible(true);
               }}
-              title="Show properties"
+              title={koMenu("Show properties")}
             >
               <SlidersHorizontal className="h-4 w-4" />
             </Button>
@@ -4639,8 +4640,8 @@ export function IssueDetail() {
                   variant="ghost"
                   size="icon-xs"
                   className="shrink-0"
-                  aria-label="More task actions"
-                  title="More task actions"
+                  aria-label={koMenu("More task actions")}
+                  title={koMenu("More task actions")}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
@@ -4663,7 +4664,7 @@ export function IssueDetail() {
                   }}
                 >
                   <PauseCircle className="h-3 w-3" />
-                  Pause work...
+                  {koMenu("Pause work...")}
                 </button>
               ) : null}
               {canResumeLeafWork ? (
@@ -4677,7 +4678,7 @@ export function IssueDetail() {
                   }}
                 >
                   <PlayCircle className="h-3 w-3" />
-                  Resume work
+                  {koMenu("Resume work")}
                 </button>
               ) : null}
               {canShowSubtreeControls ? (
@@ -4692,7 +4693,7 @@ export function IssueDetail() {
                     }}
                   >
                     <PauseCircle className="h-3 w-3" />
-                    Pause subtree...
+                    {koMenu("Pause subtree...")}
                   </button>
                   {canResumeSubtree ? (
                     <button
@@ -4705,7 +4706,7 @@ export function IssueDetail() {
                       }}
                     >
                       <PlayCircle className="h-3 w-3" />
-                      Resume subtree
+                      {koMenu("Resume subtree")}
                     </button>
                   ) : null}
                   <button
@@ -4718,7 +4719,7 @@ export function IssueDetail() {
                     }}
                   >
                     <XCircle className="h-3 w-3" />
-                    Cancel subtree...
+                    {koMenu("Cancel subtree...")}
                   </button>
                   {canRestoreSubtree ? (
                     <button
@@ -4732,7 +4733,7 @@ export function IssueDetail() {
                       }}
                     >
                       <Repeat className="h-3 w-3" />
-                      Restore subtree...
+                      {koMenu("Restore subtree...")}
                     </button>
                   ) : null}
                 </>
@@ -4748,7 +4749,7 @@ export function IssueDetail() {
                 }}
               >
                 <EyeOff className="h-3 w-3" />
-                Hide this task
+                {koMenu("Hide this task")}
               </button>
             </PopoverContent>
             </Popover>
@@ -4776,7 +4777,7 @@ export function IssueDetail() {
             onSave={(description) => updateIssue.mutateAsync({ description })}
             as="p"
             className="text-sm leading-7 text-foreground"
-            placeholder="Add a description..."
+            placeholder={koMenu("Add a description...")}
             multiline
             foldable
             mentions={mentionOptions}
@@ -4901,7 +4902,7 @@ export function IssueDetail() {
                       setTreeControlOpen(true);
                     }}
                   >
-                    {childIssues.length === 0 ? "Resume work" : "Resume subtree"}
+                    {childIssues.length === 0 ? koMenu("Resume work") : koMenu("Resume subtree")}
                   </Button>
                   <Button
                     variant="outline"
@@ -4925,7 +4926,7 @@ export function IssueDetail() {
                         setTreeControlOpen(true);
                       }}
                     >
-                      Cancel subtree...
+                      {koMenu("Cancel subtree...")}
                     </Button>
                   ) : null}
                 </div>
@@ -4954,7 +4955,7 @@ export function IssueDetail() {
       {taskChatShellEnabled ? null : showRichSubIssuesSection ? (
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-medium text-muted-foreground">Sub-tasks</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">{koMenu("Sub-tasks")}</h3>
           </div>
           <IssuesList
             issues={childIssues}
@@ -4981,7 +4982,7 @@ export function IssueDetail() {
         <div className="flex flex-wrap items-center justify-end gap-2 min-w-0">
           <Button variant="outline" size="sm" onClick={openNewSubIssue} className="shrink-0 shadow-none">
             <Plus className="mr-1.5 h-3.5 w-3.5" />
-            New Sub-task
+            {koMenu("New Sub-task")}
           </Button>
         </div>
       )}
@@ -5101,7 +5102,7 @@ export function IssueDetail() {
         return (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-medium text-muted-foreground">Artifacts</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">{koMenu("Artifacts")}</h3>
             </div>
             <div className="flex flex-wrap gap-2">
               {workProductsWithFileRefs.map(({ product, fileRef }) => (
@@ -5129,15 +5130,15 @@ export function IssueDetail() {
         <TabsList variant="line" className={cn("w-full justify-start gap-1", shellSectionClass)}>
           <TabsTrigger value="chat" className="gap-1.5">
             <MessageSquare className="h-3.5 w-3.5" />
-            Chat
+            {koMenu("Chat")}
           </TabsTrigger>
           <TabsTrigger value="activity" className="gap-1.5">
             <ActivityIcon className="h-3.5 w-3.5" />
-            Activity
+            {koMenu("Activity")}
           </TabsTrigger>
           <TabsTrigger value="related-work" className="gap-1.5">
             <ListTree className="h-3.5 w-3.5" />
-            Related work
+            {koMenu("Related work")}
           </TabsTrigger>
           {issuePluginTabItems.map((item) => (
             <TabsTrigger key={item.value} value={item.value}>
@@ -5502,7 +5503,7 @@ export function IssueDetail() {
       <Sheet open={mobilePropsOpen} onOpenChange={setMobilePropsOpen}>
         <SheetContent side="bottom" className="max-h-(--sz-85dvh) pb-(--sz-safe-bottom)">
           <SheetHeader>
-            <SheetTitle className="text-sm">Properties</SheetTitle>
+            <SheetTitle className="text-sm">{koMenu("Properties")}</SheetTitle>
           </SheetHeader>
           <ScrollArea className="flex-1 overflow-y-auto">
             <div className="px-4 pb-4">

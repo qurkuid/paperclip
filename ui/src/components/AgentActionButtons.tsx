@@ -47,6 +47,7 @@ import type {
   AgentInstructionsFileSummary,
   HeartbeatRun,
 } from "@paperclipai/shared";
+import { koMenu } from "@/i18n/korean-menu";
 
 export function RunButton({
   onClick,
@@ -84,7 +85,7 @@ export function PauseResumeButton({
     return (
       <Button variant="outline" size={size} onClick={onResume} disabled={disabled}>
         <Play className="h-3.5 w-3.5 sm:mr-1" />
-        <span className="hidden sm:inline">Resume</span>
+        <span className="hidden sm:inline">{koMenu("Resume")}</span>
       </Button>
     );
   }
@@ -92,7 +93,7 @@ export function PauseResumeButton({
   return (
     <Button variant="outline" size={size} onClick={onPause} disabled={disabled}>
       <Pause className="h-3.5 w-3.5 sm:mr-1" />
-      <span className="hidden sm:inline">Pause</span>
+      <span className="hidden sm:inline">{koMenu("Pause")}</span>
     </Button>
   );
 }
@@ -116,7 +117,7 @@ export function ClearErrorButton({
       aria-label="Clear error and return agent to idle"
     >
       <CheckCircle2 className="h-3.5 w-3.5 sm:mr-1" />
-      <span className="hidden sm:inline">Clear error</span>
+      <span className="hidden sm:inline">{koMenu("Clear error")}</span>
     </Button>
   );
 }
@@ -438,7 +439,7 @@ export function AgentActionButtons({
             }}
           >
             <Copy className="h-3 w-3" />
-            Copy Agent ID
+            {koMenu("Copy Agent ID")}
           </button>
           <button
             className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
@@ -448,7 +449,7 @@ export function AgentActionButtons({
             }}
           >
             <RotateCcw className="h-3 w-3" />
-            Reset Sessions
+            {koMenu("Reset Sessions")}
           </button>
           {!hideTerminate && (
             <button
@@ -460,7 +461,7 @@ export function AgentActionButtons({
               }}
             >
               <Trash2 className="h-3 w-3" />
-              Terminate
+              {koMenu("Terminate")}
             </button>
           )}
         </PopoverContent>

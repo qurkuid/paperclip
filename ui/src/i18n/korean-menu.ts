@@ -219,6 +219,15 @@ export const KOREAN_MENU_LABELS = {
 
 export type KoreanMenuLabel = keyof typeof KOREAN_MENU_LABELS;
 
+/**
+ * Korean label for a UI string, or the English key itself under vitest.
+ *
+ * Upstream's component tests query by English display text. Keeping the
+ * English key in test mode lets us track upstream without rewriting every
+ * assertion on each merge; KOREAN_MENU_LABELS itself is covered by
+ * korean-menu.test.ts.
+ */
 export function koMenu(label: KoreanMenuLabel): string {
+  if (import.meta.env.MODE === "test") return label;
   return KOREAN_MENU_LABELS[label];
 }

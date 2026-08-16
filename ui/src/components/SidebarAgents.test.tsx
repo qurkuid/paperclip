@@ -9,7 +9,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SidebarAgents } from "./SidebarAgents";
 import { queryKeys } from "../lib/queryKeys";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { koMenu } from "@/i18n/korean-menu";
 
 const mockAgentsApi = vi.hoisted(() => ({
   list: vi.fn(),
@@ -185,7 +184,7 @@ async function openAgentMenu(label = "Open actions for Alpha") {
 }
 
 async function openAgentsSectionMenu() {
-  const trigger = document.body.querySelector(`button[aria-label="${koMenu("Agents section actions")}"]`);
+  const trigger = document.body.querySelector('button[aria-label="Agents section actions"]');
   expect(trigger).not.toBeNull();
 
   await act(async () => {
@@ -216,7 +215,7 @@ function agentLinkLabels(container: HTMLElement) {
 function seeAllAgentsLink(container: HTMLElement) {
   return (
     Array.from(container.querySelectorAll('a[href="/agents/all"]')).find((anchor) =>
-      anchor.textContent?.includes(koMenu("See all agents")),
+      anchor.textContent?.includes("See all agents"),
     ) ?? null
   );
 }
@@ -404,7 +403,7 @@ describe("SidebarAgents", () => {
     expect(container.querySelector('button[aria-label="Open actions for Alpha"]')).toBeNull();
 
     // The section header collapses to a divider (no caret / section menu).
-    expect(container.querySelector(`button[aria-label="${koMenu("Agents section actions")}"]`)).toBeNull();
+    expect(container.querySelector('button[aria-label="Agents section actions"]')).toBeNull();
   });
 
   it("pins starred agents at the top without subheadings and dedupes them from the recent list", async () => {
@@ -435,9 +434,9 @@ describe("SidebarAgents", () => {
     // Starred order lands the starred agent first.
     expect(labels[0]).toBe("Bravo");
 
-    // The starred row offers an explicit koMenu("Remove from starred") menu action.
+    // The starred row offers an explicit "Remove from starred" menu action.
     await openAgentMenu("Open actions for Bravo");
-    expect(document.body.textContent).toContain(koMenu("Remove from starred"));
+    expect(document.body.textContent).toContain("Remove from starred");
   });
 
   it("offers star agent from an unstarred sidebar agent menu", async () => {
@@ -445,7 +444,7 @@ describe("SidebarAgents", () => {
     await openAgentMenu();
 
     const starItem = Array.from(document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'))
-      .find((element) => element.textContent?.includes(koMenu("Star agent")));
+      .find((element) => element.textContent?.includes("Star agent"));
     expect(starItem).toBeTruthy();
 
     await act(async () => {
@@ -509,11 +508,11 @@ describe("SidebarAgents", () => {
   it("uses the heading for section menu and the plus button for agent creation", async () => {
     await renderSidebarAgents();
 
-    const sectionMenuTrigger = container.querySelector(`button[aria-label="${koMenu("Agents section actions")}"]`);
-    expect(sectionMenuTrigger?.textContent).toContain(koMenu("Agents"));
+    const sectionMenuTrigger = container.querySelector('button[aria-label="Agents section actions"]');
+    expect(sectionMenuTrigger?.textContent).toContain("Agents");
     expect(sectionMenuTrigger?.querySelector("svg")).toBeNull();
 
-    const newAgentButton = container.querySelector(`button[aria-label="${koMenu("New agent")}"]`);
+    const newAgentButton = container.querySelector('button[aria-label="New agent"]');
     expect(newAgentButton).toBeTruthy();
     await act(async () => {
       newAgentButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -523,10 +522,10 @@ describe("SidebarAgents", () => {
     await openAgentsSectionMenu();
 
     const newAgentItem = Array.from(document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'))
-      .find((element) => element.textContent?.includes(koMenu("New agent")));
+      .find((element) => element.textContent?.includes("New agent"));
     expect(newAgentItem).toBeFalsy();
     const browseLink = Array.from(document.body.querySelectorAll("a"))
-      .find((element) => element.textContent?.includes(koMenu("Browse agents")));
+      .find((element) => element.textContent?.includes("Browse agents"));
     expect(browseLink?.getAttribute("href")).toBe("/agents/all");
   });
 
@@ -539,7 +538,7 @@ describe("SidebarAgents", () => {
 
     await renderSidebarAgents();
     await openAgentsSectionMenu();
-    await chooseSortMode(koMenu("Alphabetical"));
+    await chooseSortMode("Alphabetical");
 
     expect(agentLinkLabels(container)).toEqual(["Alpha", "Bravo", "Charlie"]);
     expect(localStorage.getItem("paperclip.agentSortMode:company-1:user-1")).toBe("alphabetical");
@@ -575,7 +574,7 @@ describe("SidebarAgents", () => {
 
     await renderSidebarAgents();
     await openAgentsSectionMenu();
-    await chooseSortMode(koMenu("Recent"));
+    await chooseSortMode("Recent");
 
     expect(agentLinkLabels(container)).toEqual(["Bravo", "Charlie", "Alpha"]);
   });
@@ -612,12 +611,12 @@ describe("SidebarAgents", () => {
     await openAgentMenu();
 
     const editLink = Array.from(document.body.querySelectorAll("a"))
-      .find((element) => element.textContent?.includes(koMenu("Edit agent")));
+      .find((element) => element.textContent?.includes("Edit agent"));
     expect(editLink?.getAttribute("href")).toBe("/agents/alpha/configuration");
-    expect(document.body.textContent).toContain(koMenu("Pause agent"));
+    expect(document.body.textContent).toContain("Pause agent");
 
     const pauseItem = Array.from(document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'))
-      .find((element) => element.textContent?.includes(koMenu("Pause agent")));
+      .find((element) => element.textContent?.includes("Pause agent"));
     expect(pauseItem).toBeTruthy();
 
     await act(async () => {
@@ -634,7 +633,7 @@ describe("SidebarAgents", () => {
     await openAgentMenu();
 
     const leaveItem = Array.from(document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'))
-      .find((element) => element.textContent?.includes(koMenu("Leave agent")));
+      .find((element) => element.textContent?.includes("Leave agent"));
     expect(leaveItem).toBeTruthy();
 
     await act(async () => {
@@ -659,7 +658,7 @@ describe("SidebarAgents", () => {
     await openAgentMenu();
 
     const resumeItem = Array.from(document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'))
-      .find((element) => element.textContent?.includes(koMenu("Resume agent")));
+      .find((element) => element.textContent?.includes("Resume agent"));
     expect(resumeItem).toBeTruthy();
 
     await act(async () => {
@@ -682,7 +681,7 @@ describe("SidebarAgents", () => {
     await openAgentMenu();
 
     const pauseItem = Array.from(document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'))
-      .find((element) => element.textContent?.includes(koMenu("Pause agent")));
+      .find((element) => element.textContent?.includes("Pause agent"));
     expect(pauseItem).toBeTruthy();
 
     await act(async () => {
@@ -694,9 +693,9 @@ describe("SidebarAgents", () => {
     const betaPauseItem = Array.from(
       document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'),
     )
-      .find((element) => element.textContent?.includes(koMenu("Pause agent")));
+      .find((element) => element.textContent?.includes("Pause agent"));
     expect(betaPauseItem).toBeTruthy();
-    expect(document.body.textContent).not.toContain(koMenu("Updating..."));
+    expect(document.body.textContent).not.toContain("Updating...");
   });
 
   it("shows only active agents when any agent has a live run", async () => {
@@ -863,7 +862,7 @@ describe("SidebarAgents", () => {
     expect(labels[0]).toBe("Alpha");
     expect(labels[1]).toContain("Bravo");
     expect(labels[2]).toBe("Charlie");
-    // No recent-5 truncation, so no koMenu("See all agents") link in classic mode.
+    // No recent-5 truncation, so no "See all agents" link in classic mode.
     expect(seeAllAgentsLink(container)).toBeNull();
   });
 
@@ -918,7 +917,7 @@ describe("SidebarAgents", () => {
     const budgetPausedItem = Array.from(
       document.body.querySelectorAll('[data-slot="dropdown-menu-item"]'),
     )
-      .find((element) => element.textContent?.includes(koMenu("Budget paused")));
+      .find((element) => element.textContent?.includes("Budget paused"));
     expect(budgetPausedItem).toBeTruthy();
 
     await act(async () => {
