@@ -45,6 +45,7 @@ import {
   PluginBridgeContext,
   type PluginHostContext,
 } from "./bridge";
+import { withAppBasePath } from "@/lib/base-path";
 
 export type PluginSlotContext = {
   companyId?: string | null;
@@ -250,7 +251,9 @@ function buildPluginModuleKey(contribution: PluginUiContribution): string {
 
 function buildPluginUiUrl(contribution: PluginUiContribution): string {
   const cacheHint = encodeURIComponent(contribution.updatedAt ?? contribution.version ?? "0");
-  return `/_plugins/${encodeURIComponent(contribution.pluginId)}/ui/${contribution.uiEntryFile}?v=${cacheHint}`;
+  return withAppBasePath(
+    `/_plugins/${encodeURIComponent(contribution.pluginId)}/ui/${contribution.uiEntryFile}?v=${cacheHint}`,
+  );
 }
 
 /**

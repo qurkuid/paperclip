@@ -12,6 +12,7 @@ import {
 import { OutputVideoPlayer } from "./OutputVideoPlayer";
 import { OutputFileTile } from "./OutputFileTile";
 import { Card } from "@/components/ui/card";
+import { resolveAppResourceUrl } from "@/lib/base-path";
 
 interface OutputPrimaryCardProps {
   item: IssueOutputItem;
@@ -38,7 +39,7 @@ export function OutputPrimaryCard({ item, creatorName, onMediaClick }: OutputPri
     <Card className="block overflow-hidden py-0">
       {/* Media region */}
       {isVideo && meta ? (
-        <OutputVideoPlayer src={meta.contentPath} title={filename} />
+        <OutputVideoPlayer src={resolveAppResourceUrl(meta.contentPath)} title={filename} />
       ) : meta && isImageContentType(contentType) ? (
         onMediaClick ? (
           <button
@@ -47,17 +48,17 @@ export function OutputPrimaryCard({ item, creatorName, onMediaClick }: OutputPri
             aria-label={`Browse ${filename} in gallery`}
             onClick={() => onMediaClick(item)}
           >
-            <img src={meta.contentPath} alt={filename} className="h-full w-full object-contain" />
+            <img src={resolveAppResourceUrl(meta.contentPath)} alt={filename} className="h-full w-full object-contain" />
           </button>
         ) : (
           <a
-            href={meta.openPath}
+            href={resolveAppResourceUrl(meta.openPath)}
             target="_blank"
             rel="noreferrer"
             className="block aspect-video w-full overflow-hidden bg-black"
             aria-label={`Open ${filename}`}
           >
-            <img src={meta.contentPath} alt={filename} className="h-full w-full object-contain" />
+            <img src={resolveAppResourceUrl(meta.contentPath)} alt={filename} className="h-full w-full object-contain" />
           </a>
         )
       ) : (
@@ -107,14 +108,14 @@ export function OutputPrimaryCard({ item, creatorName, onMediaClick }: OutputPri
             ) : null}
             {!isMedia || !onMediaClick || isVideo ? (
               <Button asChild variant="outline" size="sm" className="max-md:flex-1">
-                <a href={meta.openPath} target="_blank" rel="noreferrer">
+                <a href={resolveAppResourceUrl(meta.openPath)} target="_blank" rel="noreferrer">
                   <ExternalLink className="h-4 w-4" />
                   Open
                 </a>
               </Button>
             ) : null}
             <Button asChild size="sm" className="max-md:flex-1">
-              <a href={meta.downloadPath} aria-label={`Download ${filename}`}>
+              <a href={resolveAppResourceUrl(meta.downloadPath)} aria-label={`Download ${filename}`}>
                 <Download className="h-4 w-4" />
                 Download
               </a>

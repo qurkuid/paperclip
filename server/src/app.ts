@@ -137,6 +137,21 @@ export function resolveViteHmrPort(serverPort: number): number {
   return Math.max(1_024, serverPort - 10_000);
 }
 
+export function resolveViteBasePath(value: string | undefined): string {
+  const trimmed = value?.trim();
+  if (!trimmed || trimmed === "/") return "/";
+  return `/${trimmed.replace(/^\/+|\/+$/g, "")}/`;
+}
+
+// Vite's middleware matches on its own `base`, so a request that already had
+// the prefix stripped by the reverse proxy has to get it back before it is
+// handed over.
+export function resolveViteMiddlewareUrl(requestUrl: string, basePath: string): string {
+  if (basePath === "/") return requestUrl;
+  const prefix = basePath.slice(0, -1);
+  return `${prefix}${requestUrl.startsWith("/") ? requestUrl : `/${requestUrl}`}`;
+}
+
 export function resolveViteHmrHost(bindHost: string): string | undefined {
   const normalized = bindHost.trim().toLowerCase();
   if (normalized === "0.0.0.0" || normalized === "::") return undefined;
@@ -642,9 +657,11 @@ export async function createApp(
     const publicUiRoot = path.resolve(uiRoot, "public");
     const hmrPort = resolveViteHmrPort(opts.serverPort);
     const hmrHost = resolveViteHmrHost(opts.bindHost);
+    const viteBasePath = resolveViteBasePath(process.env.PAPERCLIP_UI_BASE_PATH);
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       root: uiRoot,
+      base: viteBasePath,
       appType: "custom",
       server: {
         middlewareMode: true,
@@ -659,6 +676,7 @@ export async function createApp(
     viteHtmlRenderer = createCachedViteHtmlRenderer({
       vite,
       uiRoot,
+      basePath: viteBasePath,
       brandHtml: applyUiBranding,
     });
     const renderViteHtml = viteHtmlRenderer;
@@ -678,7 +696,14 @@ export async function createApp(
         next(err);
       }
     });
-    app.use(vite.middlewares);
+    if (viteBasePath === "/") {
+      app.use(vite.middlewares);
+    } else {
+      app.use((req, res, next) => {
+        req.url = resolveViteMiddlewareUrl(req.url, viteBasePath);
+        vite.middlewares(req, res, next);
+      });
+    }
   }
 
   app.use(errorHandler);

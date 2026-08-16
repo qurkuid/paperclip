@@ -19,6 +19,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { initPluginBridge } from "./plugins/bridge-init";
 import { PluginLauncherProvider } from "./plugins/launchers";
 import { startPerfMeasureReaper } from "./lib/perf-measure-reaper";
+import { appBasePath, installAppBasePathNetworkPrefix, withAppBasePath } from "./lib/base-path";
 import "@mdxeditor/editor/style.css";
 import "./index.css";
 
@@ -27,11 +28,14 @@ initPluginBridge(React, ReactDOM);
 // React 19.2 emits an unbounded stream of performance.measure() entries for its
 // DevTools performance tracks and never clears them; on a long-lived tab they
 // accumulate into millions of native objects (GBs). Reap them periodically.
+installAppBasePathNetworkPrefix();
 startPerfMeasureReaper();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js");
+    navigator.serviceWorker.register(withAppBasePath("/sw.js"), {
+      scope: appBasePath ? `${appBasePath}/` : "/",
+    });
   });
 }
 
@@ -58,7 +62,7 @@ createRoot(document.getElementById("root")!).render(
     <AppErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <BrowserRouter>
+          <BrowserRouter basename={appBasePath || undefined}>
             <CompanyProvider>
               <EditorAutocompleteProvider>
                 <ToastProvider>

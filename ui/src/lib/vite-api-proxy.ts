@@ -5,11 +5,19 @@ import type { ProxyOptions } from "vite";
 // x-forwarded-host so the paperclip server's board mutation guard treats
 // the browser's Origin as trusted when the SPA is served from a different
 // port than the API (e.g. `pnpm dev:mobile` on :3101 → API on :3100).
-export function createApiProxy(target = "http://localhost:3100"): Record<string, ProxyOptions> {
+// `basePath` is the normalized trailing-slash base (vite's `base`). When the
+// SPA is mounted under a prefix such as `/af/`, the browser requests
+// `/af/api/...` and the paperclip server still expects `/api/...`.
+export function createApiProxy(
+  target = "http://localhost:3100",
+  basePath = "/",
+): Record<string, ProxyOptions> {
+  const prefix = basePath === "/" ? "" : basePath.slice(0, -1);
   return {
-    "/api": {
+    [`${prefix}/api`]: {
       target,
       ws: true,
+      ...(prefix ? { rewrite: (requestPath: string) => requestPath.slice(prefix.length) } : {}),
       configure: (proxy) => {
         proxy.on("proxyReq", (proxyReq, req) => {
           const originalHost = req.headers.host;

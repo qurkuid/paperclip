@@ -14,6 +14,7 @@ import { getAdapterLabel } from "../adapters/adapter-display-registry";
 import { clearPendingInviteToken, rememberPendingInviteToken } from "../lib/invite-memory";
 import { queryKeys } from "../lib/queryKeys";
 import { formatDate } from "../lib/utils";
+import { withAppBasePath } from "@/lib/base-path";
 
 type AuthMode = "sign_in" | "sign_up";
 type AuthFeedback = { tone: "error" | "info"; message: string };
@@ -689,7 +690,7 @@ export function InviteLandingPage() {
                 <form
                   className="space-y-4"
                   method="post"
-                  action={authMode === "sign_up" ? "/api/auth/sign-up/email" : "/api/auth/sign-in/email"}
+                  action={withAppBasePath(authMode === "sign_up" ? "/api/auth/sign-up/email" : "/api/auth/sign-in/email")}
                   onSubmit={(event) => {
                     event.preventDefault();
                     if (authMutation.isPending) return;

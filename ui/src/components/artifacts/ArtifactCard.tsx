@@ -3,6 +3,7 @@ import { Download, ExternalLink, Paperclip, Play } from "lucide-react";
 import type { CompanyArtifact } from "@/api/artifacts";
 import { Link } from "@/lib/router";
 import { cn, formatDate } from "@/lib/utils";
+import { resolveAppResourceUrl } from "@/lib/base-path";
 
 interface ArtifactCardProps {
   artifact: CompanyArtifact;
@@ -40,7 +41,7 @@ function ImagePreview({ artifact }: { artifact: CompanyArtifact }) {
   return (
     <PreviewFrame>
       <img
-        src={artifact.contentPath}
+        src={resolveAppResourceUrl(artifact.contentPath)}
         alt={artifact.title}
         loading="lazy"
         className="h-full w-full object-cover"
@@ -111,7 +112,7 @@ function VideoPreview({ artifact }: { artifact: CompanyArtifact }) {
   return (
     <PreviewFrame className="bg-black">
       <video
-        src={artifact.contentPath}
+        src={resolveAppResourceUrl(artifact.contentPath)}
         preload="metadata"
         muted
         playsInline
@@ -212,7 +213,7 @@ export function ArtifactCard({ artifact }: ArtifactCardProps) {
           </h3>
           <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
             {artifact.openPath ? (
-              <SecondaryAction href={artifact.openPath} title="Open file in new tab">
+              <SecondaryAction href={resolveAppResourceUrl(artifact.openPath)} title="Open file in new tab">
                 <ExternalLink className="h-3.5 w-3.5" />
               </SecondaryAction>
             ) : null}
