@@ -19,6 +19,7 @@ const telegramToken = "telegram_token_should_not_print";
 const issueId = "11111111-1111-4111-8111-111111111111";
 const interactionId = "22222222-2222-4222-8222-222222222222";
 const revision = "2026-07-27T00:00:00.000Z";
+const companyId = "33333333-3333-4333-8333-333333333333";
 
 type RequestRecord = {
   method: string;
@@ -217,6 +218,34 @@ describe("paperclip-decision-bridge helper", () => {
         res.end(packageStatus === 200
           ? JSON.stringify(packageBody)
           : JSON.stringify({ error: `not found for ${senderId}` }));
+        return;
+      }
+      if (
+        req.method === "GET"
+        && req.url === `/api/companies/${companyId}/attention?all=true`
+      ) {
+        res.end(JSON.stringify({
+          items: [
+            {
+              sourceKind: "issue_thread_interaction",
+              id: `issue_thread_interaction:interaction:${interactionId}`,
+              relatedIssue: { id: issueId, identifier: "CMP-901" },
+              queues: [{ key: "plans", title: "Plans" }],
+            },
+            {
+              sourceKind: "issue_thread_interaction",
+              id: "issue_thread_interaction:interaction:55555555-5555-4555-8555-555555555555",
+              relatedIssue: { id: issueId, identifier: "CMP-902" },
+              queues: [],
+            },
+            {
+              sourceKind: "blocker_attention",
+              id: "blocker_attention:blocker:66666666-6666-4666-8666-666666666666",
+              relatedIssue: { id: issueId, identifier: "CMP-903" },
+              queues: [{ key: "plans", title: "Plans" }],
+            },
+          ],
+        }));
         return;
       }
       if (
@@ -696,6 +725,105 @@ describe("paperclip-decision-bridge helper", () => {
     expect(result.stdout).not.toContain('"ok":true');
     expect(combinedOutput(result)).toContain("Telegram API request failed");
     expect(combinedOutput(result)).not.toContain("misleading success");
+    expectNoSensitiveOutput(result);
+  });
+
+  it("notify delivers a pointer-only notice when evidence is missing, with no resolve grammar", async () => {
+    packageBody = decisionPackage({
+      evidenceStatus: "missing",
+      evidence: undefined,
+      conflict: "evidence_missing",
+    });
+    const result = await runHelper([
+      "notify",
+      "--sender",
+      senderId,
+      "--issue",
+      issueId,
+      "--interaction",
+      interactionId,
+    ], env());
+
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('"command":"notify"');
+    expect(result.stdout).toContain('"status":"sent"');
+    const sent = requests.find((request) => request.url.endsWith("/sendMessage"));
+    const text = (sent?.body as { text: string }).text;
+    expect(text).toContain("근거 미비");
+    expect(text).toContain("CMP-901");
+    expect(text).not.toContain(`decision ${issueId}`);
+    expect(text).not.toContain("approve");
+    expectNoSensitiveOutput(result);
+  });
+
+  it("notify refuses an interaction that is no longer pending", async () => {
+    packageBody = decisionPackage({
+      evidenceStatus: "missing",
+      interaction: {
+        id: interactionId,
+        title: "Approve week-two variant",
+        summary: null,
+        status: "resolved",
+        revision,
+        expiresAt: null,
+      },
+    });
+    const result = await runHelper([
+      "notify",
+      "--sender",
+      senderId,
+      "--issue",
+      issueId,
+      "--interaction",
+      interactionId,
+    ], env());
+
+    expect(result.code).toBe(1);
+    expect(result.stdout).not.toContain('"ok":true');
+    expect(combinedOutput(result)).toContain("not pending");
+    expectNoSensitiveOutput(result);
+  });
+
+  it("poll delivers each queued interaction once and skips unqueued and non-interaction attention", async () => {
+    const result = await runHelper([
+      "poll",
+      "--sender",
+      senderId,
+      "--company",
+      companyId,
+    ], env());
+
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('"command":"poll"');
+    expect(result.stdout).toContain('"sent":1');
+    expect(requests.filter((request) => request.url.endsWith("/sendMessage"))).toHaveLength(1);
+    expect(requests.filter((request) => request.url.includes("/decision-package"))).toHaveLength(1);
+    expectNoSensitiveOutput(result);
+  });
+
+  it("poll edits in place on a second sweep instead of re-posting", async () => {
+    const first = await runHelper(["poll", "--sender", senderId, "--company", companyId], env());
+    const before = requests.length;
+    const second = await runHelper(["poll", "--sender", senderId, "--company", companyId], env());
+
+    expect(first.code).toBe(0);
+    expect(second.code).toBe(0);
+    expect(second.stdout).toContain('"updated":1');
+    const resweep = requests.slice(before);
+    expect(resweep.filter((request) => request.url.endsWith("/sendMessage"))).toHaveLength(0);
+    expect(resweep.filter((request) => request.url.endsWith("/editMessageText"))).toHaveLength(1);
+    expectNoSensitiveOutput(second);
+  });
+
+  it("poll falls back to a notice when a queued interaction has incomplete evidence", async () => {
+    packageBody = decisionPackage({ evidenceStatus: "missing", evidence: undefined });
+    const result = await runHelper(["poll", "--sender", senderId, "--company", companyId], env());
+
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('"notified":1');
+    expect(result.stdout).toContain('"sent":0');
+    const sent = requests.find((request) => request.url.endsWith("/sendMessage"));
+    expect((sent?.body as { text: string }).text).toContain("근거 미비");
     expectNoSensitiveOutput(result);
   });
 });

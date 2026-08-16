@@ -26,6 +26,24 @@ function formatLinks(links) {
   ].filter(Boolean);
 }
 
+export function formatDecisionNotice(notice) {
+  return [
+    "Paperclip decision — 근거 미비, 앱에서 처리",
+    "",
+    `Company: ${notice.companyName}`,
+    `Issue: ${notice.issueIdentifier} — ${notice.issueTitle}`,
+    `Interaction: ${notice.interactionTitle}`,
+    ...(notice.interactionSummary === null ? [] : [`Summary: ${notice.interactionSummary}`]),
+    `Evidence: ${notice.evidenceStatus}`,
+    `Conflict: ${notice.conflict}`,
+    `Revision: ${notice.revision}`,
+    ...[optionalLink("Issue", notice.links.issue)].filter(Boolean),
+    "",
+    "이 결정은 KPI·표본·신선도 근거가 없어 텔레그램에서 승인할 수 없습니다.",
+    "위 이슈를 열어 처리해 주세요.",
+  ].join("\n");
+}
+
 export function formatDecisionMessage(decision, issueId, interactionId) {
   const options = decision.options
     .map((option) => `${option.label} (${option.action})`)

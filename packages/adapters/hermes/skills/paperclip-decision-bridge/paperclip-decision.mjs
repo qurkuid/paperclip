@@ -8,9 +8,9 @@ import {
   requireFlag,
   requireUuid,
 } from "./config.mjs";
-import { validateDecisionPackage } from "./contract.mjs";
+import { validateDecisionNotice, validateDecisionPackage } from "./contract.mjs";
 import { OperationError, UsageError } from "./errors.mjs";
-import { formatDecisionMessage } from "./format.mjs";
+import { formatDecisionMessage, formatDecisionNotice } from "./format.mjs";
 import { readState, writeState } from "./state.mjs";
 import { paperclipFetch, telegramFetch } from "./transport.mjs";
 
@@ -18,6 +18,8 @@ const HELP = `Paperclip Telegram decision bridge for Hermes
 
 Usage:
   paperclip-decision.mjs send --sender <telegram-sender-id> --issue <uuid> --interaction <uuid>
+  paperclip-decision.mjs notify --sender <telegram-sender-id> --issue <uuid> --interaction <uuid>
+  paperclip-decision.mjs poll --sender <telegram-sender-id> --company <uuid>
   paperclip-decision.mjs resolve --sender <telegram-sender-id> --command "decision <issue-uuid>:<interaction-uuid> <expected-revision> approve|reject [optional-note]"
 
 Environment:
@@ -48,9 +50,20 @@ async function sendDecision(args) {
     `/issues/${issueId}/interactions/${interactionId}/decision-package`,
   );
   const decision = validateDecisionPackage(rawPackage, issueId, interactionId);
-  const text = formatDecisionMessage(decision, issueId, interactionId);
+  const status = await deliver(
+    config,
+    `${interactionId}:${decision.revision}`,
+    formatDecisionMessage(decision, issueId, interactionId),
+  );
+  printSuccess("send", status);
+}
+
+/**
+ * Deliver a Telegram message under a state key, editing in place when the same
+ * key was already delivered. Returns "sent" or "updated".
+ */
+async function deliver(config, stateKey, text) {
   const state = await readState(config.stateFile);
-  const stateKey = `${interactionId}:${decision.revision}`;
   const existingMessageId = state.messages[stateKey];
 
   if (existingMessageId === undefined) {
@@ -65,8 +78,7 @@ async function sendDecision(args) {
     }
     state.messages[stateKey] = messageId;
     await writeState(config.stateFile, state);
-    printSuccess("send", "sent");
-    return;
+    return "sent";
   }
 
   await telegramFetch(config, "editMessageText", {
@@ -75,7 +87,81 @@ async function sendDecision(args) {
     text,
     disable_web_page_preview: true,
   });
-  printSuccess("send", "updated");
+  return "updated";
+}
+
+async function notifyDecision(args) {
+  const sender = requireFlag(args, "sender");
+  const issueId = requireUuid(requireFlag(args, "issue"), "--issue");
+  const interactionId = requireUuid(requireFlag(args, "interaction"), "--interaction");
+  const config = getSendConfig(sender);
+  const rawPackage = await paperclipFetch(
+    config,
+    `/issues/${issueId}/interactions/${interactionId}/decision-package`,
+  );
+  const notice = validateDecisionNotice(rawPackage, issueId, interactionId);
+  const status = await deliver(
+    config,
+    `notice:${interactionId}:${notice.revision}`,
+    formatDecisionNotice(notice),
+  );
+  printSuccess("notify", status);
+}
+
+const INTERACTION_ATTENTION_ID_RE = /^issue_thread_interaction:interaction:([0-9a-f-]{36})$/;
+
+/**
+ * Sweep a company's queued decisions and deliver every pending one: the full
+ * resolvable package when its evidence is complete, otherwise a pointer-only
+ * notice. Re-running is safe — delivery is keyed by interaction and revision,
+ * so an unchanged item is edited in place rather than re-posted.
+ *
+ * Reads the attention feed rather than the queue item listing because only the
+ * feed carries the related issue, and the decision-package endpoint is scoped
+ * by issue.
+ */
+async function pollDecisions(args) {
+  const sender = requireFlag(args, "sender");
+  const companyId = requireUuid(requireFlag(args, "company"), "--company");
+  const config = getSendConfig(sender);
+  const feed = await paperclipFetch(config, `/companies/${companyId}/attention?all=true`);
+  const items = Array.isArray(feed?.items) ? feed.items : null;
+  if (!items) throw new OperationError("Attention feed is malformed");
+
+  const counts = { sent: 0, updated: 0, notified: 0, skipped: 0 };
+  for (const item of items) {
+    if (item?.sourceKind !== "issue_thread_interaction") continue;
+    if (!Array.isArray(item.queues) || item.queues.length === 0) continue;
+
+    const interactionId = INTERACTION_ATTENTION_ID_RE.exec(item.id ?? "")?.[1] ?? null;
+    const issueId = typeof item.relatedIssue?.id === "string" ? item.relatedIssue.id : null;
+    if (!interactionId || !issueId) {
+      counts.skipped += 1;
+      continue;
+    }
+
+    const rawPackage = await paperclipFetch(
+      config,
+      `/issues/${issueId}/interactions/${interactionId}/decision-package`,
+    );
+    let text;
+    let stateKey;
+    let complete = true;
+    try {
+      const decision = validateDecisionPackage(rawPackage, issueId, interactionId);
+      text = formatDecisionMessage(decision, issueId, interactionId);
+      stateKey = `${interactionId}:${decision.revision}`;
+    } catch {
+      complete = false;
+      const notice = validateDecisionNotice(rawPackage, issueId, interactionId);
+      text = formatDecisionNotice(notice);
+      stateKey = `notice:${interactionId}:${notice.revision}`;
+    }
+    const status = await deliver(config, stateKey, text);
+    if (!complete) counts.notified += 1;
+    else counts[status] += 1;
+  }
+  process.stdout.write(`${JSON.stringify({ ok: true, command: "poll", ...counts })}\n`);
 }
 
 async function resolveDecision(args) {
@@ -109,11 +195,19 @@ async function main() {
     await sendDecision(args);
     return;
   }
+  if (command === "notify") {
+    await notifyDecision(args);
+    return;
+  }
+  if (command === "poll") {
+    await pollDecisions(args);
+    return;
+  }
   if (command === "resolve") {
     await resolveDecision(args);
     return;
   }
-  throw new UsageError("Command must be send or resolve");
+  throw new UsageError("Command must be send, notify, poll, or resolve");
 }
 
 main().catch((error) => {

@@ -126,6 +126,53 @@ function parseWorkProducts(links) {
   });
 }
 
+/**
+ * Pointer-only projection for a pending decision the bridge will not deliver
+ * as a resolvable package — typically one with no decision context, so there
+ * is no KPI, sample or freshness evidence to show. It carries no options and
+ * no resolve grammar, so a notice can never be acted on from Telegram; the
+ * board has to open the issue.
+ */
+export function validateDecisionNotice(raw, issueId, interactionId) {
+  const value = requireRecord(raw, "payload");
+  if (value.version !== 1) {
+    throw new OperationError("Decision package has an unsupported version");
+  }
+  const company = requireRecord(value.company, "company");
+  const issue = requireRecord(value.issue, "issue");
+  const interaction = requireRecord(value.interaction, "interaction");
+  if (issue.id !== issueId || interaction.id !== interactionId) {
+    throw new OperationError("Decision package identity does not match the request");
+  }
+  if (interaction.status !== "pending") {
+    throw new OperationError("Decision package is not pending");
+  }
+  const revision = requireString(interaction.revision, "revision");
+  if (revision.includes("\n") || revision.includes("\r") || revision.length > 200) {
+    throw new OperationError("Decision package has an invalid revision");
+  }
+  const links = requireRecord(value.links, "links");
+  const companyName = optionalString(company.name) ?? requireString(company.id, "company id");
+
+  return {
+    companyName: redactContacts(companyName),
+    issueIdentifier: safeText(issue.identifier ?? issue.id, "issue identifier"),
+    issueTitle: safeText(issue.title, "issue title"),
+    interactionTitle: optionalString(interaction.title) === null
+      ? "Decision"
+      : redactContacts(interaction.title.trim()),
+    interactionSummary: optionalString(interaction.summary) === null
+      ? null
+      : redactContacts(interaction.summary.trim()),
+    revision,
+    evidenceStatus: optionalString(value.evidenceStatus) ?? "missing",
+    conflict: optionalString(value.conflict) ?? "none",
+    links: {
+      issue: requireString(links.issue, "issue link"),
+    },
+  };
+}
+
 export function validateDecisionPackage(raw, issueId, interactionId) {
   const value = requireRecord(raw, "payload");
   const envelope = validateEnvelope(value, issueId, interactionId);
