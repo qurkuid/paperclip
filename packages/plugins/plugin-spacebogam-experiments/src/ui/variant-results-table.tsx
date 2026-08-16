@@ -13,9 +13,30 @@ export function VariantResultsTable({
   const rows = buildVariantResultRows(detail);
   const target = detail.experiment.minimumSamplePerVariant;
 
-  if (rows.length === 0) return null;
+  if (rows.length === 0) {
+    return (
+      <section
+        className="sbe-result-table"
+        aria-label="변형별 수치 비교"
+        aria-labelledby="sbe-result-table-title"
+      >
+        <div className="sbe-result-table-heading">
+          <div>
+            <h3 id="sbe-result-table-title">변형별 수치 비교</h3>
+            <p>아직 비교할 변형 수치가 없습니다.</p>
+          </div>
+          <span>목표 {target}명 / 변형</span>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="sbe-result-table" aria-labelledby="sbe-result-table-title">
+    <section
+      className="sbe-result-table"
+      aria-label="변형별 수치 비교"
+      aria-labelledby="sbe-result-table-title"
+    >
       <div className="sbe-result-table-heading">
         <div>
           <h3 id="sbe-result-table-title">변형별 수치 비교</h3>
@@ -24,7 +45,7 @@ export function VariantResultsTable({
         <span>목표 {target}명 / 변형</span>
       </div>
       <div className="sbe-table-scroll">
-        <table>
+        <table aria-label="수치 비교">
           <thead>
             <tr>
               <th scope="col">변형</th>
@@ -34,6 +55,8 @@ export function VariantResultsTable({
               <th scope="col">진행 중</th>
               <th scope="col">제외</th>
               <th scope="col">계약률</th>
+              <th scope="col">표본 상태</th>
+              <th scope="col">guardrail</th>
             </tr>
           </thead>
           <tbody>
@@ -51,6 +74,12 @@ export function VariantResultsTable({
                 <td>{row.pending}</td>
                 <td>{row.disqualified}</td>
                 <td>{formatPercent(row.wonRate)}</td>
+                <td>{row.sample >= target ? "충족" : "부족"}</td>
+                <td>
+                  {row.sample === 0
+                    ? "제외 없음"
+                    : `제외율 ${formatPercent(row.disqualified / row.sample)}`}
+                </td>
               </tr>
             ))}
           </tbody>

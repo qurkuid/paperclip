@@ -6399,6 +6399,72 @@ describeEmbeddedPostgres("tool access service", () => {
     });
   });
 
+  it("refreshes stale remote tool schemas during the health sweep", async () => {
+    const company = await createCompany(db);
+    const service = toolAccessService(db);
+    mockToolsList([
+      {
+        name: "stage_content",
+        description: "Stage an image or MP4 video.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            mimeType: {
+              type: "string",
+              enum: ["image/png", "video/mp4"],
+            },
+          },
+        },
+        annotations: { readOnlyHint: false },
+      },
+    ]);
+    const connection = await service.createConnection(company.id, {
+      name: "Publisher schema refresh",
+      transport: "mcp_remote",
+      config: { url: "https://publisher.example/mcp" },
+      enabled: true,
+      status: "active",
+    });
+    await db.insert(toolCatalogEntries).values({
+      companyId: company.id,
+      applicationId: connection.applicationId,
+      connectionId: connection.id,
+      name: "stage_content",
+      toolName: "stage_content",
+      description: "Stage an image.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          mimeType: {
+            type: "string",
+            enum: ["image/png"],
+          },
+        },
+      },
+      riskLevel: "write",
+      status: "active",
+      versionHash: "stale-version",
+      schemaHash: "stale-schema",
+    });
+
+    const sweep = await service.sweepConnectionHealth({ staleAfterMs: 0 });
+    const [updatedConnection] = await db.select().from(toolConnections).where(eq(toolConnections.id, connection.id));
+    const [updatedTool] = await db
+      .select()
+      .from(toolCatalogEntries)
+      .where(eq(toolCatalogEntries.connectionId, connection.id));
+
+    expect(sweep).toMatchObject({ checked: 1, healthy: 1, failed: 0 });
+    expect(updatedConnection.lastCatalogRefreshAt).not.toBeNull();
+    expect(updatedTool.inputSchema).toMatchObject({
+      properties: {
+        mimeType: {
+          enum: ["image/png", "video/mp4"],
+        },
+      },
+    });
+  });
+
   it("enriches listConnections with lastUsedAt from the most recent tool-call event", async () => {
     const company = await createCompany(db);
     const service = toolAccessService(db);

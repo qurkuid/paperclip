@@ -138,6 +138,7 @@ export interface AdapterRuntimeMcpServer {
   url: string;
   token: string;
   connectionId: string;
+  toolNames?: string[];
 }
 
 export interface AdapterRuntimeMcpAccess {

@@ -44,8 +44,8 @@ vi.mock("../api/agents", () => ({
   agentsApi: mockAgentsApi,
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
+  .IS_REACT_ACT_ENVIRONMENT = true;
 
 async function act(callback: () => void | Promise<void>) {
   let result: void | Promise<void> = undefined;
@@ -60,6 +60,18 @@ async function flushReact() {
     await Promise.resolve();
     await new Promise((resolve) => window.setTimeout(resolve, 0));
   });
+}
+
+async function waitForTestCondition(
+  predicate: () => boolean,
+  message: string,
+  attempts = 100,
+): Promise<void> {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (predicate()) return;
+    await flushReact();
+  }
+  throw new Error(message);
 }
 
 function makeAgent(overrides: Partial<Agent> = {}): Agent {
@@ -151,12 +163,27 @@ describe("AgentActionButtons", () => {
 
   it("calls clearError and refreshes agent-related queries", async () => {
     render(makeAgent({ status: "error" }));
-    await flushReact();
+    await waitForTestCondition(
+      () => container.querySelector('[aria-label="Clear error and return agent to idle"]') !== null,
+      "Clear error action did not render",
+    );
 
+    const clearErrorButton = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Clear error and return agent to idle"]',
+    );
+    if (!clearErrorButton) throw new Error("Clear error action did not render");
     await act(async () => {
-      container.querySelector<HTMLButtonElement>('[aria-label="Clear error and return agent to idle"]')?.click();
+      clearErrorButton.click();
     });
-    await flushReact();
+    await waitForTestCondition(
+      () =>
+        mockAgentsApi.clearError.mock.calls.length === 1
+        && invalidateQueries.mock.calls.some(
+          ([filters]) =>
+            JSON.stringify(filters) === JSON.stringify({ queryKey: ["heartbeats", "company-1", "agent-1"] }),
+        ),
+      "Clear error mutation did not finish refreshing agent queries",
+    );
 
     expect(mockAgentsApi.clearError).toHaveBeenCalledWith("agent-1", "company-1");
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["agents", "detail", "agent-1"] });

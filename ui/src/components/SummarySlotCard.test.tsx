@@ -391,22 +391,24 @@ describe("SummarySlotCard", () => {
   });
 
   it("switches to a historical revision from a dated dropdown", async () => {
+    const localTimestamp = (day: number, hour: number, minute: number) =>
+      new Date(2026, 6, day, hour, minute, 0, 0).toISOString();
     mockSummarySlotsApi.get.mockResolvedValue({
       slot: slot({ documentId: "doc-1" }),
       document: summaryDocument({
         body: "## Latest\nCurrent body",
         latestRevisionId: "rev-3",
         latestRevisionNumber: 3,
-        updatedAt: "2026-07-14T17:10:00.000Z",
+        updatedAt: localTimestamp(14, 17, 10),
       }),
       generatingIssue: null,
     } satisfies GetSummarySlotResponse);
     mockSummarySlotsApi.revisions.mockResolvedValue({
       slot: slot({ documentId: "doc-1" }),
       revisions: [
-        revision({ id: "rev-1", revisionNumber: 1, body: "## Old\nOld body", createdAt: "2026-07-13T17:10:00.000Z" }),
-        revision({ id: "rev-2", revisionNumber: 2, body: "## Middle\nMiddle body", createdAt: "2026-07-14T09:15:00.000Z" }),
-        revision({ id: "rev-3", revisionNumber: 3, body: "## Latest\nCurrent body", createdAt: "2026-07-14T17:10:00.000Z" }),
+        revision({ id: "rev-1", revisionNumber: 1, body: "## Old\nOld body", createdAt: localTimestamp(13, 17, 10) }),
+        revision({ id: "rev-2", revisionNumber: 2, body: "## Middle\nMiddle body", createdAt: localTimestamp(14, 9, 15) }),
+        revision({ id: "rev-3", revisionNumber: 3, body: "## Latest\nCurrent body", createdAt: localTimestamp(14, 17, 10) }),
       ],
     });
 

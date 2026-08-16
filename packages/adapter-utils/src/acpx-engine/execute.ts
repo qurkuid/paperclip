@@ -182,7 +182,7 @@ interface AcpxPreparedRuntime {
   childStderrLogPath: string | null;
   paperclipClaudeSettings: PaperclipClaudeSettingsResult | null;
   mcpServers: NonNullable<AcpRuntimeOptions["mcpServers"]>;
-  mcpIdentity: Array<{ name: string; url: string; connectionId: string }>;
+  mcpIdentity: Array<{ name: string; url: string; connectionId: string; toolNames: string[] }>;
 }
 
 const defaultWarmHandles = new Map<string, RuntimeCacheEntry>();
@@ -225,7 +225,7 @@ function defaultStateDir(companyId: string, agentId: string): string {
 }
 
 function resolveManagedCodexHomeDir(companyId: string): string {
-  return path.join(defaultPaperclipInstanceDir(), "companies", companyId, "codex-home");
+  return path.join(defaultPaperclipInstanceDir(), "companies", companyId, "codex-acp-home");
 }
 
 // Walk up from startDir looking for `node_modules/.bin/<binName>`. This matches
@@ -388,13 +388,35 @@ async function symlinkOrCopyFile(source: string, target: string): Promise<void> 
   try {
     await fs.symlink(source, target);
   } catch (err) {
+    if (isErrnoException(err, "EEXIST") && await targetContainsSourceFile(target, source)) return;
     if (!isErrnoException(err, "EPERM")) throw err;
+    if (await targetContainsSourceFile(target, source)) return;
     await fs.copyFile(source, target);
   }
 }
 
 function isErrnoException(err: unknown, code: string): err is NodeJS.ErrnoException {
   return err instanceof Error && "code" in err && err.code === code;
+}
+
+async function targetContainsSourceFile(target: string, source: string): Promise<boolean> {
+  const existing = await fs.lstat(target).catch(() => null);
+  if (!existing) return false;
+
+  if (existing.isSymbolicLink()) {
+    const linkedPath = await fs.readlink(target).catch(() => null);
+    return linkedPath !== null &&
+      path.resolve(path.dirname(target), linkedPath) === path.resolve(source);
+  }
+
+  if (!existing.isFile()) return false;
+  const [sourceContents, targetContents] = await Promise.all([
+    fs.readFile(source).catch(() => null),
+    fs.readFile(target).catch(() => null),
+  ]);
+  return sourceContents !== null &&
+    targetContents !== null &&
+    sourceContents.equals(targetContents);
 }
 
 async function ensureCopiedFile(target: string, source: string): Promise<void> {
@@ -1010,10 +1032,11 @@ async function buildRuntime(input: {
   const requestedThinkingEffort = normalizeRequestedThinkingEffort(config);
   const fastMode = acpxAgent === "codex" && config.fastMode === true;
   const runtimeMcpServers = input.ctx.runtimeMcp?.getServers() ?? [];
-  const mcpIdentity = runtimeMcpServers.map(({ name, url, connectionId }) => ({
+  const mcpIdentity = runtimeMcpServers.map(({ name, url, connectionId, toolNames }) => ({
     name,
     url,
     connectionId,
+    toolNames: uniqueSorted(toolNames ?? []),
   }));
   const mcpServers: NonNullable<AcpRuntimeOptions["mcpServers"]> = runtimeMcpServers.map((server) => ({
     type: "http",
@@ -1418,7 +1441,43 @@ function renderApiAccessNote(env: Record<string, string>): string {
   return lines.join("\n");
 }
 
-async function buildPrompt(ctx: AdapterExecutionContext, resumedSession: boolean, env: Record<string, string>): Promise<{
+function renderManagedMcpDeliveryNote(
+  servers: AcpxPreparedRuntime["mcpIdentity"],
+): string {
+  if (servers.length === 0) return "";
+  const lines = [
+    "Paperclip managed tool delivery:",
+    "Paperclip attached the following managed MCP servers and current catalog tools to this exact run.",
+    "Do not report these managed tools as missing merely because you have not called them yet.",
+    "The catalog identities below are not JavaScript property names and must not be read as tools[catalogIdentity].",
+    "tool_search is not a prerequisite and may not be exposed in this runtime.",
+    "In Codex code mode, resolve the callable name from ALL_TOOLS: filter by the shown mcp__<server>__ prefix, compare candidate descriptions and schemas with the catalog identity, then call tools[candidate.name](args).",
+    "Only report a runtime registration failure when no matching ALL_TOOLS candidate exists for the attached server, or when the resolved callable itself returns an unavailable or registration error.",
+  ];
+  for (const server of servers) {
+    const callablePrefix = `mcp__${server.name.replace(/[^A-Za-z0-9_]/g, "_")}__`;
+    lines.push(`- ${server.name} (${server.connectionId})`);
+    lines.push(`  callable prefix: ${callablePrefix}`);
+    for (const toolName of server.toolNames) lines.push(`  - catalog identity: ${toolName}`);
+  }
+  return lines.join("\n");
+}
+
+function renderTaskStateFreshnessNote(context: Record<string, unknown>): string {
+  if (!context.paperclipWake) return "";
+  return [
+    "Paperclip task-state freshness rule:",
+    "Current wake fields and a fresh canonical issue response override continuation summaries and older comments.",
+    "When a dependency-resolved wake has no unresolved blocker ids, do not recreate the old blocker from a stale continuation summary.",
+  ].join("\n");
+}
+
+async function buildPrompt(
+  ctx: AdapterExecutionContext,
+  resumedSession: boolean,
+  env: Record<string, string>,
+  managedMcpServers: AcpxPreparedRuntime["mcpIdentity"],
+): Promise<{
   prompt: string;
   promptMetrics: Record<string, number>;
   commandNotes: string[];
@@ -1472,14 +1531,18 @@ async function buildPrompt(ctx: AdapterExecutionContext, resumedSession: boolean
   const taskContextNote = asString(context.paperclipTaskMarkdown, "").trim();
   const paperclipEnvNote = renderPaperclipEnvNote(env);
   const apiAccessNote = renderApiAccessNote(env);
+  const managedMcpDeliveryNote = renderManagedMcpDeliveryNote(managedMcpServers);
+  const taskStateFreshnessNote = renderTaskStateFreshnessNote(context);
   const prompt = joinPromptSections([
     promptInstructionsPrefix,
     renderedBootstrapPrompt,
     wakePrompt,
+    taskStateFreshnessNote,
     sessionHandoffNote,
     taskContextNote,
     paperclipEnvNote,
     apiAccessNote,
+    managedMcpDeliveryNote,
     renderedPrompt,
   ]);
 
@@ -1493,7 +1556,11 @@ async function buildPrompt(ctx: AdapterExecutionContext, resumedSession: boolean
       wakePromptChars: wakePrompt.length,
       sessionHandoffChars: sessionHandoffNote.length,
       taskContextChars: taskContextNote.length,
-      runtimeNoteChars: paperclipEnvNote.length + apiAccessNote.length,
+      runtimeNoteChars:
+        paperclipEnvNote.length
+        + apiAccessNote.length
+        + managedMcpDeliveryNote.length
+        + taskStateFreshnessNote.length,
       heartbeatPromptChars: renderedPrompt.length,
     },
   };
@@ -1757,6 +1824,24 @@ function classifyError(
     errorCode: "acpx_runtime_error",
     errorMeta: { category: "runtime", ...baseMeta },
   };
+}
+
+// A failed turn arrives as a plain result object rather than a thrown error, so
+// it has to be funneled through the same classifier the throw path uses.
+// Otherwise an expired agent OAuth session is reported as a generic
+// acpx_turn_failed and never surfaces as an auth problem.
+function classifyTurnResultError(
+  error: Extract<AcpRuntimeTurnResult, { status: "failed" }>["error"],
+): Pick<AdapterExecutionResult, "errorCode" | "errorMeta"> {
+  const asError = new Error(error.message);
+  asError.name = "AcpRuntimeTurnError";
+  return classifyError(
+    Object.assign(asError, {
+      ...(error.code ? { code: error.code } : {}),
+      ...(typeof error.retryable === "boolean" ? { retryable: error.retryable } : {}),
+    }),
+    "turn",
+  );
 }
 
 async function readChildStderrTail(input: {
@@ -2082,7 +2167,12 @@ export function createAcpxEngineExecutor(deps: AcpxEngineExecutorOptions = {}) {
         summary: message,
       };
     }
-    const { prompt, promptMetrics, commandNotes } = await buildPrompt(ctx, resumedSession, prepared.env);
+    const { prompt, promptMetrics, commandNotes } = await buildPrompt(
+      ctx,
+      resumedSession,
+      prepared.env,
+      prepared.mcpIdentity,
+    );
     const runPrompt = joinPromptSections([prepared.skillPromptInstructions, prompt]);
     await emitAcpxLog(ctx, {
       type: "acpx.session",
@@ -2241,11 +2331,14 @@ export function createAcpxEngineExecutor(deps: AcpxEngineExecutorOptions = {}) {
         ? formatAdapterExecutionTimeoutErrorMessage(prepared.timeoutResolution)
         : resultErrorMessage(terminal);
       const terminalStopReason = terminal.status === "failed" ? terminal.error.message : terminal.stopReason;
+      const terminalClassification =
+        terminal.status === "failed" ? classifyTurnResultError(terminal.error) : null;
       await emitAcpxLog(ctx, {
         type: terminal.status === "completed" ? "acpx.result" : "acpx.error",
         summary: terminal.status,
         stopReason: terminalStopReason,
         message: errorMessage,
+        ...(terminalClassification?.errorMeta ?? {}),
       });
       await cleanupRemoteBridges(prepared);
       flushChildStderr(childStderrState);
@@ -2254,7 +2347,8 @@ export function createAcpxEngineExecutor(deps: AcpxEngineExecutorOptions = {}) {
         signal: timedOut ? "SIGTERM" : null,
         timedOut,
         errorMessage,
-        errorCode: terminal.status === "failed" ? "acpx_turn_failed" : timedOut ? "acpx_timeout" : null,
+        errorCode: terminalClassification?.errorCode ?? (timedOut ? "acpx_timeout" : null),
+        ...(terminalClassification?.errorMeta ? { errorMeta: terminalClassification.errorMeta } : {}),
         sessionId: sessionHandle.backendSessionId ?? sessionHandle.runtimeSessionName,
         sessionParams: buildSessionParams({ prepared, handle: sessionHandle }),
         sessionDisplayId: sessionHandle.agentSessionId ?? sessionHandle.backendSessionId ?? sessionHandle.runtimeSessionName,

@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import type { AdapterExecutionContext } from "@paperclipai/adapter-utils";
 import { resolvePaperclipInstanceRootForAdapter } from "@paperclipai/adapter-utils/server-utils";
+import { writePrivateFileAtomically } from "./atomic-file.js";
 
 const TRUTHY_ENV_RE = /^(1|true|yes|on)$/i;
 const COPIED_SHARED_FILES = ["config.json", "config.toml", "instructions.md"] as const;
@@ -275,6 +276,17 @@ function stripManagedMcpBlock(config: string): string {
   return `${config.slice(0, start)}${config.slice(end + MANAGED_MCP_BLOCK_END.length)}`.trimEnd();
 }
 
+function stripMalformedLegacyServersLines(config: string): string {
+  return config
+    .split("\n")
+    .filter(
+      (line) =>
+        !/^\s*(?:servers\.[A-Za-z0-9_.-]+|ervers\.[A-Za-z0-9_.-]+\])\s*(?:#.*)?$/.test(line),
+    )
+    .join("\n")
+    .trimEnd();
+}
+
 function readCodexMcpServerNames(config: string): Set<string> {
   const names = new Set<string>();
   for (const match of config.matchAll(/^\s*\[\s*mcp_servers\s*\.\s*(?:"([^"]+)"|'([^']+)'|([^\]\s#]+))\s*\]/gm)) {
@@ -333,7 +345,7 @@ export async function writeManagedCodexMcpConfig(input: {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return "";
     throw error;
   });
-  const unmanagedConfig = stripManagedMcpBlock(existing);
+  const unmanagedConfig = stripMalformedLegacyServersLines(stripManagedMcpBlock(existing));
   const { block, warnings } = buildManagedMcpBlock({
     gateways: input.gateways,
     apiBaseUrl: input.apiBaseUrl,
@@ -342,8 +354,7 @@ export async function writeManagedCodexMcpConfig(input: {
   const next = input.gateways.length > 0
     ? `${unmanagedConfig}${unmanagedConfig ? "\n\n" : ""}${block}\n`
     : `${unmanagedConfig}${unmanagedConfig ? "\n" : ""}`;
-  await fs.writeFile(configPath, next, { mode: 0o600 });
-  await fs.chmod(configPath, 0o600);
+  await writePrivateFileAtomically(configPath, next);
   return { configPath, warnings };
 }
 

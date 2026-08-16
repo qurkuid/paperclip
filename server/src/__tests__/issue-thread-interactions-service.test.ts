@@ -982,6 +982,157 @@ describeEmbeddedPostgres("issueThreadInteractionService", () => {
     })).rejects.toThrow("A decline reason is required for this confirmation");
   });
 
+  it("rejects stale expected revisions before mutating a pending confirmation", async () => {
+    const { companyId, goalId, issueId } = await seedConfirmationIssue("Revision gate");
+    const created = await interactionsSvc.create({
+      id: issueId,
+      companyId,
+    }, {
+      kind: "request_confirmation",
+      payload: {
+        version: 1,
+        prompt: "Approve this evidence-backed decision?",
+      },
+    }, {
+      userId: "local-board",
+    });
+
+    await expect(interactionsSvc.acceptInteraction({
+      id: issueId,
+      companyId,
+      goalId,
+      projectId: null,
+    }, created.id, {
+      expectedRevision: "2020-01-01T00:00:00.000Z",
+    }, {
+      userId: "telegram-board-user",
+    })).rejects.toThrow("Interaction revision does not match");
+
+    const afterStaleAttempt = await db
+      .select()
+      .from(issueThreadInteractions)
+      .where(eq(issueThreadInteractions.id, created.id))
+      .then((rows) => rows[0]);
+    expect(afterStaleAttempt).toMatchObject({
+      status: "pending",
+      resolvedByUserId: null,
+      result: null,
+    });
+
+    const accepted = await interactionsSvc.acceptInteraction({
+      id: issueId,
+      companyId,
+      goalId,
+      projectId: null,
+    }, created.id, {
+      expectedRevision: new Date(created.updatedAt).toISOString(),
+    }, {
+      userId: "telegram-board-user",
+    });
+    expect(accepted.interaction).toMatchObject({
+      status: "accepted",
+      resolvedByUserId: "telegram-board-user",
+    });
+
+    await expect(interactionsSvc.rejectInteraction({
+      id: issueId,
+      companyId,
+    }, created.id, {
+      expectedRevision: new Date(created.updatedAt).toISOString(),
+      reason: "replay",
+    }, {
+      userId: "different-board-user",
+    })).rejects.toThrow("Interaction has already been resolved");
+
+    const afterReplay = await interactionsSvc.getById(created.id);
+    expect(afterReplay).toMatchObject({
+      status: "accepted",
+      resolvedByUserId: "telegram-board-user",
+      result: { outcome: "accepted" },
+    });
+  });
+
+  it("rejects expired decision contexts on both accept and reject before mutation", async () => {
+    const { companyId, goalId, issueId } = await seedConfirmationIssue("Decision expiry gate");
+    const expiredDecisionContext = {
+      kpis: [{ label: "CVR", value: "12.4%" }],
+      sample: { observed: 220, required: 200 },
+      freshness: {
+        recordUpdatedAt: "2020-01-01T00:00:00.000Z",
+        funnelGeneratedAt: "2020-01-01T00:00:00.000Z",
+        funnelDataThrough: "2020-01-01T00:00:00.000Z",
+        quality: "ready",
+      },
+      asOf: "2020-01-01T00:00:00.000Z",
+      expiresAt: "2020-01-01T01:00:00.000Z",
+    };
+    const acceptTarget = await interactionsSvc.create({
+      id: issueId,
+      companyId,
+    }, {
+      kind: "request_confirmation",
+      payload: {
+        version: 1,
+        prompt: "Approve expired evidence?",
+        decisionContext: expiredDecisionContext,
+      },
+    }, {
+      userId: "local-board",
+    });
+    const rejectTarget = await interactionsSvc.create({
+      id: issueId,
+      companyId,
+    }, {
+      kind: "request_confirmation",
+      payload: {
+        version: 1,
+        prompt: "Reject expired evidence?",
+        decisionContext: expiredDecisionContext,
+      },
+    }, {
+      userId: "local-board",
+    });
+
+    await expect(interactionsSvc.acceptInteraction({
+      id: issueId,
+      companyId,
+      goalId,
+      projectId: null,
+    }, acceptTarget.id, {
+      expectedRevision: new Date(acceptTarget.updatedAt).toISOString(),
+    }, {
+      userId: "telegram-board-user",
+    })).rejects.toThrow("Decision context has expired");
+    await expect(interactionsSvc.rejectInteraction({
+      id: issueId,
+      companyId,
+    }, rejectTarget.id, {
+      expectedRevision: new Date(rejectTarget.updatedAt).toISOString(),
+      reason: "No longer current",
+    }, {
+      userId: "telegram-board-user",
+    })).rejects.toThrow("Decision context has expired");
+
+    const rows = await db
+      .select()
+      .from(issueThreadInteractions)
+      .where(eq(issueThreadInteractions.issueId, issueId));
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: acceptTarget.id,
+        status: "pending",
+        resolvedByUserId: null,
+        result: null,
+      }),
+      expect.objectContaining({
+        id: rejectTarget.id,
+        status: "pending",
+        resolvedByUserId: null,
+        result: null,
+      }),
+    ]));
+  });
+
   it("accepts request_checkbox_confirmation interactions with selected option ids", async () => {
     const { companyId, goalId, issueId } = await seedConfirmationIssue("Checkbox confirmation accept");
 

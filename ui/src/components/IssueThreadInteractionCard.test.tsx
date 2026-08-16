@@ -60,6 +60,21 @@ async function act(callback: () => void | Promise<void>) {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+async function waitForTestCondition(
+  predicate: () => boolean,
+  message: string,
+  attempts = 100,
+): Promise<void> {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (predicate()) return;
+    await act(async () => {
+      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+  throw new Error(message);
+}
+
 vi.mock("@/lib/router", () => ({
   Link: ({ to, children, className }: { to: string; children: ReactNode; className?: string }) => (
     <a href={to} className={className}>{children}</a>
@@ -513,10 +528,10 @@ describe("IssueThreadInteractionCard", () => {
       onRejectInteraction: vi.fn(),
     });
 
-    await act(async () => {
-      await Promise.resolve();
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
+    await waitForTestCondition(
+      () => host.textContent?.includes("Threads 운영안") === true,
+      "The exact plan revision did not render",
+    );
 
     expect(mockGetDocumentRevisions).toHaveBeenCalledWith(
       pendingRequestConfirmationInteraction.issueId,
@@ -716,6 +731,45 @@ describe("IssueThreadInteractionCard tool-action card", () => {
     );
   });
 
+  it("renders an Instagram Reels MP4 as a playable video before approval", () => {
+    const host = renderCard({
+      interaction: {
+        ...pendingToolActionWriteInteraction,
+        payload: {
+          ...pendingToolActionWriteInteraction.payload,
+          toolAction: {
+            ...pendingToolActionWriteInteraction.payload.toolAction!,
+            toolName: "intm_internal_publish_approved_content",
+            argumentsSummaryJson: JSON.stringify({
+              content: {
+                instagram: {
+                  mediaType: "REELS",
+                  caption: "공사는 결과 사진보다 결정의 순서가 중요합니다.",
+                  videoUrl: "https://intm.kr/api/uploads/paperclip-content/reel.mp4",
+                },
+              },
+              platforms: ["instagram"],
+            }),
+          },
+        },
+      },
+      onAcceptInteraction: vi.fn(),
+      onRejectInteraction: vi.fn(),
+    });
+
+    const video = host.querySelector<HTMLVideoElement>(
+      'video[aria-label="Instagram REELS preview"]',
+    );
+    expect(video?.getAttribute("src")).toBe(
+      "https://intm.kr/api/uploads/paperclip-content/reel.mp4",
+    );
+    expect(video?.controls).toBe(true);
+    expect(video?.muted).toBe(false);
+    expect(video?.hasAttribute("playsinline")).toBe(true);
+    expect(video?.getAttribute("preload")).toBe("auto");
+    expect(host.querySelector('img[src$="/reel.mp4"]')).toBeNull();
+  });
+
   it("selects the pending state with the Approve & run affordance and identity header", () => {
     const host = renderCard({
       interaction: pendingToolActionWriteInteraction,
@@ -739,6 +793,36 @@ describe("IssueThreadInteractionCard tool-action card", () => {
     // Technical details drawer is present but collapsed by default (hash hidden).
     expect(host.textContent).toContain("Technical details");
     expect(host.textContent).not.toContain("args hash");
+  });
+
+  it("treats a pending tool action as expired after its approval window closes", () => {
+    // Given: the backend interaction still says pending, but its approval deadline elapsed.
+    const toolAction = pendingToolActionWriteInteraction.payload.toolAction;
+    if (!toolAction) expect.fail("The pending tool-action fixture must include its toolAction payload");
+    const interaction = {
+      ...pendingToolActionWriteInteraction,
+      payload: {
+        ...pendingToolActionWriteInteraction.payload,
+        toolAction: {
+          ...toolAction,
+          expiresAt: "2000-01-01T00:00:00.000Z",
+        },
+      },
+    };
+
+    // When: the decision card renders from that temporarily stale server state.
+    const host = renderCard({
+      interaction,
+      onAcceptInteraction: vi.fn(),
+      onRejectInteraction: vi.fn(),
+    });
+
+    // Then: the card is terminal and no mutation controls remain available.
+    expect(host.textContent).toContain("Expired");
+    expect(host.textContent).toContain("the agent can request approval again");
+    expect(host.textContent).not.toContain("Awaiting approval");
+    expect(host.textContent).not.toContain("Approve & run");
+    expect(host.textContent).not.toContain("Decline");
   });
 
   it("uses the destructive risk badge and a destructive primary button", () => {

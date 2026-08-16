@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockRegistry = vi.hoisted(() => ({
   getById: vi.fn(),
   getByKey: vi.fn(),
+  listByStatus: vi.fn(),
   upsertConfig: vi.fn(),
   getCompanySettings: vi.fn(),
   upsertCompanySettings: vi.fn(),
@@ -70,7 +71,8 @@ async function createApp(
     app.use((_req, res, next) => {
       const originalJson = res.json.bind(res);
       res.json = ((body: unknown) => {
-        routeOverrides.captureJsonContext?.((res as any).__errorContext, body);
+        const context = (res as express.Response & { __errorContext?: unknown }).__errorContext;
+        routeOverrides.captureJsonContext?.(context, body);
         return originalJson(body);
       }) as typeof res.json;
       next();
@@ -170,6 +172,61 @@ describe.sequential("plugin install and upgrade authz", () => {
     expect(byPackageName.get("@paperclipai/plugin-authoring-smoke-example")?.experimental).toBe(false);
     expect(typeof byPackageName.get("@paperclipai/plugin-workspace-diff")?.hasBuiltEntrypoints).toBe("boolean");
   }, 20_000);
+
+  it("returns the Spacebogam experiment overview link and page contributions", async () => {
+    mockRegistry.listByStatus.mockResolvedValue([
+      {
+        id: pluginId,
+        pluginKey: "paperclipai.plugin-spacebogam-experiments",
+        version: "0.1.0",
+        updatedAt: new Date("2026-07-27T00:00:00.000Z"),
+        manifestJson: {
+          id: "paperclipai.plugin-spacebogam-experiments",
+          displayName: "실험 운영",
+          entrypoints: { ui: "./dist/ui" },
+          ui: {
+            slots: [
+              {
+                type: "sidebar",
+                id: "spacebogam-experiments-sidebar",
+                displayName: "전체 현황",
+                exportName: "SpacebogamExperimentsSidebar",
+                order: 60,
+              },
+              {
+                type: "page",
+                id: "spacebogam-experiments-page",
+                displayName: "실험 운영",
+                exportName: "SpacebogamExperimentsPage",
+                routePath: "spacebogam-experiments",
+              },
+            ],
+          },
+        },
+      },
+    ]);
+    const { app } = await createApp(boardActor({ companyIds: [companyA] }));
+
+    const res = await request(app).get("/api/plugins/ui-contributions");
+
+    expect(res.status).toBe(200);
+    expect(mockRegistry.listByStatus).toHaveBeenCalledWith("ready");
+    expect(res.body).toEqual([
+      expect.objectContaining({
+        pluginId,
+        pluginKey: "paperclipai.plugin-spacebogam-experiments",
+        displayName: "실험 운영",
+        uiEntryFile: "index.js",
+        slots: expect.arrayContaining([
+          expect.objectContaining({
+            type: "page",
+            routePath: "spacebogam-experiments",
+            exportName: "SpacebogamExperimentsPage",
+          }),
+        ]),
+      }),
+    ]);
+  });
 
   it("rejects plugin installation for non-admin board users", async () => {
     const { app, loader } = await createApp({

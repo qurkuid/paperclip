@@ -8,6 +8,7 @@ import type { ExperimentDetail } from "../repository.js";
 import { ServiceError } from "./errors.js";
 import type {
   CreateExperimentPayload,
+  LinkLegacySourcePayload,
   LinkIssuePayload,
   SpacebogamExperimentServiceDeps,
 } from "./types.js";
@@ -97,6 +98,36 @@ export function createIssueActionHandlers(
       idempotencyKey: `link-issue:${payload.experimentId}:${payload.version}`,
     });
     return next;
+  }
+
+  async function linkLegacySource(
+    companyId: string,
+    payload: LinkLegacySourcePayload,
+  ): Promise<ExperimentDetail> {
+    if (deps.validateLegacyIssue === undefined) {
+      throw new ServiceError("unknown_action", "Legacy issue lookup is unavailable");
+    }
+    const detail = await requireExperiment(companyId, payload.experimentId);
+    if (detail.experiment.version !== payload.version) {
+      throw new ServiceError("invalid_version", "Experiment version is stale");
+    }
+    if (!await deps.validateLegacyIssue(companyId, payload.legacyIssueId)) {
+      throw new ServiceError("company_isolation_violation", "Legacy issue is not available in this company");
+    }
+    try {
+      await appendObservation({
+        companyId,
+        experimentId: payload.experimentId,
+        kind: "note",
+        summary: "기존 운영 문서 참조가 연결되었습니다.",
+        evidence: { legacyIssueId: payload.legacyIssueId },
+        idempotencyKey:
+          `legacy-source:${payload.experimentId}:${payload.legacyIssueId}`,
+      });
+    } catch (error) {
+      if (!isIdempotencyConflict(error)) throw error;
+    }
+    return detail;
   }
 
   async function selectResponsibleAgent(
@@ -267,5 +298,11 @@ export function createIssueActionHandlers(
     selectResponsibleAgent,
     requestStrategy,
     reconcileManagedRoutine,
+    linkLegacySource,
   };
+}
+
+function isIdempotencyConflict(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  return "code" in error && error.code === "idempotency_conflict";
 }

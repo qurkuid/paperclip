@@ -42,7 +42,15 @@ export function registerExperimentBoardData(
       readExperimentPluginConfig(ctx, companyId),
       repository.listExperiments(companyId),
     ]);
-    return readyPayload(ctx, companyId, config !== null, { experiments });
+    const legacy = await resolveLegacySource(
+      ctx,
+      companyId,
+      config?.legacyIssueId ?? null,
+    );
+    return readyPayload(ctx, companyId, config !== null, {
+      experiments,
+      ...legacy,
+    });
   });
 
   ctx.data.register("experiment", async (params) => {
@@ -94,4 +102,29 @@ export function registerExperimentBoardData(
       },
     };
   });
+}
+
+async function resolveLegacySource(
+  ctx: PluginContext,
+  companyId: string,
+  legacyIssueId: string | null,
+) {
+  if (legacyIssueId === null) {
+    return { legacySourceStatus: "not-configured" as const };
+  }
+  const issue = await ctx.issues.get(legacyIssueId, companyId);
+  if (issue === null) {
+    return {
+      legacySource: null,
+      legacySourceStatus: "invalid" as const,
+    };
+  }
+  return {
+    legacySource: {
+      issueId: issue.id,
+      identifier: issue.identifier,
+      href: `/issues/${issue.identifier ?? issue.id}`,
+    },
+    legacySourceStatus: "ready" as const,
+  };
 }

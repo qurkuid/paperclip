@@ -11,6 +11,7 @@ const mockIssueService = vi.hoisted(() => ({
 
 const mockInteractionService = vi.hoisted(() => ({
   listForIssue: vi.fn(),
+  getById: vi.fn(),
   create: vi.fn(),
   acceptInteraction: vi.fn(),
   acceptSuggestedTasks: vi.fn(),
@@ -52,7 +53,11 @@ vi.mock("../telemetry.js", () => ({
 function registerModuleMocks() {
   vi.doMock("../services/index.js", () => ({
     companyService: () => ({
-      getById: vi.fn(async () => ({ id: "company-1", attachmentMaxBytes: 10 * 1024 * 1024 })),
+      getById: vi.fn(async () => ({
+        id: "company-1",
+        name: "Spacebogam",
+        attachmentMaxBytes: 10 * 1024 * 1024,
+      })),
     }),
     accessService: () => ({
       canUser: vi.fn(async () => true),
@@ -185,6 +190,45 @@ describe.sequential("issue thread interaction routes", () => {
     vi.clearAllMocks();
     mockIssueService.getById.mockResolvedValue(createIssue());
     mockInteractionService.listForIssue.mockResolvedValue([]);
+    mockInteractionService.getById.mockResolvedValue({
+      id: "interaction-decision",
+      companyId: "company-1",
+      issueId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      kind: "request_confirmation",
+      title: "Approve campaign change",
+      summary: "The funnel sample meets the decision threshold.",
+      status: "pending",
+      continuationPolicy: "wake_assignee",
+      payload: {
+        version: 1,
+        prompt: "Approve the winning variant?",
+        acceptLabel: "Approve",
+        rejectLabel: "Reject",
+        detailsMarkdown:
+          "Evidence email owner@example.com phone 010-1234-5678 token=top-secret-value",
+        target: {
+          type: "issue_document",
+          key: "plan",
+          revisionId: "33333333-3333-4333-8333-333333333333",
+        },
+        decisionContext: {
+          kpis: [{ label: "CVR", value: "12.4%" }],
+          sample: { observed: 220, required: 200 },
+          freshness: {
+            recordUpdatedAt: "2026-07-27T01:00:00.000Z",
+            funnelGeneratedAt: "2026-07-27T01:05:00.000Z",
+            funnelDataThrough: "2026-07-27T00:55:00.000Z",
+            quality: "ready",
+          },
+          asOf: "2026-07-27T01:05:00.000Z",
+          expiresAt: "2026-07-28T03:05:00.000Z",
+        },
+      },
+      result: null,
+      createdAt: "2026-07-27T01:00:00.000Z",
+      updatedAt: "2026-07-27T01:05:00.000Z",
+      resolvedAt: null,
+    });
     mockInteractionService.expireRequestConfirmationsSupersededByHistoricalComments.mockResolvedValue([]);
     mockInteractionService.create.mockResolvedValue({
       id: "interaction-1",
@@ -433,6 +477,157 @@ describe.sequential("issue thread interaction routes", () => {
           interactionKind: "suggest_tasks",
         }),
       }),
+    );
+  });
+
+  it("returns a company-scoped board-only decision package without sensitive evidence", async () => {
+    mockIssueService.getById.mockResolvedValueOnce(createIssue({
+      identifier: "CMP-59",
+      workProducts: [{
+        id: "work-product-1",
+        title: "Variant report",
+      }],
+    }));
+    const previousPublicUrl = process.env.PAPERCLIP_PUBLIC_URL;
+    process.env.PAPERCLIP_PUBLIC_URL = "https://intm.kr/af";
+    try {
+      const app = await createApp();
+      const res = await request(app)
+        .get(
+          "/api/issues/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/"
+          + "interactions/interaction-decision/decision-package",
+        );
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        version: 1,
+        company: { id: "company-1", name: "Spacebogam" },
+        issue: {
+          id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          identifier: "CMP-59",
+        },
+        interaction: {
+          id: "interaction-decision",
+          revision: "2026-07-27T01:05:00.000Z",
+          status: "pending",
+        },
+        evidenceStatus: "complete",
+        canResolve: true,
+        links: {
+          issue: "https://intm.kr/af/CMP/issues/CMP-59#interaction-interaction-decision",
+          document: "https://intm.kr/af/CMP/issues/CMP-59#document-plan",
+          workProducts: [{
+            id: "work-product-1",
+            title: "Variant report",
+            href: "https://intm.kr/af/CMP/issues/CMP-59#work-product-work-product-1",
+          }],
+        },
+      });
+      expect(JSON.stringify(res.body)).not.toContain("owner@example.com");
+      expect(JSON.stringify(res.body)).not.toContain("010-1234-5678");
+      expect(JSON.stringify(res.body)).not.toContain("top-secret-value");
+    } finally {
+      if (previousPublicUrl === undefined) {
+        delete process.env.PAPERCLIP_PUBLIC_URL;
+      } else {
+        process.env.PAPERCLIP_PUBLIC_URL = previousPublicUrl;
+      }
+    }
+  });
+
+  it("denies agent-authenticated decision-package reads", async () => {
+    const app = await createApp({
+      type: "agent",
+      agentId: ASSIGNEE_AGENT_ID,
+      companyId: "company-1",
+      source: "agent_key",
+    });
+
+    const res = await request(app)
+      .get(
+        "/api/issues/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/"
+        + "interactions/interaction-decision/decision-package",
+      );
+
+    expect(res.status).toBe(403);
+    expect(mockInteractionService.getById).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for cross-company decision-package reads", async () => {
+    const app = await createApp({
+      type: "board",
+      userId: "other-board",
+      companyIds: ["company-2"],
+      source: "session",
+      isInstanceAdmin: false,
+    });
+
+    const res = await request(app)
+      .get(
+        "/api/issues/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/"
+        + "interactions/interaction-decision/decision-package",
+      );
+
+    expect(res.status).toBe(404);
+    expect(mockInteractionService.getById).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when a decision interaction belongs to another issue", async () => {
+    mockInteractionService.getById.mockResolvedValueOnce({
+      id: "interaction-decision",
+      companyId: "company-1",
+      issueId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      kind: "request_confirmation",
+      status: "pending",
+      payload: { version: 1, prompt: "Approve?" },
+      createdAt: "2026-07-27T01:00:00.000Z",
+      updatedAt: "2026-07-27T01:05:00.000Z",
+    });
+    const app = await createApp();
+
+    const res = await request(app)
+      .get(
+        "/api/issues/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/"
+        + "interactions/interaction-decision/decision-package",
+      );
+
+    expect(res.status).toBe(404);
+  });
+
+  it("rejects malformed expected revisions before calling the resolution service", async () => {
+    const app = await createApp();
+
+    const res = await request(app)
+      .post(
+        "/api/issues/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/"
+        + "interactions/interaction-decision/accept",
+      )
+      .send({ expectedRevision: "not-an-iso-datetime" });
+
+    expect(res.status).toBe(400);
+    expect(mockInteractionService.acceptInteraction).not.toHaveBeenCalled();
+  });
+
+  it("passes an exact revision to resolution while preserving the authenticated board actor", async () => {
+    const app = await createApp();
+    const expectedRevision = "2026-07-27T01:05:00.000Z";
+
+    const res = await request(app)
+      .post(
+        "/api/issues/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/"
+        + "interactions/interaction-decision/accept",
+      )
+      .send({ expectedRevision });
+
+    expect(res.status).toBe(200);
+    expect(mockInteractionService.acceptInteraction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        companyId: "company-1",
+      }),
+      "interaction-decision",
+      { expectedRevision },
+      { agentId: null, userId: "local-board" },
     );
   });
 

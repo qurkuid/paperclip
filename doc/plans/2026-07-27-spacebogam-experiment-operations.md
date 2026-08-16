@@ -71,7 +71,7 @@
 
 | 관심사 | 사용할 기존 Paperclip 경계 | 새로 만들지 않을 것 |
 |---|---|---|
-| 화면 | 플러그인 `sidebar`, `page`, `routeSidebar` slot | 독립 SPA, 숨은 URL |
+| 화면 | 플러그인 `sidebar`, `page` slot | 중복 `routeSidebar`, 독립 SPA, 숨은 URL |
 | 회사 범위 | 현재 company prefix와 `companyId` | 별도 tenant 개념 |
 | 인증 | board/agent actor와 plugin bridge/scoped API | 별도 세션·토큰 |
 | 저장 | host가 관리하는 plugin DB namespace | 외부 DB, core 전용 테이블 |
@@ -152,9 +152,9 @@ packages/plugins/plugin-spacebogam-experiments/
 
 manifest UI slot:
 
-- `sidebar`: 표시명 `실험 운영`, funnel 뒤의 안정적인 order
+- `sidebar`: 표시명 `전체 현황`, 기존 회사 사이드바의 안정적인 order
 - `page`: `routePath: "spacebogam-experiments"`
-- `routeSidebar`: 현재 실험, 과거 실험, 퍼널 분석 링크를 제공
+- 퍼널 분석과 의사결정은 기존 회사 메뉴를 SSOT로 사용하며 별도 `routeSidebar`를 만들지 않음
 
 plugin `routePath`는 단일 slug 제약을 따른다. `/analytics/experiments`를 억지로 만들기 위한 core route shim은 추가하지 않는다.
 
@@ -656,7 +656,7 @@ manifest:
 
 - capabilities 최소 선언
 - DB namespace + 필요한 core read tables
-- sidebar/page/routeSidebar
+- sidebar/page
 - scoped APIs
 - 4개 tools
 - optional managed routine
@@ -766,7 +766,7 @@ GREEN:
 - 기존 `useSpacebogamFunnel`
 - error normalization과 conflict recovery
 
-### T09. 페이지·route sidebar·navigation
+### T09. 페이지·기존 sidebar navigation
 
 변경:
 
@@ -775,13 +775,13 @@ GREEN:
 
 RED:
 
-- contribution route/sidebar가 없고 직접 reload 실패
+- contribution page/sidebar가 없고 직접 reload 실패
 
 GREEN:
 
 - summary-first page
-- current/history route sidebar
-- `퍼널 분석 보기`
+- 기존 회사 sidebar의 `전체 현황` 링크
+- 퍼널 분석·의사결정 기존 메뉴와 page 내부 backlink
 - readiness/configuration state
 
 검증:
@@ -855,7 +855,62 @@ GREEN:
 - history banner
 - one-time append-only legacy observation
 
-### T02~T12 단계별 증명 행렬
+### T13. Hermes Telegram 의사결정 브리지
+
+목표:
+
+- Paperclip 의사결정 항목을 Hermes가 이미 운영하는 Telegram 채널로 전달한다.
+- 사용자가 결정 근거를 함께 확인하고 Telegram에서 승인·반려할 수 있게 한다.
+- 웹과 Telegram이 같은 Paperclip interaction/approval 상태를 사용한다.
+
+변경:
+
+- 기존 inbox/decision 읽기와 board-only interaction resolve API를 재사용한다.
+- 필요할 때만 company-scoped read-only `decision package` projection을 추가한다.
+- Hermes에는 전달과 엄격한 명령 해석만 담당하는 최소 adapter/skill을 둔다.
+- Hermes의 기존 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS`, `TELEGRAM_HOME_CHANNEL`은 실행 환경에서만 읽고 Paperclip 저장소·DB·로그로 복사하지 않는다.
+
+결정 패키지:
+
+- company/issue/interaction ID와 현재 revision
+- 제목, 결정 이유, 선택지
+- 결정에 필요한 KPI·표본·신선도·수집 기준 시각
+- evidence/document/work product/issue/Paperclip 직접 링크
+- 만료 시각, 현재 상태, 충돌 여부
+- secret, raw lead, 연락처, 전체 첨부 원문은 제외
+
+보안·정합성:
+
+- 장기 접근은 Telegram sender allowlist로 제한한다.
+- Telegram sender를 활성 Paperclip board user에 명시적으로 매핑한다.
+- agent token으로 사람의 결정을 대신하지 않는다.
+- `decision-id + expected-revision + approve|reject + optional-note` 형태의 엄격한 명령 또는 서명된 callback만 허용하고 LLM 자연어 추론으로 상태를 바꾸지 않는다.
+- stale/expired/replay/cross-company/unregistered sender는 fail closed 한다.
+- 재시도는 멱등이고 결과는 기존 activity log와 interaction result에 남긴다.
+
+RED:
+
+- allowlist 밖 sender가 결정을 조회·변경
+- evidence 없는 알림 또는 secret/PII 포함
+- stale revision, 만료, 중복 callback, 다른 회사 interaction 승인
+- Telegram 승인과 웹 상태가 서로 달라짐
+- 자유 형식 자연어를 승인 명령으로 오인
+
+GREEN:
+
+- Hermes 채널에 안전한 결정 패키지와 Paperclip 직접 링크 전달
+- allowlisted sender의 엄격한 승인·반려를 기존 board-only resolve 경계로 실행
+- 웹, Telegram 응답, interaction, activity가 같은 최종 상태·actor를 표시
+- stale/duplicate/unauthorized 요청은 변경 없이 설명 가능한 오류 반환
+
+검증:
+
+- Telegram adapter 계약 unit test
+- board actor mapping과 회사/권한/revision/idempotency integration test
+- 토큰·채널 ID·raw evidence가 로그/응답/fixture에 없는지 정적 검사
+- 실제 Hermes 채널에서 수신 → 승인/반려 → 웹/API/activity 동일 상태 확인
+
+### T02~T13 단계별 증명 행렬
 
 각 task는 아래 명령을 해당 task의 RED와 GREEN에서 같은 형태로 실행한다. RED는 의도한 assertion 하나 이상이 실패해야 하고, GREEN은 명시된 기대 결과를 만족해야 한다. 실제 명령 출력은 task별 evidence log에 저장한다.
 
@@ -868,14 +923,15 @@ GREEN:
 | T06 | `pnpm --filter @paperclipai/plugin-spacebogam-experiments exec vitest run tests/issue-integration.spec.ts` | 같은 회사 issue만 연결, proposal 중복 없음, governed change는 pending interaction만 만들고 상태 불변 |
 | T07 | `pnpm --filter @paperclipai/plugin-spacebogam-experiments exec vitest run tests/tools.spec.ts tests/routine.spec.ts` | 책임 에이전트 read/propose 성공, 다른 회사·비책임 agent proposal·lifecycle mutation 거부, PII 미노출 |
 | T08 | `pnpm --filter @paperclipai/plugin-spacebogam-experiments exec vitest run tests/ui-data.spec.tsx` | ready/empty/stale/error/409 projection, mutation invalidate, 5분 refetch를 fake timer로 증명 |
-| T09 | `pnpm --filter @paperclipai/plugin-spacebogam-experiments exec vitest run tests/ui-navigation.spec.tsx` → `pnpm exec playwright test tests/e2e/spacebogam-experiment-operations.spec.ts --grep "navigation"` | sidebar slot, 선택 상태, direct reload, company switch, funnel backlink 통과 |
+| T09 | `pnpm --filter @paperclipai/plugin-spacebogam-experiments exec vitest run tests/ui-navigation.spec.tsx` → `pnpm exec playwright test tests/e2e/spacebogam-experiment-operations.spec.ts --grep "navigation"` | 기존 sidebar의 전체 현황 1개, routeSidebar 0개, direct reload, company switch, funnel/decision 기존 메뉴 통과 |
 | T10 | `pnpm --filter @paperclipai/plugin-spacebogam-experiments exec vitest run tests/charts.spec.tsx` → `pnpm test:storybook-visual -- --grep "Spacebogam experiments"` | chart/table 수치 parity, stable dataset, empty/stale/mobile/reduced-motion screenshot 통과 |
 | T11 | `pnpm --filter @paperclipai/plugin-spacebogam-experiments exec vitest run tests/forms.spec.tsx` → `pnpm exec playwright test tests/e2e/spacebogam-experiment-operations.spec.ts --grep "governance"` | entry 저장, raw key 미영속, 409 재적용, destructive confirmation, approval link 통과 |
 | T12 | `pnpm --filter @paperclipai/plugin-spacebogam-experiments exec vitest run tests/legacy-link.spec.ts` → `rg -n "CMP-76" packages/plugins/plugin-spacebogam-experiments server ui` | runtime-selected legacy issue만 연결하고 자동 import 없음; production source의 hardcoded `CMP-76` 검색 결과 0 |
+| T13 | Paperclip interaction/actor tests → Hermes adapter tests → 실제 Telegram 수신·callback → 웹/API/activity 재조회 | allowlisted sender만 결정 근거를 받고 strict revision 승인·반려가 기존 interaction SSOT에 반영되며 secret/PII/중복 변경 없음 |
 
 브라우저 단계에서 실패하면 Playwright trace와 현재 URL, company prefix, plugin readiness 응답을 같은 evidence 폴더에 남긴다. API/auth 단계에서 실패하면 secret을 제거한 status/code/request-id만 남긴다.
 
-### T13. 통합 회귀
+### T14. 통합 회귀
 
 명령:
 
@@ -900,7 +956,7 @@ git diff --check
 - plugin disabled 회귀
 - 기존 funnel page 회귀
 
-### T14. 실제 환경 배포와 검증
+### T15. 실제 환경 배포와 검증
 
 사전:
 
@@ -918,7 +974,7 @@ git diff --check
 
 실브라우저/API 시나리오:
 
-1. CMP sidebar에서 `실험 운영` 확인
+1. CMP 기존 sidebar에서 `전체 현황` 1개와 중복 route sidebar 0개 확인
 2. direct reload
 3. draft 생성과 DB 재조회
 4. 2 variants, 하나의 control
@@ -936,11 +992,14 @@ git diff --check
 16. mobile 390px와 desktop
 17. plugin disable → 메뉴/tool 중단, core 정상
 18. re-enable → 데이터 복구
+19. allowlisted Telegram sender에게 근거·신선도·직접 링크가 포함된 decision package 수신
+20. Telegram 승인·반려 → Paperclip 웹/API/interaction/activity의 actor·revision·상태 일치
+21. stale/duplicate/unregistered sender 요청 거부와 토큰·채널 ID·raw evidence 미노출
 
-### T15. 최종 ultrawork 감사
+### T16. 최종 ultrawork 감사
 
 - 모든 코드·테스트·브라우저/API·배포 증거가 준비된 후 `codex-ultrawork-reviewer`에 diff, 목표, 시나리오 증거를 전달한다.
-- FAIL이면 지적별 최소 수정 후 T13~T15를 반복한다.
+- FAIL이면 지적별 최소 수정 후 T14~T16을 반복한다.
 - PASS 전에는 완료로 보고하지 않는다.
 
 ## 14. 테스트 데이터

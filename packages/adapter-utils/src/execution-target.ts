@@ -1350,6 +1350,8 @@ export async function startAdapterExecutionTargetProcessSessionBridge(input: {
   let socket: net.Socket | null = null;
   let stopping = false;
   let stdinSeq = 0;
+  let stdinWriteFailed = false;
+  let stdinWriteChain: Promise<void> = Promise.resolve();
   let pollTimer: NodeJS.Timeout | null = null;
   const pendingRemoteEvents: Array<{
     type?: string;
@@ -1395,6 +1397,37 @@ export async function startAdapterExecutionTargetProcessSessionBridge(input: {
   };
 
   const liveSockets = new Set<net.Socket>();
+  const writeStdinEvent = async (event: { type: "stdin"; data: string } | { type: "stdinEnd" }) => {
+    stdinSeq += 1;
+    const name = `${String(stdinSeq).padStart(12, "0")}.json`;
+    const finalPath = path.posix.join(stdinDir, name);
+    const pendingPath = `${finalPath}.pending`;
+    await client.writeTextFile(pendingPath, jsonLine(event));
+    await client.rename(pendingPath, finalPath);
+  };
+  const enqueueStdinMessage = (
+    nextSocket: net.Socket,
+    message: { type?: string; data?: string },
+  ) => {
+    stdinWriteChain = stdinWriteChain
+      .then(async () => {
+        if (stdinWriteFailed) return;
+        if (message.type === "stdin" && typeof message.data === "string") {
+          await writeStdinEvent({ type: "stdin", data: message.data });
+        } else if (message.type === "stdinEnd") {
+          await writeStdinEvent({ type: "stdinEnd" });
+        }
+      })
+      .catch(async (error) => {
+        stdinWriteFailed = true;
+        const messageText = error instanceof Error ? error.message : String(error);
+        await onLog("stderr", `[paperclip] ACP process session bridge stdin write failed: ${messageText}\n`);
+        if (!nextSocket.destroyed) {
+          nextSocket.write(jsonLine({ type: "error", message: messageText }));
+        }
+        nextSocket.destroy();
+      });
+  };
   const server = net.createServer((nextSocket) => {
     liveSockets.add(nextSocket);
     nextSocket.setEncoding("utf8");
@@ -1438,20 +1471,7 @@ export async function startAdapterExecutionTargetProcessSessionBridge(input: {
           socket = nextSocket;
           flushPendingRemoteEvents();
         }
-        void (async () => {
-          if (message.type === "stdin" && typeof message.data === "string") {
-            stdinSeq += 1;
-            const name = `${String(stdinSeq).padStart(12, "0")}.json`;
-            await client.writeTextFile(path.posix.join(stdinDir, name), jsonLine({ type: "stdin", data: message.data }));
-          } else if (message.type === "stdinEnd") {
-            stdinSeq += 1;
-            const name = `${String(stdinSeq).padStart(12, "0")}.json`;
-            await client.writeTextFile(path.posix.join(stdinDir, name), jsonLine({ type: "stdinEnd" }));
-          }
-        })().catch((error) => {
-          nextSocket.write(jsonLine({ type: "error", message: error instanceof Error ? error.message : String(error) }));
-          nextSocket.destroy();
-        });
+        enqueueStdinMessage(nextSocket, message);
       }
     });
   });
@@ -1495,12 +1515,10 @@ export async function startAdapterExecutionTargetProcessSessionBridge(input: {
     stop: async () => {
       stopping = true;
       if (pollTimer) clearTimeout(pollTimer);
+      await stdinWriteChain;
       for (const liveSocket of liveSockets) liveSocket.destroy();
       await new Promise<void>((resolve) => server.close(() => resolve())).catch(() => undefined);
-      await client.writeTextFile(
-        path.posix.join(stdinDir, `${String(stdinSeq + 1).padStart(12, "0")}.json`),
-        jsonLine({ type: "stdinEnd" }),
-      ).catch(() => undefined);
+      await writeStdinEvent({ type: "stdinEnd" }).catch(() => undefined);
       await client.remove(sessionDir).catch(() => undefined);
       await fs.rm(proxyDir, { recursive: true, force: true }).catch(() => undefined);
     },

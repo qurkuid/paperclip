@@ -16,6 +16,11 @@ const mockParams = vi.hoisted(() => ({
   pluginRoutePath: undefined as string | undefined,
   "*": undefined as string | undefined,
 }));
+const mockCompanyState = vi.hoisted(() => ({
+  companies: [{ id: "company-1", name: "Paperclip", issuePrefix: "PAP" }],
+  selectedCompanyId: "company-1" as string | null,
+}));
+const mockPluginSlotContexts = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 
 vi.mock("@/api/plugins", () => ({
   pluginsApi: mockPluginsApi,
@@ -29,8 +34,8 @@ vi.mock("@/context/BreadcrumbContext", () => ({
 
 vi.mock("@/context/CompanyContext", () => ({
   useCompany: () => ({
-    companies: [{ id: "company-1", name: "Paperclip", issuePrefix: "PAP" }],
-    selectedCompanyId: "company-1",
+    companies: mockCompanyState.companies,
+    selectedCompanyId: mockCompanyState.selectedCompanyId,
   }),
 }));
 
@@ -44,14 +49,23 @@ vi.mock("@/plugins/slots", async () => {
   const actual = await vi.importActual<typeof import("@/plugins/slots")>("@/plugins/slots");
   return {
     resolveRouteSidebarSlot: actual.resolveRouteSidebarSlot,
-    PluginSlotMount: ({ slot }: { slot: { displayName: string } }) => (
-      <div data-testid="plugin-slot-mount">{slot.displayName}</div>
-    ),
+    PluginSlotMount: ({
+      slot,
+      context,
+    }: {
+      slot: { displayName: string };
+      context: Record<string, unknown>;
+    }) => {
+      mockPluginSlotContexts.push(context);
+      return <div data-testid="plugin-slot-mount">{slot.displayName}</div>;
+    },
   };
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", {
+  configurable: true,
+  value: true,
+});
 
 async function act(callback: () => void | Promise<void>) {
   await callback();
@@ -66,7 +80,15 @@ async function flushReact() {
   });
 }
 
-function pageContribution(overrides: Partial<{ slots: unknown[] }> = {}) {
+function pageContribution(overrides: Partial<{
+  pluginId: string;
+  pluginKey: string;
+  displayName: string;
+  version: string;
+  uiEntryFile: string;
+  slots: unknown[];
+  launchers: unknown[];
+}> = {}) {
   return {
     pluginId: "plugin-wiki",
     pluginKey: "paperclipai.plugin-llm-wiki",
@@ -115,6 +137,9 @@ describe("PluginPage", () => {
     mockParams.pluginId = undefined;
     mockParams.pluginRoutePath = undefined;
     mockParams["*"] = undefined;
+    mockCompanyState.companies = [{ id: "company-1", name: "Paperclip", issuePrefix: "PAP" }];
+    mockCompanyState.selectedCompanyId = "company-1";
+    mockPluginSlotContexts.length = 0;
   });
 
   afterEach(() => {
@@ -204,6 +229,69 @@ describe("PluginPage", () => {
     const root = await renderPage(container);
 
     expect(mockSetBreadcrumbs).toHaveBeenCalledWith([{ label: "index" }]);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it("uses the route company context for the Spacebogam page slot and releases it after company switch", async () => {
+    mockParams.companyPrefix = "CMP";
+    mockParams.pluginRoutePath = "spacebogam-experiments";
+    mockCompanyState.companies = [
+      { id: "company-1", name: "Paperclip", issuePrefix: "PAP" },
+      { id: "company-cmp", name: "Company", issuePrefix: "CMP" },
+    ];
+    mockCompanyState.selectedCompanyId = "company-1";
+    mockPluginsApi.listUiContributions.mockResolvedValue([
+      pageContribution({
+        pluginId: "spacebogam-plugin",
+        pluginKey: "paperclipai.plugin-spacebogam-experiments",
+        displayName: "실험 운영",
+        slots: [
+          {
+            type: "page",
+            id: "spacebogam-experiments-page",
+            displayName: "실험 운영",
+            exportName: "SpacebogamExperimentsPage",
+            routePath: "spacebogam-experiments",
+          },
+          {
+            type: "routeSidebar",
+            id: "spacebogam-experiments-route-sidebar",
+            displayName: "실험 운영",
+            exportName: "SpacebogamExperimentsRouteSidebar",
+            routePath: "spacebogam-experiments",
+          },
+        ],
+      }),
+    ]);
+
+    const root = await renderPage(container);
+
+    expect(mockPluginSlotContexts.at(-1)).toEqual({
+      companyId: "company-cmp",
+      companyPrefix: "CMP",
+    });
+    expect(mockPluginSlotContexts).not.toContainEqual({
+      companyId: "company-1",
+      companyPrefix: "PAP",
+    });
+
+    mockParams.companyPrefix = "PAP";
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <PluginPage />
+        </QueryClientProvider>,
+      );
+    });
+    await flushReact();
+
+    expect(mockPluginSlotContexts.at(-1)).toEqual({
+      companyId: "company-1",
+      companyPrefix: "PAP",
+    });
 
     await act(async () => {
       root.unmount();

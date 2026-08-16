@@ -146,6 +146,12 @@ async function waitFor(predicate: () => boolean, attempts = 30): Promise<void> {
   throw new Error("waitFor predicate did not become true");
 }
 
+function getIssueLinks(container: HTMLElement): readonly HTMLAnchorElement[] {
+  return Array.from(
+    container.querySelectorAll<HTMLAnchorElement>("a[data-inbox-issue-link]"),
+  );
+}
+
 describe("BlockedInboxView", () => {
   let container: HTMLDivElement;
 
@@ -223,13 +229,13 @@ describe("BlockedInboxView", () => {
       />,
       container,
     );
-    await waitFor(() => container.querySelectorAll("a").length === 4);
+    await waitFor(() => getIssueLinks(container).length === 4);
 
     expect(container.querySelectorAll('[data-testid^="blocked-inbox-group-"]')).toHaveLength(0);
 
-    const titles = Array.from(container.querySelectorAll("a")).map((a) => a.textContent ?? "");
-    expect(titles[0]).toContain("Critical stalled row");
-    expect(titles[1]).toContain("Stalled chain row");
+    const issueLinkLabels = getIssueLinks(container).map((link) => link.getAttribute("aria-label"));
+    expect(issueLinkLabels[0]).toBe("Open PAP-3: Critical stalled row");
+    expect(issueLinkLabels[1]).toBe("Open PAP-2: Stalled chain row");
 
     expect(mockIssuesApi.list).toHaveBeenCalledWith("company-1", expect.objectContaining({
       attention: "blocked",
@@ -261,9 +267,11 @@ describe("BlockedInboxView", () => {
       />,
       container,
     );
-    await waitFor(() => container.querySelector("a") !== null);
+    await waitFor(() => getIssueLinks(container).length === 1);
 
-    const rowText = container.querySelector("a")?.textContent ?? "";
+    const issueLink = getIssueLinks(container)[0];
+    expect(issueLink?.getAttribute("aria-label")).toBe("Open PAP-4: Pending board decision");
+    const rowText = issueLink?.parentElement?.textContent ?? "";
     expect(rowText.indexOf("Pending board decision")).toBeGreaterThanOrEqual(0);
     expect(rowText.indexOf("Needs decision")).toBeGreaterThan(rowText.indexOf("Pending board decision"));
     expect(rowText.indexOf("Board")).toBeGreaterThan(rowText.indexOf("Needs decision"));
@@ -305,12 +313,10 @@ describe("BlockedInboxView", () => {
       />,
       container,
     );
-    await waitFor(() => container.querySelectorAll("a").length > 0);
+    await waitFor(() => getIssueLinks(container).length === 1);
 
-    const links = container.querySelectorAll("a");
-    const titles = Array.from(links).map((a) => a.textContent ?? "");
-    expect(titles.some((t) => t.includes("Resume parked work"))).toBe(true);
-    expect(titles.some((t) => t.includes("Other unrelated thing"))).toBe(false);
+    const issueLinkLabels = getIssueLinks(container).map((link) => link.getAttribute("aria-label"));
+    expect(issueLinkLabels).toEqual(["Open PAP-77: Resume parked work"]);
 
     act(() => root.unmount());
   });

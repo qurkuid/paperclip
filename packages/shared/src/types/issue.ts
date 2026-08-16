@@ -1054,6 +1054,31 @@ export type RequestConfirmationTarget =
   | RequestConfirmationIssueDocumentTarget
   | RequestConfirmationCustomTarget;
 
+export interface RequestConfirmationDecisionKpi {
+  label: string;
+  value: string;
+}
+
+export interface RequestConfirmationDecisionSample {
+  observed: number;
+  required: number;
+}
+
+export interface RequestConfirmationDecisionFreshness {
+  recordUpdatedAt: string;
+  funnelGeneratedAt: string | null;
+  funnelDataThrough: string | null;
+  quality: string | null;
+}
+
+export interface RequestConfirmationDecisionContext {
+  kpis: RequestConfirmationDecisionKpi[];
+  sample: RequestConfirmationDecisionSample;
+  freshness: RequestConfirmationDecisionFreshness;
+  asOf: string;
+  expiresAt: string;
+}
+
 /**
  * Enrichment block carried on a `request_confirmation` interaction when it gates
  * a write/destructive MCP tool call (PAP-13726 §D1). Its presence flips the feed
@@ -1103,6 +1128,7 @@ export interface RequestConfirmationPayload {
   detailsMarkdown?: string | null;
   supersedeOnUserComment?: boolean;
   target?: RequestConfirmationTarget | null;
+  decisionContext?: RequestConfirmationDecisionContext;
   toolAction?: RequestConfirmationToolActionPayload;
 }
 

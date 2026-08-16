@@ -13,6 +13,7 @@ import {
 import { runChildProcess } from "./server-utils.js";
 
 const cleanup: string[] = [];
+const runsOnLinux = process.platform === "linux";
 
 afterEach(async () => {
   await Promise.all(cleanup.splice(0).map((candidate) => fs.rm(candidate, { recursive: true, force: true })));
@@ -40,7 +41,7 @@ describe("local process sandbox", () => {
     expect(() => parseLocalProcessNetworkScope("public")).toThrow('"deny" or "allowlist"');
   });
 
-  it("builds a fresh-root bubblewrap command with workspace access", async () => {
+  it.runIf(runsOnLinux)("builds a fresh-root bubblewrap command with workspace access", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-fs-sandbox-"));
     cleanup.push(root);
     const workspace = path.join(root, "workspace");
@@ -67,7 +68,7 @@ describe("local process sandbox", () => {
     expect(target.args.slice(-3)).toEqual([process.execPath, "-e", "console.log('ok')"]);
   });
 
-  it("builds a network-only namespace without changing filesystem visibility", async () => {
+  it.runIf(runsOnLinux)("builds a network-only namespace without changing filesystem visibility", async () => {
     const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-network-sandbox-"));
     cleanup.push(workspace);
     const target = await buildLocalProcessSandboxSpawnTarget({
@@ -83,7 +84,7 @@ describe("local process sandbox", () => {
     expect(target.env?.HTTP_PROXY).toBeUndefined();
   });
 
-  it("forwards allowed proxy targets and rejects other hosts", async () => {
+  it.runIf(runsOnLinux)("forwards allowed proxy targets and rejects other hosts", async () => {
     const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-network-proxy-"));
     cleanup.push(workspace);
     const server = http.createServer((_request, response) => response.end("allowed-response"));
@@ -148,7 +149,7 @@ describe("local process sandbox", () => {
     ).rejects.toThrow("requires Bubblewrap");
   });
 
-  it.runIf(Boolean(process.env.PAPERCLIP_TEST_BWRAP))(
+  it.runIf(Boolean(runsOnLinux && process.env.PAPERCLIP_TEST_BWRAP))(
     "prevents reads outside the workspace while allowing workspace writes",
     async () => {
       const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-fs-sandbox-integration-"));
@@ -187,7 +188,7 @@ describe("local process sandbox", () => {
     },
   );
 
-  it.runIf(Boolean(process.env.PAPERCLIP_TEST_BWRAP && process.env.PAPERCLIP_TEST_SANDBOX_BUILD))(
+  it.runIf(Boolean(runsOnLinux && process.env.PAPERCLIP_TEST_BWRAP && process.env.PAPERCLIP_TEST_SANDBOX_BUILD))(
     "runs the adapter-utils TypeScript build inside the confined workspace",
     async () => {
       const workspace = process.cwd();
@@ -213,7 +214,7 @@ describe("local process sandbox", () => {
     },
   );
 
-  it.runIf(Boolean(process.env.PAPERCLIP_TEST_BWRAP))(
+  it.runIf(Boolean(runsOnLinux && process.env.PAPERCLIP_TEST_BWRAP))(
     "denies direct network egress",
     async () => {
       const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-network-deny-"));
@@ -243,7 +244,7 @@ describe("local process sandbox", () => {
     },
   );
 
-  it.runIf(Boolean(process.env.PAPERCLIP_TEST_BWRAP))(
+  it.runIf(Boolean(runsOnLinux && process.env.PAPERCLIP_TEST_BWRAP))(
     "allows only configured network targets through the proxy bridge",
     async () => {
       const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-network-allowlist-"));

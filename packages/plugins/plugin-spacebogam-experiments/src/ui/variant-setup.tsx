@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from "react";
 
+import { boardActionInputSchema } from "../contracts/actions.js";
+import { ActionFeedback } from "./action-feedback.js";
 import { useBoardAction } from "./action-hook.js";
 import type { ExperimentDetail, RefreshAll } from "./types.js";
 
-export function VariantSetup({
+export function VariantSetupForm({
   detail,
   refreshAll,
 }: {
@@ -14,11 +16,22 @@ export function VariantSetup({
   const [challengerName, setChallengerName] = useState("개선안");
   const [controlDescription, setControlDescription] = useState("");
   const [challengerDescription, setChallengerDescription] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
   const action = useBoardAction(refreshAll);
+  const canSubmit = controlName.trim().length > 0 && challengerName.trim().length > 0;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await action.run({
+    if (controlName.trim().length <= 0) {
+      setValidationError("기준안 이름을 입력하세요.");
+      return;
+    }
+    if (challengerName.trim().length <= 0) {
+      setValidationError("비교안 이름을 입력하세요.");
+      return;
+    }
+    setValidationError(null);
+    const input = {
       action: "replace-draft-variants",
       payload: {
         experimentId: detail.experiment.id,
@@ -26,21 +39,23 @@ export function VariantSetup({
         variants: [
           {
             key: "control",
-            name: controlName,
-            description: controlDescription,
+            name: controlName.trim(),
+            description: controlDescription.trim(),
             isControl: true,
             sortOrder: 0,
           },
           {
             key: "challenger",
-            name: challengerName,
-            description: challengerDescription,
+            name: challengerName.trim(),
+            description: challengerDescription.trim(),
             isControl: false,
             sortOrder: 1,
           },
         ],
       },
-    }, "기준안과 비교안을 저장했습니다.");
+    };
+    boardActionInputSchema.parse(input);
+    await action.run(input, "기준안과 비교안을 저장했습니다.");
   }
 
   return (
@@ -89,11 +104,13 @@ export function VariantSetup({
           placeholder="달라지는 한 가지 요소"
         />
       </div>
-      <button className="sbe-button primary" type="submit" disabled={action.busy}>
+      <button className="sbe-button primary" type="submit" disabled={action.busy || !canSubmit}>
         {action.busy ? "저장 중…" : "실험 설계 저장"}
       </button>
-      {action.error ? <div className="sbe-error">{action.error}</div> : null}
-      {action.message ? <div className="sbe-success">{action.message}</div> : null}
+      {validationError ? <div className="sbe-error">{validationError}</div> : null}
+      <ActionFeedback error={action.error} message={action.message} recovery={action.recovery} />
     </form>
   );
 }
+
+export const VariantSetup = VariantSetupForm;

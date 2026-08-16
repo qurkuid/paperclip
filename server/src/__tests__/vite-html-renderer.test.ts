@@ -94,4 +94,25 @@ describe("createCachedViteHtmlRenderer", () => {
     expect(html.match(/\/@vite\/client/g)?.length).toBe(1);
     expect(html.match(/\/@react-refresh/g)?.length).toBe(1);
   });
+
+  it("prefixes every injected Vite module URL behind a reverse proxy", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "paperclip-vite-html-"));
+    tempDirs.push(tempDir);
+    fs.writeFileSync(
+      path.join(tempDir, "index.html"),
+      '<html><body><script type="module" src="/src/main.tsx"></script></body></html>',
+      "utf8",
+    );
+
+    const renderer = createCachedViteHtmlRenderer({
+      vite: { watcher: createWatcher() },
+      uiRoot: tempDir,
+      basePath: "/af/",
+    });
+
+    const html = await renderer.render("/");
+    expect(html).toContain('src="/af/@vite/client"');
+    expect(html).toContain('from "/af/@react-refresh"');
+    expect(html).toContain('src="/af/src/main.tsx"');
+  });
 });

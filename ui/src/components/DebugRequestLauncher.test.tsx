@@ -117,7 +117,10 @@ describe("DebugRequestLauncher", () => {
       }),
     );
     expect(pushToastMock).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "CMP-99 작업을 생성했습니다" }),
+      expect.objectContaining({
+        title: "CMP-99 작업을 생성했습니다",
+        body: "Paperclip 개발자가 선택한 요소와 요청사항을 전달받았습니다.",
+      }),
     );
   });
 

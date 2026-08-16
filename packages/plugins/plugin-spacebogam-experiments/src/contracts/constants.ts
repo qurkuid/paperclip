@@ -35,6 +35,7 @@ export const BOARD_ACTIONS = [
   "update-entry",
   "delete-entry",
   "link-issue",
+  "link-legacy-source",
   "select-responsible-agent",
   "request-strategy",
   "reconcile-managed-routine",

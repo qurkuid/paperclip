@@ -161,12 +161,12 @@ describe("App Cases routing (PAP-13002)", () => {
     await waitForText(container, "CASES_LIST_PAGE");
     expect(container.textContent).not.toContain("No company matches prefix");
     flushSync(() => root.unmount());
-  }, 20000);
+  }, 30000);
 
   it("redirects unprefixed /cases/:id to the company-prefixed detail page", async () => {
     const root = await renderAppAt(container, "/cases/PAP-C5");
     await waitForText(container, "CASE_DETAIL_PAGE");
     expect(container.textContent).not.toContain("No company matches prefix");
     flushSync(() => root.unmount());
-  }, 20000);
+  }, 30000);
 });

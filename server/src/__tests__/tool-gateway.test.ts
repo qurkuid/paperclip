@@ -2129,6 +2129,70 @@ rl.on("line", (line) => {
     }
   });
 
+  it("keeps a remote MCP tool available after an application JSON-RPC error", async () => {
+    const company = await createCompany(db);
+    const agent = await createAgent(db, company.id);
+    const { run } = await createIssueAndRun(db, company.id, agent.id);
+    const fake = await startFakeRemoteMcpServer((fakeRequest) => ({
+      body: {
+        jsonrpc: "2.0",
+        id: fakeRequest.body?.id,
+        error: { code: -32000, message: "Approved content media must use a same-origin URL." },
+      },
+    }));
+    try {
+      const remoteTool = await createRemoteMcpTool(db, company.id, {
+        applicationKey: "content-publisher",
+        connectionName: "Content publisher",
+        toolName: "prepare_content_approval",
+        title: "Prepare content approval",
+        url: fake.url,
+        riskLevel: "read",
+      });
+      await allowAllToolsForAgent(db, company.id, agent.id);
+
+      const gateway = createTestToolGatewayService(db);
+      const firstSession = await gateway.createSession({
+        companyId: company.id,
+        agentId: agent.id,
+        runId: run.id,
+      });
+      const toolName = (await gateway.listToolsForSession(firstSession.token))
+        .find((tool) => tool.connectionId === remoteTool.connection.id)!.name;
+
+      await gateway.executeTool({
+        sessionToken: firstSession.token,
+        tool: toolName,
+        parameters: { videoUrl: "http://127.0.0.1/video.mp4" },
+      }).then(
+        () => {
+          throw new Error("Expected remote MCP application error");
+        },
+        (error) => expectGatewayError(error, 502, "remote_mcp_error"),
+      );
+
+      const [connectionAfterApplicationError] = await db
+        .select()
+        .from(toolConnections)
+        .where(eq(toolConnections.id, remoteTool.connection.id));
+      expect(connectionAfterApplicationError).toMatchObject({
+        healthStatus: "ok",
+        healthMessage: "Remote MCP server responded to tools/call with a JSON-RPC error.",
+        lastError: null,
+      });
+
+      const newSession = await gateway.createSession({
+        companyId: company.id,
+        agentId: agent.id,
+        runId: run.id,
+      });
+      expect((await gateway.listToolsForSession(newSession.token)).map((tool) => tool.name))
+        .toContain(toolName);
+    } finally {
+      await fake.close();
+    }
+  });
+
   it("discovers and calls the SDK-backed KV demo MCP server over Streamable HTTP", async () => {
     const company = await createCompany(db);
     const agent = await createAgent(db, company.id);

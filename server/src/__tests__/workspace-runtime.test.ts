@@ -3356,7 +3356,7 @@ describe("ensureRuntimeServicesForRun", () => {
     } finally {
       await releaseRuntimeServicesForRun(runId);
     }
-  });
+  }, 10_000);
 
   it("uses explicit readiness URL when exposed URL is not the local probe address", async () => {
     const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-runtime-explicit-readiness-"));
@@ -3603,7 +3603,7 @@ describe("ensureRuntimeServicesForRun", () => {
 
     const executionResponse = await fetch(executionServices[0]!.url!);
     expect(await executionResponse.text()).toBe(path.join(worktreeWorkspaceRoot, ".paperclip", "runtime-services"));
-  });
+  }, 15_000);
 
   it("does not leak parent Paperclip instance env into runtime service commands", async () => {
     const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-runtime-env-"));

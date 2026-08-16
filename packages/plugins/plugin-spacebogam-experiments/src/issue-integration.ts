@@ -23,6 +23,24 @@ const publishStrategyInputSchema = z.object({
   evidenceMarkdown: z.string().trim().min(1).max(8000),
   idempotencyKey: z.string().regex(/^[A-Za-z0-9._:-]+$/u).min(1).max(120),
   authorAgentId: z.string().uuid().nullable(),
+  decisionContext: z.object({
+    kpis: z.array(z.object({
+      label: z.string().trim().min(1).max(120),
+      value: z.string().trim().min(1).max(120),
+    }).strict()).max(40),
+    sample: z.object({
+      observed: z.number().int().min(0),
+      required: z.number().int().min(0),
+    }).strict(),
+    freshness: z.object({
+      recordUpdatedAt: z.string().datetime({ offset: true }),
+      funnelGeneratedAt: z.string().datetime({ offset: true }).nullable(),
+      funnelDataThrough: z.string().datetime({ offset: true }).nullable(),
+      quality: z.string().trim().min(1).max(80).nullable(),
+    }).strict(),
+    asOf: z.string().datetime({ offset: true }),
+    expiresAt: z.string().datetime({ offset: true }),
+  }).strict().optional(),
 }).strict();
 
 const requestStrategyReviewInputSchema = z.object({
@@ -344,6 +362,9 @@ export function createExperimentIssueIntegration(
           rejectReasonLabel: "수정할 내용을 알려주세요",
           allowDeclineReason: true,
           detailsMarkdown: body,
+          ...(input.decisionContext === undefined
+            ? {}
+            : { decisionContext: input.decisionContext }),
           target: {
             type: "issue_document",
             issueId: input.issueId,

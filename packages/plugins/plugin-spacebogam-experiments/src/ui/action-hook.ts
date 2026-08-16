@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { usePluginAction } from "@paperclipai/plugin-sdk/ui";
 
+import { normalizeBoardActionResult, type BoardActionConflictResult } from "./action-result.js";
 import type { BoardAction, RefreshAll } from "./types.js";
+
+type BoardActionRunOptions = {
+  readonly onConflict?: (result: BoardActionConflictResult) => void;
+};
 
 function errorText(error: unknown) {
   return error instanceof Error ? error.message : "요청을 처리하지 못했습니다.";
@@ -12,23 +17,29 @@ export function useBoardAction(refreshAll: RefreshAll) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [recovery, setRecovery] = useState<BoardActionConflictResult | null>(null);
 
-  async function run(input: BoardAction, successMessage: string) {
+  async function run(
+    input: BoardAction,
+    successMessage: string,
+    options?: BoardActionRunOptions,
+  ) {
     setBusy(true);
     setError(null);
     setMessage(null);
+    setRecovery(null);
     try {
       const result = await perform(input);
-      if (
-        typeof result === "object"
-        && result !== null
-        && "ok" in result
-        && result.ok === false
-      ) {
-        const description = "message" in result && typeof result.message === "string"
-          ? result.message
-          : "작업이 거부되었습니다.";
-        throw new Error(description);
+      const normalized = normalizeBoardActionResult(result);
+      if (normalized.kind === "conflict") {
+        setError(normalized.message);
+        setRecovery(normalized);
+        options?.onConflict?.(normalized);
+        refreshAll();
+        return false;
+      }
+      if (normalized.kind === "failure") {
+        throw new Error(normalized.message);
       }
       setMessage(successMessage);
       refreshAll();
@@ -41,5 +52,5 @@ export function useBoardAction(refreshAll: RefreshAll) {
     }
   }
 
-  return { busy, error, message, run };
+  return { busy, error, message, recovery, run };
 }

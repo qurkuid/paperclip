@@ -78,13 +78,7 @@ import {
 const DEFAULT_SESSION_TTL_MS = 15 * 60 * 1000;
 const MAX_SESSION_TTL_MS = 60 * 60 * 1000;
 const DEFAULT_TOOL_TIMEOUT_MS = 10_000;
-// When a human approves a parked write, the server carries it out on their
-// behalf with no interactive caller left to raise `timeoutMs`. Remote write
-// providers (e.g. Zapier Google Sheets `add_row`) routinely take longer than
-// the 10s interactive default, so an approved action would otherwise abort with
-// `tool_timeout` even though the approval succeeded. Give approved executions
-// the full permitted headroom instead.
-const APPROVED_EXECUTION_TIMEOUT_MS = 60_000;
+const APPROVED_EXECUTION_TIMEOUT_MS = 6 * 60_000;
 const MAX_REMOTE_MCP_RESPONSE_BYTES = 1_000_000;
 const ACTIVE_GATEWAY_RUN_STATUSES = new Set(["running"]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -441,6 +435,10 @@ function gatewaySessionFromRow(row: typeof toolGatewaySessions.$inferSelect): To
 function timeoutMs(value: number | undefined) {
   if (!Number.isFinite(value)) return DEFAULT_TOOL_TIMEOUT_MS;
   return Math.max(1, Math.min(60_000, Math.floor(value ?? DEFAULT_TOOL_TIMEOUT_MS)));
+}
+
+export function approvedExecutionTimeoutMs() {
+  return APPROVED_EXECUTION_TIMEOUT_MS;
 }
 
 function sessionTtlMs(value: number | undefined) {
@@ -2845,13 +2843,6 @@ export function createToolGatewayService(
     );
   }
 
-  function isRemoteMcpConnectionFailure(error: Record<string, unknown> | null): boolean {
-    // Invalid params is a caller/input failure: the remote server is reachable
-    // and healthy enough to validate the request. Other JSON-RPC errors remain
-    // connection failures unless their semantics are equally unambiguous.
-    return error?.code !== -32602;
-  }
-
   type McpElicitationRequest = {
     message: string;
     requestedSchema: Record<string, unknown> | null;
@@ -3130,9 +3121,15 @@ export function createToolGatewayService(
       }
       if (payloadRecord.error !== undefined) {
         const errorRecord = asRecord(payloadRecord.error);
-        if (isRemoteMcpConnectionFailure(errorRecord)) {
-          await markRemoteConnectionHealth(connection, "error", "Remote MCP server returned a JSON-RPC error.");
-        }
+        // A well-formed JSON-RPC error proves the remote MCP endpoint was
+        // reachable and authenticated well enough to process the request.
+        // Tool/business errors (including server-defined -32000 codes) must
+        // not hide the whole connection from later runs.
+        await markRemoteConnectionHealth(
+          connection,
+          "ok",
+          "Remote MCP server responded to tools/call with a JSON-RPC error.",
+        );
         throw new ToolGatewayHttpError(502, "Remote MCP server returned an error", "remote_mcp_error", {
           code: typeof errorRecord?.code === "number" ? errorRecord.code : null,
           connectionId: connection.id,
@@ -4234,7 +4231,7 @@ export function createToolGatewayService(
     await reflectToolActionInteractionLifecycle({ actionRequestId: claimed.id, status: "executing" });
 
     try {
-      const executionTimeoutMs = timeoutMs(APPROVED_EXECUTION_TIMEOUT_MS);
+      const executionTimeoutMs = approvedExecutionTimeoutMs();
       const result = tool.providerType === "mcp_remote_http"
         ? (await executeRemoteHttpTool(session, tool, parameters, executionTimeoutMs, invocation.id)).result
         : tool.providerType === "mcp_local_stdio"
@@ -4488,6 +4485,13 @@ export function createToolGatewayService(
   }
 
   return {
+    async listConnectedMcpToolsForConnection(
+      companyId: string,
+      connectionId: string,
+    ): Promise<ToolGatewayDescriptor[]> {
+      return connectedMcpToolsForConnection(companyId, connectionId);
+    },
+
     async recordRuntimeMcpDeliveryDiagnostic(input: {
       companyId: string;
       agentId: string;

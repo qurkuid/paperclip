@@ -1,0 +1,48 @@
+{
+  "source": {
+    "type": "github",
+    "hostname": "github.com",
+    "owner": "fivetaku",
+    "repo": "insane-search",
+    "ref": "v0.14.0",
+    "commit": "019ee16bbf471595f9b67b164e4a92208183af2d",
+    "path": "skills/insane-search"
+  },
+  "files": [
+    "SKILL.md",
+    "engine/__init__.py",
+    "engine/__main__.py",
+    "engine/bias_check.py",
+    "engine/content_safety.py",
+    "engine/fetch_chain.py",
+    "engine/learning.py",
+    "engine/observations_log.py",
+    "engine/phase0.py",
+    "engine/safety.py",
+    "engine/transport.py",
+    "engine/url_transforms.py",
+    "engine/validators.py",
+    "engine/waf_detector.py",
+    "engine/waf_profiles.yaml",
+    "references/**"
+  ],
+  "description": "Read public web sources that block normal fetches using official APIs, feeds, TLS-aware requests, and browser fallback. Use for cited research on social platforms, media, GitHub, Naver, and WAF-protected public pages; never bypass authentication or paywalls.",
+  "defaultInstall": false,
+  "recommendedForRoles": [
+    "researcher",
+    "marketer",
+    "analyst"
+  ],
+  "requires": [
+    "node",
+    "python3"
+  ],
+  "tags": [
+    "research",
+    "public-web",
+    "citations",
+    "waf",
+    "social-media",
+    "naver"
+  ]
+}

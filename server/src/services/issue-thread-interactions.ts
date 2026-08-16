@@ -199,6 +199,40 @@ function hydrateInteraction(
   }
 }
 
+export function assertInteractionExpectedRevision(input: {
+  updatedAt: Date | string;
+  expectedRevision: string | undefined;
+}) {
+  if (input.expectedRevision === undefined) return;
+  const currentRevision = input.updatedAt instanceof Date
+    ? input.updatedAt.toISOString()
+    : new Date(input.updatedAt).toISOString();
+  if (input.expectedRevision !== currentRevision) {
+    throw conflict("Interaction revision does not match", {
+      expectedRevision: input.expectedRevision,
+      currentRevision,
+    });
+  }
+}
+
+export function assertInteractionDecisionContextNotExpired(input: {
+  interaction: {
+    kind: string;
+    payload: unknown;
+  };
+  now?: Date;
+}) {
+  if (input.interaction.kind !== "request_confirmation") return;
+  const payload = input.interaction.payload;
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return;
+  const decisionContext = Reflect.get(payload, "decisionContext");
+  if (!decisionContext || typeof decisionContext !== "object" || Array.isArray(decisionContext)) return;
+  const expiresAt = Reflect.get(decisionContext, "expiresAt");
+  if (typeof expiresAt !== "string") return;
+  if (Date.parse(expiresAt) > (input.now ?? new Date()).getTime()) return;
+  throw conflict("Decision context has expired", { expiresAt });
+}
+
 async function touchIssue(db: IssueTouchDb, issueId: string) {
   await db
     .update(issues)
@@ -1210,6 +1244,11 @@ export function issueThreadInteractionService(db: Db) {
     ): Promise<ResolvedInteractionResult> => {
       const data = acceptIssueThreadInteractionSchema.parse(input);
       const current = await getPendingInteractionForResolution({ issue, interactionId });
+      assertInteractionExpectedRevision({
+        updatedAt: current.updatedAt,
+        expectedRevision: data.expectedRevision,
+      });
+      assertInteractionDecisionContextNotExpired({ interaction: current });
       switch (current.kind) {
         case "suggest_tasks":
           // Accepting suggest_tasks only creates follow-up issues; it does not
@@ -1408,6 +1447,11 @@ export function issueThreadInteractionService(db: Db) {
     ) => {
       const data = rejectIssueThreadInteractionSchema.parse(input);
       const current = await getPendingInteractionForResolution({ issue, interactionId });
+      assertInteractionExpectedRevision({
+        updatedAt: current.updatedAt,
+        expectedRevision: data.expectedRevision,
+      });
+      assertInteractionDecisionContextNotExpired({ interaction: current });
       switch (current.kind) {
         case "suggest_tasks":
           return issueThreadInteractionService(db).rejectSuggestedTasks(issue, interactionId, data, actor, current);

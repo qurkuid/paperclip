@@ -20,11 +20,11 @@ describe("bundled Spacebogam experiment plugin", () => {
     const slots = manifest.ui?.slots ?? [];
     const sidebar = slots.find((slot) => slot.type === "sidebar");
     const page = slots.find((slot) => slot.type === "page");
-    const routeSidebar = slots.find((slot) => slot.type === "routeSidebar");
 
     expect(sidebar).not.toHaveProperty("routePath");
+    expect(sidebar?.displayName).toBe("전체 현황");
     expect(page?.routePath).toBe("spacebogam-experiments");
-    expect(routeSidebar?.routePath).toBe("spacebogam-experiments");
+    expect(slots.some((slot) => slot.type === "routeSidebar")).toBe(false);
   });
 
   it("passes every migration statement through the production SQL guard", () => {

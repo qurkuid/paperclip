@@ -1,13 +1,9 @@
 import {
   useHostNavigation,
-  usePluginData,
-  type PluginRouteSidebarProps,
   type PluginSidebarProps,
 } from "@paperclipai/plugin-sdk/ui";
 
 import { ROUTE_PATH } from "../manifest.js";
-import { selectOperationalExperiments } from "./experiment-visibility.js";
-import type { OverviewData } from "./types.js";
 
 function TargetIcon() {
   return (
@@ -37,46 +33,7 @@ export function SpacebogamExperimentsSidebar({ context }: PluginSidebarProps) {
       style={{ textDecoration: "none" }}
     >
       <TargetIcon />
-      <span className="flex-1 truncate">실험 운영</span>
+      <span className="flex-1 truncate">전체 현황</span>
     </a>
   );
-}
-
-function CompanyRouteSidebar({ companyId }: { companyId: string }) {
-  const navigation = useHostNavigation();
-  const overview = usePluginData<OverviewData>("overview", { companyId });
-  const experiments = selectOperationalExperiments(
-    overview.data?.experiments ?? [],
-  );
-  return (
-    <nav className="sbe-nav" aria-label="실험 운영 탐색">
-      <div className="sbe-nav-title">실험 운영</div>
-      <a className="sbe-nav-link" {...navigation.linkProps(`/${ROUTE_PATH}`)}>
-        <TargetIcon />
-        전체 현황
-      </a>
-      <a className="sbe-nav-link" {...navigation.linkProps("/analytics/funnel")}>
-        퍼널 분석
-      </a>
-      <a className="sbe-nav-link" {...navigation.linkProps("/decisions")}>
-        의사결정
-      </a>
-      {experiments.map((experiment) => (
-        <a
-          className="sbe-nav-item"
-          key={experiment.id}
-          href={`#experiment-${experiment.id}`}
-        >
-          {experiment.title} · {experiment.status}
-        </a>
-      ))}
-    </nav>
-  );
-}
-
-export function SpacebogamExperimentsRouteSidebar({
-  context,
-}: PluginRouteSidebarProps) {
-  if (!context.companyId) return null;
-  return <CompanyRouteSidebar companyId={context.companyId} />;
 }

@@ -73,6 +73,14 @@ export type OverviewData = {
   status: string;
   configured: boolean;
   experiments: Experiment[];
+  legacySource?: LegacySource | null;
+  legacySourceStatus?: "not-configured" | "ready" | "invalid";
+};
+
+export type LegacySource = {
+  issueId: string;
+  identifier: string | null;
+  href: string;
 };
 
 export type OperationsOptions = {

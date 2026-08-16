@@ -12,11 +12,13 @@ const secretRefSchema = z.object({
 const companyConfigSchema = z.object({
   leadHashSecret: secretRefSchema,
   linkedProjectId: z.string().uuid().optional(),
+  legacyIssueId: z.string().uuid().optional(),
 }).passthrough();
 
 export type ExperimentPluginConfig = {
   readonly leadHashSecret: EnvSecretRefBinding;
   readonly linkedProjectId: string | null;
+  readonly legacyIssueId: string | null;
 };
 
 export async function readExperimentPluginConfig(
@@ -28,5 +30,16 @@ export async function readExperimentPluginConfig(
   return {
     leadHashSecret: parsed.data.leadHashSecret,
     linkedProjectId: parsed.data.linkedProjectId ?? null,
+    legacyIssueId: parsed.data.legacyIssueId ?? null,
   };
+}
+
+export async function isConfiguredLegacyIssue(
+  ctx: PluginContext,
+  companyId: string,
+  issueId: string,
+): Promise<boolean> {
+  const config = await readExperimentPluginConfig(ctx, companyId);
+  if (config?.legacyIssueId !== issueId) return false;
+  return await ctx.issues.get(issueId, companyId) !== null;
 }

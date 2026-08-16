@@ -1,12 +1,13 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { prepareCodexRuntimeConfig } from "./runtime-config.js";
 
 const cleanupPaths = new Set<string>();
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await Promise.all(
     [...cleanupPaths].map(async (filepath) => {
       await fs.rm(filepath, { recursive: true, force: true });
@@ -107,6 +108,29 @@ describe("prepareCodexRuntimeConfig", () => {
 
     await prepared.cleanup();
     expect(await readConfigToml(home)).toBe(original);
+  });
+
+  it("atomically installs and restores provider config instead of truncating the live file", async () => {
+    const home = await makeCodexHome("model = \"gpt-5.1-codex\"\n");
+    const configPath = path.join(home, "config.toml");
+    const writeSpy = vi.spyOn(fs, "writeFile");
+    const renameSpy = vi.spyOn(fs, "rename");
+
+    const prepared = await prepareCodexRuntimeConfig({
+      env: { PAPERCLIP_CODEX_PROVIDERS: JSON.stringify(BIFROST_PROVIDERS) },
+      codexHome: home,
+    });
+    await prepared.cleanup();
+
+    const directWrites = writeSpy.mock.calls.filter(
+      ([target]) => path.resolve(String(target)) === path.resolve(configPath),
+    );
+    const atomicReplacements = renameSpy.mock.calls.filter(
+      ([, target]) => path.resolve(String(target)) === path.resolve(configPath),
+    );
+    expect(directWrites).toHaveLength(0);
+    expect(atomicReplacements).toHaveLength(2);
+    expect(await readConfigToml(home)).toBe("model = \"gpt-5.1-codex\"\n");
   });
 
   it("wins over a pre-existing same-name [model_providers.*] section and root model_provider key", async () => {

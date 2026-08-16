@@ -11,72 +11,158 @@ import {
 } from "@paperclipai/plugin-sdk/ui";
 
 import { CreateExperimentPanel } from "./create-panel.js";
-import { EntryPanel } from "./entry-panel.js";
+import { ActionFeedback } from "./action-feedback.js";
+import { useBoardAction } from "./action-hook.js";
+import {
+  SPACEBOGAM_EXPERIMENTS_REFRESH_INTERVAL_MS,
+  normalizeBridgeError,
+  normalizeExperimentDetailResponse,
+  normalizeOverviewResponse,
+} from "./api.js";
+import {
+  DataNotice,
+  EmptyExperimentState,
+  MeasurementWarning,
+  PageHeader,
+  StaleDataBanner,
+} from "./data-state-view.js";
+import { EntryDrawerPanel } from "./entry-panel.js";
 import { ExperimentSummary } from "./experiment-summary.js";
 import { selectOperationalExperiments } from "./experiment-visibility.js";
 import { InsightPanel } from "./insight-panel.js";
+import { LegacyHistoryBanner } from "./legacy-history-banner.js";
 import { OperationsPanel } from "./operations-panel.js";
 import { experimentStyles } from "./theme.js";
 import type {
-  ExperimentDetail,
-  OperationsOptions,
   OverviewData,
+  OperationsOptions,
 } from "./types.js";
 import { VariantSetup } from "./variant-setup.js";
 
-function EmptyState({ refreshAll }: { refreshAll: () => void }) {
-  return (
-    <section className="sbe-panel sbe-empty">
-      <div className="sbe-empty-mark" aria-hidden="true">◎</div>
-      <h2>첫 실험을 운영 대장에 등록하세요</h2>
-      <p>
-        실험을 만들면 Paperclip 이슈가 함께 생성되고, 표본·결과·관찰·전략 승인이
-        한 흐름으로 누적됩니다.
-      </p>
-      <div style={{ maxWidth: 520, margin: "0 auto", textAlign: "left" }}>
-        <CreateExperimentPanel refreshAll={refreshAll} />
-      </div>
-    </section>
-  );
+type SelectedExperiment = {
+  readonly companyId: string;
+  readonly experimentId: string | null;
+};
+
+const EXPERIMENT_HASH_PREFIX = "#experiment-";
+const EXPERIMENT_HASH_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+
+function readExperimentHash() {
+  if (typeof window === "undefined") return null;
+  const rawHash = window.location.hash;
+  if (!rawHash.startsWith(EXPERIMENT_HASH_PREFIX)) return null;
+  const encodedId = rawHash.slice(EXPERIMENT_HASH_PREFIX.length);
+  try {
+    const experimentId = decodeURIComponent(encodedId);
+    return EXPERIMENT_HASH_ID_PATTERN.test(experimentId) ? experimentId : null;
+  } catch {
+    return null;
+  }
+}
+
+function useLoadedAt(data: unknown) {
+  const [loadedAtMs, setLoadedAtMs] = useState<number | null>(() => (
+    data === null || data === undefined ? null : Date.now()
+  ));
+  useEffect(() => {
+    if (data !== null && data !== undefined) setLoadedAtMs(Date.now());
+  }, [data]);
+  return loadedAtMs;
 }
 
 function CompanyExperimentPage({ companyId }: { companyId: string }) {
   const navigation = useHostNavigation();
-  const overview = usePluginData<OverviewData>("overview", { companyId });
+  const overview = usePluginData<unknown>("overview", { companyId });
   const options = usePluginData<OperationsOptions>("operations-options", {
     companyId,
   });
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const experiment = usePluginData<ExperimentDetail | null>("experiment", {
+  const [selection, setSelection] = useState<SelectedExperiment>(() => ({
+    companyId,
+    experimentId: readExperimentHash(),
+  }));
+  const [entryDrawerOpen, setEntryDrawerOpen] = useState(false);
+  const selectedId = selection.companyId === companyId ? selection.experimentId : null;
+  const experiment = usePluginData<unknown>("experiment", {
     companyId,
     experimentId: selectedId ?? undefined,
   });
+  const overviewLoadedAtMs = useLoadedAt(overview.data);
+  const experimentLoadedAtMs = useLoadedAt(experiment.data);
 
   const refreshAll = useCallback(() => {
     overview.refresh();
     options.refresh();
     experiment.refresh();
   }, [experiment, options, overview]);
+  const legacyAction = useBoardAction(refreshAll);
+
+  const nowMs = Date.now();
+  const overviewState = normalizeOverviewResponse(overview.data, {
+    loadedAtMs: overviewLoadedAtMs ?? nowMs,
+    nowMs,
+  });
+  const experimentState = normalizeExperimentDetailResponse(experiment.data, {
+    loadedAtMs: experimentLoadedAtMs ?? nowMs,
+    nowMs,
+  });
+  const overviewData = overviewState.kind === "ready"
+    || overviewState.kind === "empty"
+    || overviewState.kind === "stale"
+    || overviewState.kind === "plugin-not-ready"
+    ? overviewState.data
+    : null;
+  const detail = experimentState.kind === "ready" || experimentState.kind === "stale"
+    ? experimentState.data
+    : null;
+  const experiments = useMemo(
+    () => selectOperationalExperiments(overviewData?.experiments ?? []),
+    [overviewData],
+  );
 
   useEffect(() => {
-    const experiments = selectOperationalExperiments(
-      overview.data?.experiments ?? [],
-    );
+    if (selection.companyId !== companyId) {
+      setSelection({ companyId, experimentId: readExperimentHash() });
+    }
+  }, [companyId, selection.companyId]);
+
+  useEffect(() => {
+    setEntryDrawerOpen(false);
+  }, [companyId, selectedId]);
+
+  useEffect(() => {
+    const selectHashExperiment = () => {
+      const experimentId = readExperimentHash();
+      if (experimentId === null) return;
+      setSelection({ companyId, experimentId });
+    };
+    window.addEventListener("hashchange", selectHashExperiment);
+    selectHashExperiment();
+    return () => window.removeEventListener("hashchange", selectHashExperiment);
+  }, [companyId]);
+
+  useEffect(() => {
+    if (selection.companyId !== companyId) return;
     if (
       selectedId === null
       || !experiments.some((candidate) => candidate.id === selectedId)
     ) {
-      setSelectedId(experiments[0]?.id ?? null);
+      setSelection({
+        companyId,
+        experimentId: experiments[0]?.id ?? null,
+      });
     }
-  }, [overview.data, selectedId]);
+  }, [companyId, experiments, selectedId, selection.companyId]);
 
   useEffect(() => {
-    const timer = window.setInterval(refreshAll, 60_000);
+    const timer = window.setInterval(
+      refreshAll,
+      SPACEBOGAM_EXPERIMENTS_REFRESH_INTERVAL_MS,
+    );
     return () => window.clearInterval(timer);
   }, [refreshAll]);
 
   const updatedLabel = useMemo(() => {
-    const updatedAt = experiment.data?.experiment.updatedAt;
+    const updatedAt = detail?.experiment.updatedAt;
     if (!updatedAt) return "데이터 대기 중";
     return `${new Intl.DateTimeFormat("ko-KR", {
       month: "short",
@@ -84,60 +170,89 @@ function CompanyExperimentPage({ companyId }: { companyId: string }) {
       hour: "2-digit",
       minute: "2-digit",
     }).format(new Date(updatedAt))} 기준`;
-  }, [experiment.data]);
+  }, [detail]);
 
   if (overview.loading && overview.data === null) {
     return <main className="sbe-main">실험 운영 데이터를 불러오는 중…</main>;
   }
   if (overview.error) {
+    const error = normalizeBridgeError(overview.error);
     return (
       <main className="sbe-main">
-        <section className="sbe-panel sbe-empty">
-          <h2>실험 운영 데이터를 불러오지 못했습니다</h2>
-          <p>{overview.error.message}</p>
-          <button className="sbe-button" type="button" onClick={refreshAll}>다시 불러오기</button>
-        </section>
+        <DataNotice title="작업자가 실험 운영 데이터를 보내지 못했습니다" refreshAll={refreshAll}>
+          {error.message}
+        </DataNotice>
+      </main>
+    );
+  }
+  if (overviewState.kind === "invalid-response") {
+    return (
+      <main className="sbe-main">
+        <DataNotice title="실험 운영 응답 형식이 올바르지 않습니다" refreshAll={refreshAll}>
+          {overviewState.message}
+        </DataNotice>
+      </main>
+    );
+  }
+  if (overviewState.kind === "plugin-not-ready") {
+    return (
+      <main className="sbe-main">
+        <DataNotice title="Spacebogam 실험 플러그인 설정이 필요합니다" refreshAll={refreshAll}>
+          회사 전용 리드 해시 비밀이 연결되지 않았습니다. 플러그인 설정을 마친 뒤 다시 불러오세요.
+        </DataNotice>
+        <a className="sbe-link" {...navigation.linkProps("/company/settings/instance/plugins")}>플러그인 설정</a>
       </main>
     );
   }
 
-  const experiments = selectOperationalExperiments(
-    overview.data?.experiments ?? [],
-  );
-  const detail = experiment.data;
+  const detailInvalid = experimentState.kind === "invalid-response";
+  const detailWorkerError = experiment.error ? normalizeBridgeError(experiment.error) : null;
+  const selectedExperimentMissing = selectedId !== null && experimentState.kind === "no-experiment";
+
   return (
     <main className="sbe-main">
-      <header className="sbe-header">
-        <div>
-          <p className="sbe-eyebrow">Spacebogam · Experiment operations</p>
-          <h1 className="sbe-title">실험 운영 대장</h1>
-          <p className="sbe-subtitle">
-            가설부터 상담 결과, 병목 진단, 에이전트 전략과 승인까지 한 페이지에서
-            관리합니다. 화면 데이터는 60초마다 자동 갱신됩니다.
-          </p>
-        </div>
-        <div className="sbe-header-actions">
-          <span className="sbe-status"><span className="sbe-dot" />{updatedLabel}</span>
-          <a className="sbe-link" {...navigation.linkProps("/analytics/funnel")}>퍼널 분석</a>
-          <a className="sbe-link" {...navigation.linkProps("/decisions")}>의사결정</a>
-          {detail?.experiment.linkedIssueId ? (
-            <a
-              className="sbe-link"
-              {...navigation.linkProps(`/issues/${detail.experiment.linkedIssueId}`)}
-            >
-              운영 이슈
-            </a>
-          ) : null}
-        </div>
-      </header>
-      {!overview.data?.configured ? (
-        <div className="sbe-banner">
-          <span>리드 결과 기록을 사용하려면 플러그인 설정에서 회사 전용 해시 비밀을 연결해야 합니다.</span>
-          <a className="sbe-link" {...navigation.linkProps("/company/settings/instance/plugins")}>플러그인 설정</a>
+      <PageHeader
+        detail={detail}
+        linkProps={navigation.linkProps}
+        readinessLabel={readinessLabel(overviewData)}
+        configurationLabel={configurationLabel(overviewData)}
+        updatedLabel={updatedLabel}
+      />
+      {overviewData?.legacySource ? (
+        <LegacyHistoryBanner
+          legacySource={overviewData.legacySource}
+          linkProps={navigation.linkProps}
+          busy={legacyAction.busy}
+          onLink={detail ? () => {
+            void legacyAction.run({
+              action: "link-legacy-source",
+              payload: {
+                experimentId: detail.experiment.id,
+                legacyIssueId: overviewData.legacySource?.issueId,
+                version: detail.experiment.version,
+              },
+            }, "기존 운영 문서 참조를 실험 이력에 기록했습니다.");
+          } : undefined}
+          feedback={(
+            <ActionFeedback
+              error={legacyAction.error}
+              message={legacyAction.message}
+              recovery={legacyAction.recovery}
+            />
+          )}
+        />
+      ) : null}
+      {overviewData?.legacySourceStatus === "invalid" ? (
+        <div className="sbe-banner" role="alert">
+          설정한 기존 운영 문서가 현재 회사에 없거나 접근할 수 없습니다. 플러그인 설정에서 같은 회사의 이슈를 선택하세요.
         </div>
       ) : null}
-      {experiments.length === 0 ? (
-        <EmptyState refreshAll={refreshAll} />
+      {overviewState.kind === "stale" || experimentState.kind === "stale" ? (
+        <StaleDataBanner refreshAll={refreshAll} />
+      ) : null}
+      {detail ? <MeasurementWarning detail={detail} /> : null}
+      {overviewState.kind === "empty" ? (
+        <EmptyExperimentState refreshAll={refreshAll} />
       ) : (
         <div className="sbe-workspace">
           <section className="sbe-panel">
@@ -150,7 +265,7 @@ function CompanyExperimentPage({ companyId }: { companyId: string }) {
                   type="button"
                   role="tab"
                   aria-selected={item.id === selectedId}
-                  onClick={() => setSelectedId(item.id)}
+                  onClick={() => setSelection({ companyId, experimentId: item.id })}
                 >
                   {item.title}
                 </button>
@@ -158,6 +273,18 @@ function CompanyExperimentPage({ companyId }: { companyId: string }) {
             </div>
             {detail ? (
               <ExperimentSummary detail={detail} />
+            ) : detailWorkerError ? (
+              <DataNotice title="선택한 실험 집계를 불러오지 못했습니다" refreshAll={refreshAll}>
+                {detailWorkerError.message}
+              </DataNotice>
+            ) : detailInvalid ? (
+              <DataNotice title="선택한 실험 응답 형식이 올바르지 않습니다" refreshAll={refreshAll}>
+                {experimentState.message}
+              </DataNotice>
+            ) : selectedExperimentMissing ? (
+              <DataNotice title="선택한 실험을 찾을 수 없습니다" refreshAll={refreshAll}>
+                실험 목록을 다시 불러온 뒤 운영할 실험을 다시 선택하세요.
+              </DataNotice>
             ) : (
               <div className="sbe-empty">선택한 실험의 집계를 불러오는 중…</div>
             )}
@@ -178,11 +305,17 @@ function CompanyExperimentPage({ companyId }: { companyId: string }) {
                 />
               </section>
               <section className="sbe-panel sbe-rail-section">
-                <EntryPanel
-                  detail={detail}
-                  configured={overview.data?.configured ?? false}
-                  refreshAll={refreshAll}
-                />
+                <div className="sbe-form">
+                  <h3>상담 결과 기록</h3>
+                  <p className="sbe-help">상담 결과는 필요할 때 열어 기록합니다.</p>
+                  <button
+                    className="sbe-button"
+                    type="button"
+                    onClick={() => setEntryDrawerOpen(true)}
+                  >
+                    상담 결과 기록 열기
+                  </button>
+                </div>
               </section>
               <section className="sbe-panel sbe-rail-section">
                 <CreateExperimentPanel refreshAll={refreshAll} compact />
@@ -191,8 +324,25 @@ function CompanyExperimentPage({ companyId }: { companyId: string }) {
           ) : null}
         </div>
       )}
+      {detail ? (
+        <EntryDrawerPanel
+          detail={detail}
+          configured={overviewData?.configured ?? false}
+          refreshAll={refreshAll}
+          open={entryDrawerOpen}
+          onClose={() => setEntryDrawerOpen(false)}
+        />
+      ) : null}
     </main>
   );
+}
+
+function readinessLabel(overviewData: OverviewData | null) {
+  return overviewData?.status === "ready" ? "준비됨" : "준비 확인 중";
+}
+
+function configurationLabel(overviewData: OverviewData | null) {
+  return overviewData?.configured ? "설정 완료" : "설정 필요";
 }
 
 export function SpacebogamExperimentsPage({ context }: PluginPageProps) {

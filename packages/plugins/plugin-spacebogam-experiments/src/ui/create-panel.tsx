@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from "react";
 
+import { boardActionInputSchema } from "../contracts/actions.js";
+import { ActionFeedback } from "./action-feedback.js";
 import { useBoardAction } from "./action-hook.js";
 import type { RefreshAll } from "./types.js";
 
-export function CreateExperimentPanel({
+export function CreateExperimentForm({
   refreshAll,
   compact = false,
 }: {
@@ -13,18 +15,37 @@ export function CreateExperimentPanel({
   const [title, setTitle] = useState("");
   const [hypothesis, setHypothesis] = useState("");
   const [minimumSample, setMinimumSample] = useState(30);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const action = useBoardAction(refreshAll);
+  const canSubmit = title.trim().length > 0
+    && hypothesis.trim().length > 0
+    && Number.isInteger(minimumSample)
+    && minimumSample >= 1
+    && minimumSample <= 100000;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const created = await action.run({
+    const nextErrors: string[] = [];
+    if (title.trim().length <= 0) nextErrors.push("실험 이름을 입력하세요.");
+    if (hypothesis.trim().length <= 0) nextErrors.push("가설을 입력하세요.");
+    if (!Number.isInteger(minimumSample) || minimumSample < 1 || minimumSample > 100000) {
+      nextErrors.push("표본은 1 이상 100000 이하로 입력하세요.");
+    }
+    if (nextErrors.length > 0) {
+      setValidationErrors(nextErrors);
+      return;
+    }
+    setValidationErrors([]);
+    const input = {
       action: "create-experiment",
       payload: {
-        title,
-        hypothesis,
+        title: title.trim(),
+        hypothesis: hypothesis.trim(),
         minimumSamplePerVariant: minimumSample,
       },
-    }, "새 실험과 Paperclip 운영 이슈를 만들었습니다.");
+    };
+    boardActionInputSchema.parse(input);
+    const created = await action.run(input, "새 실험과 Paperclip 운영 이슈를 만들었습니다.");
     if (created) {
       setTitle("");
       setHypothesis("");
@@ -71,11 +92,19 @@ export function CreateExperimentPanel({
           required
         />
       </div>
-      <button className="sbe-button primary" type="submit" disabled={action.busy}>
+      <button className="sbe-button primary" type="submit" disabled={action.busy || !canSubmit}>
         {action.busy ? "생성 중…" : "실험과 운영 이슈 생성"}
       </button>
-      {action.error ? <div className="sbe-error">{action.error}</div> : null}
-      {action.message ? <div className="sbe-success">{action.message}</div> : null}
+      {validationErrors.length > 0 ? (
+        <div className="sbe-error">
+          {validationErrors.map((error) => (
+            <p key={error}>{error}</p>
+          ))}
+        </div>
+      ) : null}
+      <ActionFeedback error={action.error} message={action.message} recovery={action.recovery} />
     </form>
   );
 }
+
+export const CreateExperimentPanel = CreateExperimentForm;

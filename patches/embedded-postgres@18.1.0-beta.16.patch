@@ -10,6 +10,31 @@ diff --git a/dist/index.js b/dist/index.js
  // The default configuration options for the class
  const defaults = {
      databaseDir: path.join(process.cwd(), 'data', 'db'),
+@@ -54,6 +54,14 @@
+  * because we want to be able to shutdown any clusters when the script is exited.
+  */
+ const instances = new Set();
++let exitHookRegistered = false;
++function registerExitHook() {
++    if (exitHookRegistered) {
++        return;
++    }
++    AsyncExitHook(gracefulShutdown);
++    exitHookRegistered = true;
++}
+ /**
+  * This class creates an instance from which a single Postgres cluster is
+  * managed. Note that many clusters may be created, but they will need seperate
+@@ -73,6 +81,9 @@
+         // Assign default options to options object
+         this.options = Object.assign({}, defaults, legacyOptions, options);
+         instances.add(this);
++        if (this.options.autoStopOnExit !== false) {
++            registerExitHook();
++        }
+         this.isRootUser = userInfo().uid === 0;
+     }
+     /**
 @@ -133,7 +133,7 @@
                      `--pwfile=${passwordFile}`,
                      `--lc-messages=${LC_MESSAGES_LOCALE}`,
@@ -28,3 +53,20 @@ diff --git a/dist/index.js b/dist/index.js
                  // Connect to stderr, as that is where the messages get sent
                  (_a = this.process.stderr) === null || _a === void 0 ? void 0 : _a.on('data', (chunk) => {
                      // Parse the data as a string and log it
+@@ -354,13 +365,13 @@
+ function gracefulShutdown(done) {
+     return __awaiter(this, void 0, void 0, function* () {
+         // Loop through all instances, stop them, and await the response
+-        yield Promise.all([...instances].map((instance) => {
++        yield Promise.all([...instances]
++            .filter((instance) => instance.options.autoStopOnExit !== false)
++            .map((instance) => {
+             return instance.stop();
+         }));
+         // Let NodeJS know we're done
+         done();
+     });
+ }
+-// Register graceful shutdown function
+-AsyncExitHook(gracefulShutdown);
+ export default EmbeddedPostgres;

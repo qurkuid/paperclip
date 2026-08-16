@@ -115,6 +115,7 @@ import {
   evaluateSkillPolicySchema,
   replaceSkillPolicySchema,
   updateInboxAgentPolicySchema,
+  createDebugRequestSchema,
   // Issue tree
   createIssueTreeHoldSchema,
   previewIssueTreeControlSchema,
@@ -758,6 +759,8 @@ const BOARD_ONLY_OPERATIONS = new Set([
   "POST /api/issues/{id}/interactions/{interactionId}/accept",
   "POST /api/issues/{id}/interactions/{interactionId}/reject",
   "POST /api/issues/{id}/interactions/{interactionId}/respond",
+  "GET /api/issues/{id}/interactions/{interactionId}/decision-package",
+  "POST /api/companies/{companyId}/debug-requests",
   "GET /api/companies/{companyId}/tools/gallery",
   "POST /api/companies/{companyId}/tools/apps/connect",
   "POST /api/companies/{companyId}/tools/apps/{connectionId}/finish",
@@ -871,6 +874,7 @@ const CREATED_OPERATIONS = new Set([
   "POST /api/issues/{id}/low-trust/promotions",
   "POST /api/issues/{id}/approvals",
   "POST /api/companies/{companyId}/issues",
+  "POST /api/companies/{companyId}/debug-requests",
   "POST /api/issues/{id}/children",
   "POST /api/issues/{id}/interactions",
   "POST /api/issues/{id}/comments",
@@ -3728,12 +3732,45 @@ registry.registerPath({
 // ─── Issue interactions & tree ───────────────────────────────────────────────
 
 registry.registerPath({
+  method: "post",
+  path: "/api/companies/{companyId}/debug-requests",
+  tags: ["companies", "issues"],
+  summary: "Create a Paperclip UI debug request",
+  request: {
+    params: z.object({ companyId: z.string() }),
+    body: jsonBody(createDebugRequestSchema),
+  },
+  responses: {
+    201: r.ok(),
+    400: r.badRequest,
+    401: r.unauthorized,
+    403: r.forbidden,
+  },
+});
+
+registry.registerPath({
   method: "get",
   path: "/api/issues/{id}/interactions",
   tags: ["issues"],
   summary: "List issue thread interactions",
   request: { params: z.object({ id: z.string() }) },
   responses: { 200: r.ok(), 401: r.unauthorized },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/issues/{id}/interactions/{interactionId}/decision-package",
+  tags: ["issues"],
+  summary: "Get the decision package for an issue thread interaction",
+  request: {
+    params: z.object({ id: z.string(), interactionId: z.string() }),
+  },
+  responses: {
+    200: r.ok(),
+    401: r.unauthorized,
+    403: r.forbidden,
+    404: r.notFound,
+  },
 });
 
 registry.registerPath({

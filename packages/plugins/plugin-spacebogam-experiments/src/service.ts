@@ -130,6 +130,8 @@ export function createSpacebogamExperimentService(
         );
       case "link-issue":
         return issueActions.linkIssue(companyId, action.payload);
+      case "link-legacy-source":
+        return issueActions.linkLegacySource(companyId, action.payload);
       case "select-responsible-agent":
         return issueActions.selectResponsibleAgent(companyId, action.payload);
       case "request-strategy":

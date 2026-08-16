@@ -16,6 +16,7 @@ import {
   type SuggestTasksInteraction,
 } from "../lib/issue-thread-interactions";
 import { IssueThreadInteractionCard } from "./IssueThreadInteractionCard";
+import { RequestItemVerdictReviewDocument } from "./RequestItemVerdictReviewDocument";
 
 interface AttentionInteractionResolverProps {
   companyId: string;
@@ -118,26 +119,34 @@ export function AttentionInteractionResolver({
   }
 
   return (
-    <IssueThreadInteractionCard
-      interaction={interaction}
-      agentMap={agentMap}
-      currentUserId={currentUserId}
-      userLabelMap={userLabelMap}
-      onAcceptInteraction={(target, selectedClientKeys, selectedOptionIds) =>
-        acceptMutation.mutateAsync({ interaction: target, selectedClientKeys, selectedOptionIds }).then(() => undefined)
-      }
-      onRejectInteraction={(target, reason) =>
-        rejectMutation.mutateAsync({ interactionId: target.id, reason }).then(() => undefined)
-      }
-      onSubmitInteractionAnswers={(target: AskUserQuestionsInteraction, answers) =>
-        respondMutation.mutateAsync({ interactionId: target.id, answers }).then(() => undefined)
-      }
-      onCancelInteraction={(target: AskUserQuestionsInteraction) =>
-        cancelMutation.mutateAsync({ interactionId: target.id }).then(() => undefined)
-      }
-      onSubmitInteractionVerdicts={(target: RequestItemVerdictsInteraction, verdicts) =>
-        verdictsMutation.mutateAsync({ interactionId: target.id, verdicts }).then(() => undefined)
-      }
-    />
+    <div className="space-y-4">
+      {interaction.kind === "request_item_verdicts" ? (
+        <RequestItemVerdictReviewDocument
+          issueId={issueId}
+          interaction={interaction}
+        />
+      ) : null}
+      <IssueThreadInteractionCard
+        interaction={interaction}
+        agentMap={agentMap}
+        currentUserId={currentUserId}
+        userLabelMap={userLabelMap}
+        onAcceptInteraction={(target, selectedClientKeys, selectedOptionIds) =>
+          acceptMutation.mutateAsync({ interaction: target, selectedClientKeys, selectedOptionIds }).then(() => undefined)
+        }
+        onRejectInteraction={(target, reason) =>
+          rejectMutation.mutateAsync({ interactionId: target.id, reason }).then(() => undefined)
+        }
+        onSubmitInteractionAnswers={(target: AskUserQuestionsInteraction, answers) =>
+          respondMutation.mutateAsync({ interactionId: target.id, answers }).then(() => undefined)
+        }
+        onCancelInteraction={(target: AskUserQuestionsInteraction) =>
+          cancelMutation.mutateAsync({ interactionId: target.id }).then(() => undefined)
+        }
+        onSubmitInteractionVerdicts={(target: RequestItemVerdictsInteraction, verdicts) =>
+          verdictsMutation.mutateAsync({ interactionId: target.id, verdicts }).then(() => undefined)
+        }
+      />
+    </div>
   );
 }

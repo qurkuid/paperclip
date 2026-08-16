@@ -118,8 +118,9 @@ async function flushReact() {
 }
 
 async function waitForAssertion(assertion: () => void) {
+  const deadline = Date.now() + 2_000;
   let lastError: unknown;
-  for (let i = 0; i < 20; i += 1) {
+  while (Date.now() < deadline) {
     await flushReact();
     try {
       assertion();
@@ -127,6 +128,7 @@ async function waitForAssertion(assertion: () => void) {
     } catch (error) {
       lastError = error;
     }
+    await new Promise((resolve) => window.setTimeout(resolve, 5));
   }
   throw lastError;
 }

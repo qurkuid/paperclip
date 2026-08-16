@@ -136,6 +136,26 @@ Create task bridge keys with a parent issue or project boundary. Do not expose
 normal claimed Paperclip agent API keys to internet-facing Hermes chat/webhook
 task-bridge surfaces.
 
+## Telegram Decision Bridge
+
+The bundled \`paperclip-decision-bridge\` skill sends complete Paperclip
+decision packages to the existing Hermes Telegram channel and resolves them
+through canonical board-only interaction endpoints.
+
+Configure these values in the Hermes runtime environment, never in prompt text:
+
+- \`PAPERCLIP_API_URL\` - Paperclip base URL, with or without \`/api\`
+- \`PAPERCLIP_TELEGRAM_BOARD_CREDENTIALS\` - strict JSON map from each allowlisted Telegram sender id to that person's Paperclip board API credential
+- \`TELEGRAM_ALLOWED_USERS\` - Telegram sender allowlist
+- \`TELEGRAM_BOT_TOKEN\` and \`TELEGRAM_HOME_CHANNEL\` - existing Hermes Telegram transport values
+- \`PAPERCLIP_TELEGRAM_STATE_FILE\` - local interaction-revision-to-message-id delivery state
+
+Decision resolution never uses \`PAPERCLIP_BRIDGE_API_KEY\`, a normal agent API
+key, or an LLM interpretation. The helper never reinterprets or repairs an
+input command. It accepts only the literal lowercase revision-checked
+\`decision ... approve\` or \`decision ... reject [note]\` grammar from a
+sender present in both the allowlist and board credential map.
+
 ## Available Template Variables
 
 - \`{{agentId}}\` — Paperclip agent ID

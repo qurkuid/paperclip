@@ -9,7 +9,10 @@ import {
 } from "@paperclipai/plugin-sdk";
 
 import { registerExperimentBoardData } from "./board-data.js";
-import { readExperimentPluginConfig } from "./config.js";
+import {
+  isConfiguredLegacyIssue,
+  readExperimentPluginConfig,
+} from "./config.js";
 import { createExperimentIssueIntegration } from "./issue-integration.js";
 import { createExperimentRepository } from "./repository.js";
 import type { ExperimentDatabase } from "./repository/database.js";
@@ -79,6 +82,8 @@ function createDefaultBoardActionService(
     resolveLinkedProjectId: async (targetCompanyId) =>
       (await readExperimentPluginConfig(ctx, targetCompanyId))?.linkedProjectId
       ?? null,
+    validateLegacyIssue: async (targetCompanyId, issueId) =>
+      isConfiguredLegacyIssue(ctx, targetCompanyId, issueId),
     validateAgent: async (targetCompanyId, agentId) => {
       const agent = await ctx.agents.get(agentId, targetCompanyId);
       return agent !== null && agent.status !== "terminated";

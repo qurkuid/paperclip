@@ -6,6 +6,7 @@ import manifest from "../src/manifest.js";
 import {
   COMPANY_ID,
   EXPERIMENT_ID,
+  NOW,
   OTHER_AGENT_ID,
   OTHER_COMPANY_ID,
   experimentDetail,
@@ -82,9 +83,19 @@ describe("Spacebogam agent tools", () => {
       companyId: COMPANY_ID,
       title: "실험 운영",
     });
+    const integration = createExperimentIssueIntegration(harness.ctx);
+    let publishedInput: Parameters<typeof integration.publishStrategy>[0] | null = null;
+    let publishedArtifact: Awaited<ReturnType<typeof integration.publishStrategy>> | null = null;
     const state = setupToolState(
       experimentDetail(issue.id),
-      createExperimentIssueIntegration(harness.ctx),
+      {
+        ...integration,
+        async publishStrategy(input) {
+          publishedInput = input;
+          publishedArtifact = await integration.publishStrategy(input);
+          return publishedArtifact;
+        },
+      },
     );
 
     const result = await state.handlers.proposeStrategy({
@@ -104,6 +115,38 @@ describe("Spacebogam agent tools", () => {
       issueCommentId: expect.any(String),
       workProductId: expect.any(String),
     });
+    const expectedDecisionContext = {
+      kpis: [
+        { label: "control · 표본", value: "1" },
+        { label: "control · 승률", value: "100.0%" },
+      ],
+      sample: { observed: 1, required: 1 },
+      freshness: {
+        recordUpdatedAt: NOW,
+        funnelGeneratedAt: NOW,
+        funnelDataThrough: NOW,
+        quality: "ready",
+      },
+      asOf: NOW,
+      expiresAt: "2026-07-28T03:00:00.000Z",
+    };
+    expect(publishedInput).toMatchObject({
+      decisionContext: expectedDecisionContext,
+    });
+    expect(publishedArtifact).toMatchObject({
+      interaction: {
+        payload: {
+          decisionContext: expectedDecisionContext,
+        },
+      },
+    });
+    const serialized = JSON.stringify([publishedInput, publishedArtifact]);
+    expect(serialized).not.toContain("private-lead-hash");
+    expect(serialized).not.toContain("raw-lead-key");
+    expect(serialized).not.toContain("010-1234-5678");
+    expect(serialized).not.toContain("email@example.com");
+    expect(state.funnelFreshnessCalls()).toBe(1);
+    expect(state.nowCalls()).toBe(1);
     await expect(harness.ctx.issues.listComments(issue.id, COMPANY_ID))
       .resolves.toHaveLength(1);
   });

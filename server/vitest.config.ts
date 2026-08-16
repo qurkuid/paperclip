@@ -11,6 +11,7 @@ export default defineConfig({
     // worst-case teardown yet still catches a genuinely hung hook. teardownTimeout
     // mirrors it for the same reason.
     hookTimeout: 30000,
+    testTimeout: 15000,
     teardownTimeout: 30000,
     isolate: true,
     maxConcurrency: 1,

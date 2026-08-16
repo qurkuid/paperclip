@@ -289,6 +289,10 @@ describe("shared ACPX engine runtime behavior", () => {
     expect(prompt).toContain("PAPERCLIP_API_KEY");
     expect(prompt).toContain("PAPERCLIP_WAKE_PAYLOAD_JSON");
     expect(prompt).toContain("Paperclip API access note:");
+    expect(prompt).toContain("Paperclip task-state freshness rule:");
+    expect(prompt).toContain(
+      "Current wake fields and a fresh canonical issue response override continuation summaries and older comments.",
+    );
     expect(prompt).toContain('PAPERCLIP_API_BASE="${PAPERCLIP_API_URL%/}"; PAPERCLIP_API_BASE="${PAPERCLIP_API_BASE%/api}"');
     expect(prompt).toContain("$PAPERCLIP_API_BASE/api/agents/me");
     expect(prompt).toContain("$PAPERCLIP_API_BASE/api/issues/$PAPERCLIP_TASK_ID");
@@ -594,7 +598,7 @@ describe("shared ACPX engine runtime behavior", () => {
       paperclipInstanceId,
       "companies",
       "company-1",
-      "codex-home",
+      "codex-acp-home",
     );
     await fs.mkdir(sourceCodexHome, { recursive: true });
     await fs.mkdir(managedCodexHome, { recursive: true });
@@ -629,6 +633,98 @@ describe("shared ACPX engine runtime behavior", () => {
     expect(authStat.isSymbolicLink()).toBe(true);
     expect(path.resolve(path.dirname(managedAuth), await fs.readlink(managedAuth))).toBe(sourceAuth);
   });
+
+  it("leaves managed Codex auth absent when the source home has no auth file", async () => {
+    const root = await makeTempRoot();
+    const sourceCodexHome = path.join(root, "source-codex-home");
+    const paperclipHome = path.join(root, "paperclip-home");
+    const paperclipInstanceId = "missing-auth-instance";
+    const managedAuth = path.join(
+      paperclipHome,
+      "instances",
+      paperclipInstanceId,
+      "companies",
+      "company-1",
+      "codex-acp-home",
+      "auth.json",
+    );
+    await fs.mkdir(sourceCodexHome, { recursive: true });
+
+    const previousCodexHome = process.env.CODEX_HOME;
+    const previousPaperclipHome = process.env.PAPERCLIP_HOME;
+    const previousPaperclipInstanceId = process.env.PAPERCLIP_INSTANCE_ID;
+    try {
+      process.env.CODEX_HOME = sourceCodexHome;
+      process.env.PAPERCLIP_HOME = paperclipHome;
+      process.env.PAPERCLIP_INSTANCE_ID = paperclipInstanceId;
+      await runExecutor({
+        agent: "codex",
+        stateDir: path.join(root, "state"),
+        paperclipRuntimeSkills: [],
+        paperclipSkillSync: { desiredSkills: [] },
+      });
+    } finally {
+      if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = previousCodexHome;
+      if (previousPaperclipHome === undefined) delete process.env.PAPERCLIP_HOME;
+      else process.env.PAPERCLIP_HOME = previousPaperclipHome;
+      if (previousPaperclipInstanceId === undefined) delete process.env.PAPERCLIP_INSTANCE_ID;
+      else process.env.PAPERCLIP_INSTANCE_ID = previousPaperclipInstanceId;
+    }
+
+    await expect(fs.lstat(managedAuth)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it.skipIf(process.platform === "win32")("converges concurrent managed Codex auth preparation on one source symlink", async () => {
+    const root = await makeTempRoot();
+    const sourceCodexHome = path.join(root, "source-codex-home");
+    const paperclipHome = path.join(root, "paperclip-home");
+    const paperclipInstanceId = "concurrent-instance";
+    const managedAuth = path.join(
+      paperclipHome,
+      "instances",
+      paperclipInstanceId,
+      "companies",
+      "company-1",
+      "codex-acp-home",
+      "auth.json",
+    );
+    await fs.mkdir(sourceCodexHome, { recursive: true });
+    const sourceAuth = path.join(sourceCodexHome, "auth.json");
+    await fs.writeFile(sourceAuth, "{\"source\":true}", "utf8");
+
+    const previousCodexHome = process.env.CODEX_HOME;
+    const previousPaperclipHome = process.env.PAPERCLIP_HOME;
+    const previousPaperclipInstanceId = process.env.PAPERCLIP_INSTANCE_ID;
+    try {
+      process.env.CODEX_HOME = sourceCodexHome;
+      process.env.PAPERCLIP_HOME = paperclipHome;
+      process.env.PAPERCLIP_INSTANCE_ID = paperclipInstanceId;
+      const results = await Promise.all(
+        Array.from({ length: 8 }, (_, index) =>
+          runExecutor({
+            agent: "codex",
+            stateDir: path.join(root, `state-${index}`),
+            paperclipRuntimeSkills: [],
+            paperclipSkillSync: { desiredSkills: [] },
+          }),
+        ),
+      );
+      expect(results).toHaveLength(8);
+    } finally {
+      if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+      else process.env.CODEX_HOME = previousCodexHome;
+      if (previousPaperclipHome === undefined) delete process.env.PAPERCLIP_HOME;
+      else process.env.PAPERCLIP_HOME = previousPaperclipHome;
+      if (previousPaperclipInstanceId === undefined) delete process.env.PAPERCLIP_INSTANCE_ID;
+      else process.env.PAPERCLIP_INSTANCE_ID = previousPaperclipInstanceId;
+    }
+
+    const authStat = await fs.lstat(managedAuth);
+    expect(authStat.isSymbolicLink()).toBe(true);
+    expect(path.resolve(path.dirname(managedAuth), await fs.readlink(managedAuth))).toBe(sourceAuth);
+    expect(await fs.readFile(managedAuth, "utf8")).toBe("{\"source\":true}");
+  }, 15_000);
 
   it("uses direct registry commands and per-session env across ACPX agent changes", async () => {
     const root = await makeTempRoot();
@@ -856,6 +952,98 @@ describe("shared ACPX engine runtime behavior", () => {
     const stderrLog = logs.find((entry) => entry.stream === "stderr" && entry.text.includes("ACPX child stderr tail"));
     expect(stderrLog).toBeTruthy();
     expect(stderrLog!.text).toContain(stderrTail);
+  });
+
+  it("classifies an auth failure reported as a failed turn result instead of a generic turn failure", async () => {
+    const root = await makeTempRoot();
+    const stateDir = path.join(root, "state");
+
+    const logs: Array<{ stream: string; text: string }> = [];
+    const execute = createAcpxEngineExecutor({
+      createRuntime: () => ({
+        ensureSession: async () => ({
+          backendSessionId: "backend-session",
+          agentSessionId: "agent-session",
+          runtimeSessionName: "runtime-session",
+        }),
+        startTurn: () => ({
+          events: (async function* () {})(),
+          result: Promise.resolve({
+            status: "failed",
+            error: {
+              message:
+                "Internal error: Failed to authenticate: OAuth session expired and could not be refreshed",
+              code: "ACP_TURN_FAILED",
+              retryable: false,
+            },
+          }),
+          cancel: async () => {},
+        }),
+        close: async () => {},
+      }) as never,
+    });
+
+    const result = await execute({
+      runId: "run-auth-1",
+      agent: { id: "agent-1", companyId: "company-1" },
+      runtime: {},
+      config: {
+        agent: "claude",
+        agentCommand: "node ./fake-acp.js",
+        stateDir,
+      },
+      context: {},
+      onLog: async (stream: "stdout" | "stderr", text: string) => {
+        logs.push({ stream, text });
+      },
+      onMeta: async () => {},
+    } as never);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.errorCode).toBe("acpx_auth_required");
+    expect(result.errorMeta?.category).toBe("auth");
+    expect(result.errorMessage).toContain("OAuth session expired");
+  });
+
+  it("still reports a non-auth failed turn result as a generic turn failure", async () => {
+    const root = await makeTempRoot();
+    const stateDir = path.join(root, "state");
+
+    const execute = createAcpxEngineExecutor({
+      createRuntime: () => ({
+        ensureSession: async () => ({
+          backendSessionId: "backend-session",
+          agentSessionId: "agent-session",
+          runtimeSessionName: "runtime-session",
+        }),
+        startTurn: () => ({
+          events: (async function* () {})(),
+          result: Promise.resolve({
+            status: "failed",
+            error: { message: "backend closed the stream", code: "ACP_TURN_FAILED" },
+          }),
+          cancel: async () => {},
+        }),
+        close: async () => {},
+      }) as never,
+    });
+
+    const result = await execute({
+      runId: "run-turn-fail-1",
+      agent: { id: "agent-1", companyId: "company-1" },
+      runtime: {},
+      config: {
+        agent: "claude",
+        agentCommand: "node ./fake-acp.js",
+        stateDir,
+      },
+      context: {},
+      onLog: async () => {},
+      onMeta: async () => {},
+    } as never);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.errorCode).toBe("acpx_turn_failed");
   });
 
   it("configures in-process child stderr capture without forcing verbose mode", async () => {
@@ -1241,7 +1429,7 @@ describe("shared ACPX engine runtime behavior", () => {
     expect(first.result.sessionParams?.configFingerprint).not.toBe(second.result.sessionParams?.configFingerprint);
   });
 
-  it("injects runtime MCP servers and fingerprints their identity without persisting bearer tokens", async () => {
+  it("tells Codex to resolve attached MCP callables from ALL_TOOLS without requiring tool search", async () => {
     const root = await makeTempRoot();
     const baseConfig = {
       agent: "custom",
@@ -1252,6 +1440,7 @@ describe("shared ACPX engine runtime behavior", () => {
       name: "github",
       url: "https://paperclip.example/api/tool-gateway/gateways/github/mcp",
       connectionId: "connection-1",
+      toolNames: ["publish_content", "stage_content"],
     };
     const first = await runExecutor(baseConfig, {
       runtimeMcp: { getServers: () => [{ ...server, token: "token-one" }] },
@@ -1275,7 +1464,35 @@ describe("shared ACPX engine runtime behavior", () => {
       name: "github",
       url: server.url,
       connectionId: "connection-1",
+      toolNames: ["publish_content", "stage_content"],
     }]);
+    expect(String(first.meta[0]?.prompt ?? "")).toContain("Paperclip managed tool delivery:");
+    expect(String(first.meta[0]?.prompt ?? "")).toContain("publish_content");
+    expect(String(first.meta[0]?.prompt ?? "")).toContain("stage_content");
+    expect(String(first.meta[0]?.prompt ?? "")).toContain(
+      "Do not report these managed tools as missing merely because you have not called them yet.",
+    );
+    expect(String(first.meta[0]?.prompt ?? "")).toContain(
+      "The catalog identities below are not JavaScript property names and must not be read as tools[catalogIdentity].",
+    );
+    expect(String(first.meta[0]?.prompt ?? "")).toContain(
+      "resolve the callable name from ALL_TOOLS",
+    );
+    expect(String(first.meta[0]?.prompt ?? "")).toContain(
+      "call tools[candidate.name](args)",
+    );
+    expect(String(first.meta[0]?.prompt ?? "")).toContain(
+      "callable prefix: mcp__github__",
+    );
+    expect(String(first.meta[0]?.prompt ?? "")).toContain(
+      "catalog identity: publish_content",
+    );
+    expect(String(first.meta[0]?.prompt ?? "")).toContain(
+      "catalog identity: stage_content",
+    );
+    expect(String(first.meta[0]?.prompt ?? "")).not.toContain(
+      "Before declaring a listed tool unregistered, use the tool-search capability",
+    );
     expect(JSON.stringify(first.result.sessionParams)).not.toContain("token-one");
     expect(first.result.sessionParams?.configFingerprint).toBe(rotatedToken.result.sessionParams?.configFingerprint);
     expect(first.result.sessionParams?.configFingerprint).not.toBe(changedSet.result.sessionParams?.configFingerprint);

@@ -50,7 +50,7 @@ test("gateway subpath export exposes the Hermes Gateway adapter entrypoint", () 
   expect(typeof adapter.getConfigSchema).toBe("function");
 });
 
-test("Hermes adapter exposes bundled Paperclip task bridge skill", async () => {
+test("Hermes adapter exposes bundled Paperclip task and decision bridge skills", async () => {
   const adapter = createServerAdapter();
   const snapshot = await adapter.listSkills?.({
     adapterType: "hermes_local",
@@ -60,4 +60,8 @@ test("Hermes adapter exposes bundled Paperclip task bridge skill", async () => {
   });
 
   expect(snapshot?.entries.some((entry) => entry.runtimeName === "paperclip-task-bridge")).toBe(true);
+  expect(snapshot?.entries.some((entry) => entry.runtimeName === "paperclip-decision-bridge")).toBe(true);
+  expect(adapter.agentConfigurationDoc).toContain("PAPERCLIP_TELEGRAM_BOARD_CREDENTIALS");
+  expect(adapter.agentConfigurationDoc).toContain("board API credential");
+  expect(adapter.agentConfigurationDoc).toContain("never reinterprets");
 });

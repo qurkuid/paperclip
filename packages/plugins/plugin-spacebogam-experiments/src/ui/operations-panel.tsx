@@ -1,17 +1,48 @@
 import { useEffect, useState, type FormEvent } from "react";
 
+import { ActionFeedback } from "./action-feedback.js";
 import { useBoardAction } from "./action-hook.js";
+import {
+  DestructiveActionButton,
+  LifecycleGovernanceControls,
+  type GovernanceLifecycleAction,
+} from "./governance.js";
 import type {
   ExperimentDetail,
   OperationsOptions,
   RefreshAll,
 } from "./types.js";
 
-function nextLifecycleAction(status: ExperimentDetail["experiment"]["status"]) {
-  if (status === "draft") return { action: "start-experiment", label: "실험 시작" };
-  if (status === "running") return { action: "pause-experiment", label: "일시 정지" };
-  if (status === "paused") return { action: "start-experiment", label: "실험 재개" };
+const lifecycleActionCodes: Record<GovernanceLifecycleAction, string> = {
+  start: "start-experiment",
+  pause: "pause-experiment",
+  complete: "complete-experiment",
+  cancel: "cancel-experiment",
+  archive: "archive-experiment",
+};
+
+const lifecycleMessages: Record<GovernanceLifecycleAction, string> = {
+  start: "실험 시작 상태로 변경했습니다.",
+  pause: "실험을 일시 정지했습니다.",
+  complete: "실험을 완료 처리했습니다.",
+  cancel: "실험을 취소했습니다.",
+  archive: "실험을 보관했습니다.",
+};
+
+function primaryLifecycleAction(status: ExperimentDetail["experiment"]["status"]): GovernanceLifecycleAction | null {
+  if (status === "draft") return "start";
+  if (status === "running") return "pause";
+  if (status === "paused") return "start";
+  if (status === "completed") return "start";
   return null;
+}
+
+function canComplete(status: ExperimentDetail["experiment"]["status"]) {
+  return status === "running" || status === "paused";
+}
+
+function canCancel(status: ExperimentDetail["experiment"]["status"]) {
+  return status === "running" || status === "paused";
 }
 
 export function OperationsPanel({
@@ -30,8 +61,15 @@ export function OperationsPanel({
     "현재 표본과 같은 기간의 퍼널·네이버 광고 근거를 함께 검토하고, 다음 한 가지 실험 전략을 제안해줘.",
   );
   const action = useBoardAction(refreshAll);
-  const lifecycle = nextLifecycleAction(experiment.status);
+  const lifecycle = primaryLifecycleAction(experiment.status);
   const routineActive = options?.routine.status === "active";
+  const issue = options?.issues.find((candidate) => candidate.id === experiment.linkedIssueId) ?? null;
+  const strategyBlocked = !experiment.responsibleAgentId || !experiment.linkedIssueId;
+  const approvalPending =
+    options?.routine.resolutionStatus === "requested"
+    && options.routine.id !== null
+    && experiment.linkedIssueId !== null
+    && experiment.linkedIssueId !== undefined;
 
   useEffect(() => {
     setAgentId(experiment.responsibleAgentId ?? "");
@@ -86,38 +124,49 @@ export function OperationsPanel({
     }, routineActive ? "주기 검토를 일시 정지했습니다." : "주기 검토를 활성화했습니다.");
   }
 
-  async function updateLifecycle(actionName: string, message: string) {
+  async function updateLifecycle(lifecycleAction: GovernanceLifecycleAction) {
+    if (
+      lifecycleAction === "complete"
+      && !window.confirm("실험을 완료하면 되돌릴 수 없습니다.")
+    ) {
+      return;
+    }
     await action.run({
-      action: actionName,
+      action: lifecycleActionCodes[lifecycleAction],
       payload: {
         experimentId: experiment.id,
         version: experiment.version,
       },
-    }, message);
+    }, lifecycleMessages[lifecycleAction]);
   }
 
   return (
     <div className="sbe-form">
       <h3>운영 설정</h3>
       {lifecycle ? (
-        <button
-          className="sbe-button primary"
-          type="button"
-          disabled={action.busy || detail.variants.length < 2}
-          onClick={() => void updateLifecycle(lifecycle.action, `${lifecycle.label} 상태로 변경했습니다.`)}
-        >
-          {lifecycle.label}
-        </button>
+        <LifecycleGovernanceControls
+          status={experiment.status}
+          requestedAction={lifecycle}
+          busy={action.busy}
+          variantCount={detail.variants.length}
+          onAction={(requestedAction) => void updateLifecycle(requestedAction)}
+        />
       ) : null}
-      {experiment.status === "running" || experiment.status === "paused" ? (
-        <button
-          className="sbe-button"
-          type="button"
+      {canComplete(experiment.status) ? (
+        <LifecycleGovernanceControls
+          status={experiment.status}
+          requestedAction="complete"
+          busy={action.busy}
+          variantCount={detail.variants.length}
+          onAction={(requestedAction) => void updateLifecycle(requestedAction)}
+        />
+      ) : null}
+      {canCancel(experiment.status) ? (
+        <DestructiveActionButton
+          action="cancel"
           disabled={action.busy}
-          onClick={() => void updateLifecycle("complete-experiment", "실험을 완료 처리했습니다.")}
-        >
-          실험 완료
-        </button>
+          onConfirm={(requestedAction) => void updateLifecycle(requestedAction)}
+        />
       ) : null}
       <form className="sbe-form" onSubmit={(event) => void saveAgent(event)}>
         <div className="sbe-field">
@@ -171,6 +220,19 @@ export function OperationsPanel({
       >
         주기 검토 {routineActive ? "끄기" : "켜기"}
       </button>
+      {approvalPending ? (
+        <p className="sbe-help">
+          <strong>승인 대기</strong>{" "}
+          에이전트 승인 요청이 대기 중입니다.{" "}
+          <a className="sbe-link" href={`/issues/${experiment.linkedIssueId}`}>
+            {issue?.identifier ?? "연결 이슈"}
+          </a>
+          {" "}
+          <a className="sbe-link" href={`/decisions#${options.routine.id}`}>
+            {options.routine.id}
+          </a>
+        </p>
+      ) : null}
       <form className="sbe-form" onSubmit={(event) => void requestStrategy(event)}>
         <div className="sbe-field">
           <label htmlFor="sbe-strategy-request">에이전트 전략 요청</label>
@@ -186,21 +248,19 @@ export function OperationsPanel({
         <button
           className="sbe-button primary"
           type="submit"
-          disabled={
-            action.busy
-            || !experiment.responsibleAgentId
-            || !experiment.linkedIssueId
-          }
+          disabled={action.busy || strategyBlocked}
         >
           전략 검토 요청
         </button>
+        {strategyBlocked ? (
+          <p className="sbe-help">책임 에이전트와 운영 이슈를 먼저 연결하세요.</p>
+        ) : null}
         <p className="sbe-help">
           담당 에이전트가 실험 집계와 같은 기간의 INTM 퍼널·네이버 광고를 확인한 뒤,
           연결 이슈 문서와 의사결정 요청에 근거를 남깁니다.
         </p>
       </form>
-      {action.error ? <div className="sbe-error">{action.error}</div> : null}
-      {action.message ? <div className="sbe-success">{action.message}</div> : null}
+      <ActionFeedback error={action.error} message={action.message} recovery={action.recovery} />
     </div>
   );
 }

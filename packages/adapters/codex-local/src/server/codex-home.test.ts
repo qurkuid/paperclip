@@ -789,6 +789,37 @@ describe("evaluateCodexCredentialReadiness", () => {
     }
   });
 
+  it("removes malformed legacy servers.* lines when writing managed MCP config", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-codex-mcp-config-"));
+    try {
+      const configPath = path.join(root, "config.toml");
+      await fs.writeFile(
+        configPath,
+        "model = \"gpt-5\"\nservers.omx_wiki\nervers.omx_wiki]\n",
+        "utf8",
+      );
+
+      await writeManagedCodexMcpConfig({
+        codexHome: root,
+        apiBaseUrl: "https://paperclip.example",
+        gateways: [{
+          name: "runtime-intm-internal-data",
+          endpointPath: "/api/tool-gateway/gateways/runtime-intm-internal-data/mcp",
+          bearerToken: "secret-runtime-token",
+        }],
+      });
+
+      const updated = await fs.readFile(configPath, "utf8");
+      expect(updated).not.toContain("servers.omx_wiki");
+      expect(updated).not.toContain("ervers.omx_wiki]");
+      expect(updated).toContain('[mcp_servers."runtime-intm-internal-data"]');
+      expect(updated).toContain("PAPERCLIP_MCP_GATEWAY_");
+      expect(updated).not.toContain("secret-runtime-token");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("restricts permissions on an existing managed MCP config", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-codex-mcp-config-"));
     try {
@@ -803,6 +834,38 @@ describe("evaluateCodexCredentialReadiness", () => {
 
       expect((await fs.stat(configPath)).mode & 0o777).toBe(0o600);
     } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("atomically replaces managed MCP config instead of truncating the live file", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-codex-mcp-atomic-"));
+    const configPath = path.join(root, "config.toml");
+    await fs.writeFile(configPath, "model = \"gpt-5\"\n", { mode: 0o600 });
+    const writeSpy = vi.spyOn(fs, "writeFile");
+    const renameSpy = vi.spyOn(fs, "rename");
+    try {
+      await writeManagedCodexMcpConfig({
+        codexHome: root,
+        apiBaseUrl: "https://paperclip.example",
+        gateways: [{
+          name: "runtime",
+          endpointPath: "/api/tool-gateway/gateways/runtime/mcp",
+          bearerToken: "runtime-token",
+        }],
+      });
+
+      const directWrites = writeSpy.mock.calls.filter(
+        ([target]) => path.resolve(String(target)) === path.resolve(configPath),
+      );
+      const atomicReplacements = renameSpy.mock.calls.filter(
+        ([, target]) => path.resolve(String(target)) === path.resolve(configPath),
+      );
+      expect(directWrites).toHaveLength(0);
+      expect(atomicReplacements).toHaveLength(1);
+    } finally {
+      writeSpy.mockRestore();
+      renameSpy.mockRestore();
       await fs.rm(root, { recursive: true, force: true });
     }
   });

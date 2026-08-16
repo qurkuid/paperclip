@@ -87,6 +87,11 @@ export const boardActionInputSchema = z.discriminatedUnion("action", [
     issueId: uuidSchema,
     version: versionSchema,
   }).strict() }).strict(),
+  z.object({ action: actionCodeSchema.extract(["link-legacy-source"] as const), payload: z.object({
+    experimentId: uuidSchema,
+    legacyIssueId: uuidSchema,
+    version: versionSchema,
+  }).strict() }).strict(),
   z.object({ action: actionCodeSchema.extract(["select-responsible-agent"] as const), payload: z.object({
     experimentId: uuidSchema,
     responsibleAgentId: uuidSchema,

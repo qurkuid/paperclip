@@ -65,11 +65,11 @@ describe("spacebogam experiments plugin bundle", () => {
       expect.objectContaining({
         type: "sidebar",
         id: "spacebogam-experiments-sidebar",
-        displayName: "실험 운영",
+        displayName: "전체 현황",
       }),
       expect.objectContaining({ type: "page", routePath: ROUTE_PATH, exportName: "SpacebogamExperimentsPage" }),
-      expect.objectContaining({ type: "routeSidebar", routePath: ROUTE_PATH, exportName: "SpacebogamExperimentsRouteSidebar" }),
     ]));
+    expect((manifest.ui?.slots ?? []).some((slot) => slot.type === "routeSidebar")).toBe(false);
     expect(manifest.agents).toContainEqual(expect.objectContaining({
       agentKey: SPACEBOGAM_AGENT_KEY,
       status: "paused",

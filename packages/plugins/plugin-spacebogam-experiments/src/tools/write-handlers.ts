@@ -1,9 +1,12 @@
 import type { ToolResult, ToolRunContext } from "@paperclipai/plugin-sdk";
 
+import { aggregateVariantMetrics } from "../analytics.js";
 import {
   toolObservationPayloadSchema,
   toolStrategyPayloadSchema,
 } from "../contracts/index.js";
+import type { ExperimentDetail } from "../repository.js";
+import type { FunnelFreshness } from "../service/types.js";
 import {
   appendAgentSnapshot,
   appendObservation,
@@ -18,6 +21,39 @@ import {
   strategyResult,
   type ExperimentToolDeps,
 } from "./support.js";
+
+const DECISION_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
+function formatRate(value: number | null): string {
+  return value === null ? "표본 부족" : `${(value * 100).toFixed(1)}%`;
+}
+
+function strategyDecisionContext(
+  detail: ExperimentDetail,
+  funnel: FunnelFreshness,
+  asOf: string,
+) {
+  const metrics = aggregateVariantMetrics(detail.variants, detail.entries);
+  return {
+    kpis: metrics.flatMap((metric) => [
+      { label: `${metric.key} · 표본`, value: String(metric.sample) },
+      { label: `${metric.key} · 승률`, value: formatRate(metric.wonRate) },
+    ]),
+    sample: {
+      observed: metrics.reduce((total, metric) => total + metric.sample, 0),
+      required:
+        detail.experiment.minimumSamplePerVariant * detail.variants.length,
+    },
+    freshness: {
+      recordUpdatedAt: detail.experiment.updatedAt,
+      funnelGeneratedAt: funnel.generatedAt,
+      funnelDataThrough: funnel.dataThrough,
+      quality: funnel.quality,
+    },
+    asOf,
+    expiresAt: new Date(Date.parse(asOf) + DECISION_EXPIRY_MS).toISOString(),
+  };
+}
 
 export function createWriteToolHandlers(
   deps: ExperimentToolDeps,
@@ -103,6 +139,11 @@ export function createWriteToolHandlers(
       idempotentResults.set(cacheKey, result);
       return result;
     }
+    const funnel = await deps.funnelFreshness(
+      runCtx.companyId,
+      input.experimentId,
+    );
+    const asOf = deps.now();
     const artifact = await deps.issueIntegration.publishStrategy({
       companyId: runCtx.companyId,
       experimentId: input.experimentId,
@@ -112,8 +153,13 @@ export function createWriteToolHandlers(
       evidenceMarkdown: input.evidenceMarkdown,
       idempotencyKey: input.idempotencyKey,
       authorAgentId: runCtx.agentId,
+      decisionContext: strategyDecisionContext(detail, funnel, asOf),
     });
-    const observation = await appendObservation(deps, {
+    const observation = await appendObservation({
+      ...deps,
+      funnelFreshness: async () => funnel,
+      now: () => asOf,
+    }, {
       companyId: runCtx.companyId,
       experimentId: input.experimentId,
       kind: "strategy_proposal",

@@ -121,6 +121,7 @@ import {
   workProductService,
 } from "../services/index.js";
 import { buildPlanReviewContext } from "../services/plan-review-context.js";
+import { buildTelegramDecisionPackage } from "../services/telegram-decision-package.js";
 import { hydrateSuccessfulRunHandoffLiveness } from "../services/successful-run-handoff-state.js";
 import {
   TASK_WATCHDOG_ORIGIN_KIND,
@@ -9021,6 +9022,31 @@ export function issueRoutes(
 
     const interactions = await interactionSvc.listForIssue(id);
     res.json(interactions);
+  });
+
+  router.get("/issues/:id/interactions/:interactionId/decision-package", async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const interactionId = req.params.interactionId as string;
+    const issue = await getAccessibleResource(req, res, svc.getById(id), "Issue not found");
+    if (!issue) return;
+
+    const interaction = await issueThreadInteractionsSvc.getById(interactionId);
+    if (
+      !interaction
+      || interaction.companyId !== issue.companyId
+      || interaction.issueId !== issue.id
+    ) {
+      throw notFound("Interaction not found");
+    }
+    const company = await companiesSvc.getById(issue.companyId);
+
+    res.json(buildTelegramDecisionPackage({
+      companyName: company?.name,
+      issue,
+      interaction,
+      publicUrl: process.env.PAPERCLIP_PUBLIC_URL,
+    }));
   });
 
   router.post("/issues/:id/interactions", validate(createIssueThreadInteractionSchema), async (req, res) => {

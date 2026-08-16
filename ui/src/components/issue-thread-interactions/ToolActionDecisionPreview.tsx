@@ -15,6 +15,7 @@ const SPECIAL_LABELS: Record<string, string> = {
   naverBlog: "Naver Blog",
   platforms: "Publishing to",
   threads: "Threads",
+  videoUrl: "Video",
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -44,13 +45,27 @@ function isImageUrl(key: string, value: string): boolean {
   return /image|thumbnail|cover|photo/i.test(key) && /^https?:\/\//i.test(value);
 }
 
+function isVideoUrl(key: string, value: string): boolean {
+  return /^https?:\/\//i.test(value)
+    && (/video/i.test(key) || /\.(?:mp4|webm|mov)(?:[?#]|$)/i.test(value));
+}
+
 function isMarkdownField(key: string): boolean {
   return /markdown/i.test(key);
 }
 
 function parentAltText(parent: Record<string, unknown>): string {
   const value = parent.altText;
-  return typeof value === "string" && value.trim() ? value.trim() : "Content preview";
+  if (typeof value === "string" && value.trim()) return value.trim();
+  const mediaType = parent.mediaType;
+  return typeof mediaType === "string" && mediaType.trim()
+    ? `Instagram ${mediaType.trim()} preview`
+    : "Content preview";
+}
+
+function parentCoverUrl(parent: Record<string, unknown>): string | undefined {
+  const value = parent.coverUrl;
+  return typeof value === "string" && /^https?:\/\//i.test(value) ? value : undefined;
 }
 
 function PlatformList({ value }: { value: unknown[] }) {
@@ -86,6 +101,23 @@ function FieldValue({
   }
 
   if (typeof value === "string") {
+    if (isVideoUrl(field, value)) {
+      return (
+        <figure className="overflow-hidden rounded-sm border border-border bg-black">
+          <video
+            src={value}
+            aria-label={parentAltText(parent)}
+            poster={parentCoverUrl(parent)}
+            className="max-h-[32rem] w-full object-contain"
+            controls
+            playsInline
+            preload="auto"
+          >
+            <a href={value} target="_blank" rel="noreferrer">Open video</a>
+          </video>
+        </figure>
+      );
+    }
     if (isImageUrl(field, value)) {
       return (
         <figure className="overflow-hidden rounded-sm border border-border bg-muted/20">

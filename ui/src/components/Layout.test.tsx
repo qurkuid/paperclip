@@ -223,8 +223,10 @@ vi.mock("../lib/main-content-focus", () => ({
   scheduleMainContentFocus: () => () => undefined,
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", {
+  configurable: true,
+  value: true,
+});
 
 async function act(callback: () => void | Promise<void>) {
   let result: void | Promise<void> = undefined;
@@ -917,6 +919,75 @@ describe("Layout", () => {
     expect(mockPluginSlotContexts).toContainEqual({
       companyId: "company-2",
       companyPrefix: "ALT",
+    });
+    expect(mockPluginSlotContexts).not.toContainEqual({
+      companyId: "company-1",
+      companyPrefix: "PAP",
+    });
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it("mounts the Spacebogam experiment route sidebar from a direct company route", async () => {
+    currentPathname = "/CMP/spacebogam-experiments";
+    mockCompanyState.companies = [
+      { id: "company-1", issuePrefix: "PAP", name: "Paperclip" },
+      { id: "company-cmp", issuePrefix: "CMP", name: "Company" },
+    ];
+    mockCompanyState.selectedCompany = { id: "company-1", issuePrefix: "PAP", name: "Paperclip" };
+    mockCompanyState.selectedCompanyId = "company-1";
+    mockPluginSlots.slots = [
+      {
+        type: "page",
+        id: "spacebogam-experiments-page",
+        displayName: "실험 운영",
+        exportName: "SpacebogamExperimentsPage",
+        routePath: "spacebogam-experiments",
+        pluginId: "spacebogam-plugin",
+        pluginKey: "paperclipai.plugin-spacebogam-experiments",
+        pluginDisplayName: "실험 운영",
+        pluginVersion: "0.1.0",
+      },
+      {
+        type: "routeSidebar",
+        id: "spacebogam-experiments-route-sidebar",
+        displayName: "실험 운영",
+        exportName: "SpacebogamExperimentsRouteSidebar",
+        routePath: "spacebogam-experiments",
+        pluginId: "spacebogam-plugin",
+        pluginKey: "paperclipai.plugin-spacebogam-experiments",
+        pluginDisplayName: "실험 운영",
+        pluginVersion: "0.1.0",
+      },
+    ];
+    const root = createRoot(container);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <Layout />
+        </QueryClientProvider>,
+      );
+    });
+    await flushReact();
+    await flushReact();
+
+    expect(mockUsePluginSlots).toHaveBeenCalledWith(
+      expect.objectContaining({
+        slotTypes: ["page", "routeSidebar"],
+        companyId: "company-cmp",
+        enabled: true,
+      }),
+    );
+    expect(container.textContent).toContain("Plugin route sidebar: 실험 운영");
+    expect(mockPluginSlotContexts).toContainEqual({
+      companyId: "company-cmp",
+      companyPrefix: "CMP",
     });
     expect(mockPluginSlotContexts).not.toContainEqual({
       companyId: "company-1",

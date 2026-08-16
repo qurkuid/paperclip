@@ -37,6 +37,10 @@ export type LinkIssuePayload = Extract<
   BoardActionInput,
   { readonly action: "link-issue" }
 >["payload"];
+export type LinkLegacySourcePayload = Extract<
+  BoardActionInput,
+  { readonly action: "link-legacy-source" }
+>["payload"];
 export type RepositoryErrorCode =
   | "experiment_not_found"
   | "idempotency_conflict"
@@ -115,6 +119,10 @@ export type SpacebogamExperimentServiceDeps = {
   readonly resolveLinkedProjectId?: (
     companyId: string,
   ) => Promise<string | null>;
+  readonly validateLegacyIssue?: (
+    companyId: string,
+    issueId: string,
+  ) => Promise<boolean>;
   readonly validateAgent?: (
     companyId: string,
     agentId: string,

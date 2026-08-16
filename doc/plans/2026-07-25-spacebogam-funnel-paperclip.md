@@ -400,15 +400,15 @@ POST /api/tool-connections/:connectionId/test-calls
 
 수정:
 
-- `/Users/changseok/Documents/.codex-worktrees/intm-spacebogam-funnel-20260725/src/lib/spacebogam-funnel/contracts.ts`
+- `INTM worktree: src/lib/spacebogam-funnel/contracts.ts`
   - `schemaVersion`, `timezone`, `dataThrough`, `daily`, 확장 stage, `quality`, 결정적 `bottleneck` 추가
-- `/Users/changseok/Documents/.codex-worktrees/intm-spacebogam-funnel-20260725/src/lib/spacebogam-funnel/repository.ts`
+- `INTM worktree: src/lib/spacebogam-funnel/repository.ts`
   - KST 일별 zero-fill 집계, 최신 이벤트, UTM 태그율, 캠페인 표본 필드 반환
-- `/Users/changseok/Documents/.codex-worktrees/intm-spacebogam-funnel-20260725/src/lib/spacebogam-funnel/analytics.ts`
+- `INTM worktree: src/lib/spacebogam-funnel/analytics.ts`
   - 품질 상태·병목 순위·단계별 액션 규칙 구현
-- `/Users/changseok/Documents/.codex-worktrees/intm-spacebogam-funnel-20260725/src/lib/spacebogam-funnel/service.ts`
+- `INTM worktree: src/lib/spacebogam-funnel/service.ts`
   - 확장 데이터를 하나의 보고서로 조합
-- `/Users/changseok/Documents/.codex-worktrees/intm-spacebogam-funnel-20260725/tests/spacebogam-funnel-analytics.spec.ts`
+- `INTM worktree: tests/spacebogam-funnel-analytics.spec.ts`
   - sparse, stale, invalid sequence, 28일 zero-fill, Pareto 병목 규칙의 RED→GREEN 테스트
 
 보존:
@@ -426,8 +426,8 @@ POST /api/tool-connections/:connectionId/test-calls
 
 추가:
 
-- `/Users/changseok/Documents/.codex-worktrees/intm-spacebogam-funnel-20260725/src/app/api/paperclip/spacebogam-funnel/route.ts`
-- `/Users/changseok/Documents/.codex-worktrees/intm-spacebogam-funnel-20260725/tests/paperclip-spacebogam-funnel-route.spec.ts`
+- `INTM worktree: src/app/api/paperclip/spacebogam-funnel/route.ts`
+- `INTM worktree: tests/paperclip-spacebogam-funnel-route.spec.ts`
 
 수정:
 
@@ -552,15 +552,15 @@ Paperclip과 에이전트 검증이 모두 GREEN인 뒤에만 실행한다.
 
 삭제:
 
-- `/Users/changseok/Documents/.codex-worktrees/intm-spacebogam-funnel-20260725/src/app/newportal/marketing/funnel/page.tsx`
-- `/Users/changseok/Documents/.codex-worktrees/intm-spacebogam-funnel-20260725/src/app/newportal/marketing/funnel/spacebogam-funnel.module.css`
-- `/Users/changseok/Documents/.codex-worktrees/intm-spacebogam-funnel-20260725/src/app/api/newportal/marketing/funnel/route.ts`
+- `INTM worktree: src/app/newportal/marketing/funnel/page.tsx`
+- `INTM worktree: src/app/newportal/marketing/funnel/spacebogam-funnel.module.css`
+- `INTM worktree: src/app/api/newportal/marketing/funnel/route.ts`
 
 수정:
 
-- `/Users/changseok/Documents/.codex-worktrees/intm-spacebogam-funnel-20260725/src/app/newportal/NewPortalSidebar.tsx`
+- `INTM worktree: src/app/newportal/NewPortalSidebar.tsx`
   - `퍼널 분석` 링크 제거
-- `/Users/changseok/Documents/.codex-worktrees/intm-spacebogam-funnel-20260725/tests/newportal-marketing-menu.spec.ts`
+- `INTM worktree: tests/newportal-marketing-menu.spec.ts`
   - 잘못된 링크가 없고 기존 마케팅 메뉴는 유지되는 회귀 테스트로 변경
 
 반드시 보존:

@@ -105,6 +105,8 @@ export function setupToolState(
   const observations: Observation[] = [];
   const snapshots: Snapshot[] = [];
   const activity: string[] = [];
+  let funnelFreshnessCalls = 0;
+  let nowCalls = 0;
   const keys = new Set<string>();
   let idIndex = 0;
   const ids = [
@@ -135,18 +137,31 @@ export function setupToolState(
     repository,
     issueIntegration,
     activity: { log: async (entry) => { activity.push(entry.message); } },
-    now: () => NOW,
+    now: () => {
+      nowCalls += 1;
+      return NOW;
+    },
     newId: () => {
       const id = ids[idIndex];
       idIndex += 1;
       if (id === undefined) throw new Error("No fixture UUID remains");
       return id;
     },
-    funnelFreshness: async () => ({
-      quality: "ready",
-      dataThrough: NOW,
-      generatedAt: NOW,
-    }),
+    funnelFreshness: async () => {
+      funnelFreshnessCalls += 1;
+      return {
+        quality: "ready",
+        dataThrough: NOW,
+        generatedAt: NOW,
+      };
+    },
   });
-  return { handlers, observations, snapshots, activity };
+  return {
+    handlers,
+    observations,
+    snapshots,
+    activity,
+    funnelFreshnessCalls: () => funnelFreshnessCalls,
+    nowCalls: () => nowCalls,
+  };
 }
