@@ -116,27 +116,55 @@ const INTERACTION_ATTENTION_ID_RE = /^issue_thread_interaction:interaction:([0-9
  * notice. Re-running is safe — delivery is keyed by interaction and revision,
  * so an unchanged item is edited in place rather than re-posted.
  *
- * Reads the attention feed rather than the queue item listing because only the
- * feed carries the related issue, and the decision-package endpoint is scoped
- * by issue.
+ * The decision queues are authoritative for what needs a decision, but their
+ * items carry no issue and the decision-package endpoint is issue-scoped, so
+ * the attention feed supplies the mapping. It is read with includeDismissed
+ * because desk dismissal does not remove an item from its queue. Anything
+ * queued that cannot be mapped is reported as unresolved rather than dropped.
  */
 async function pollDecisions(args) {
   const sender = requireFlag(args, "sender");
   const companyId = requireUuid(requireFlag(args, "company"), "--company");
   const config = getSendConfig(sender);
-  const feed = await paperclipFetch(config, `/companies/${companyId}/attention?all=true`);
+
+  const queues = await paperclipFetch(config, `/companies/${companyId}/decision-queues`);
+  if (!Array.isArray(queues)) throw new OperationError("Decision queue listing is malformed");
+  const queued = new Set();
+  for (const queue of queues) {
+    const key = typeof queue?.key === "string" ? queue.key : null;
+    if (!key) continue;
+    const items = await paperclipFetch(
+      config,
+      `/companies/${companyId}/decision-queues/${encodeURIComponent(key)}/items`,
+    );
+    if (!Array.isArray(items)) continue;
+    for (const item of items) {
+      if (item?.sourceKind !== "issue_thread_interaction") continue;
+      if (typeof item.sourceId === "string") queued.add(item.sourceId);
+    }
+  }
+
+  const feed = await paperclipFetch(
+    config,
+    `/companies/${companyId}/attention?all=true&includeDismissed=true`,
+  );
   const items = Array.isArray(feed?.items) ? feed.items : null;
   if (!items) throw new OperationError("Attention feed is malformed");
-
-  const counts = { sent: 0, updated: 0, notified: 0, skipped: 0 };
+  const issueByInteraction = new Map();
   for (const item of items) {
     if (item?.sourceKind !== "issue_thread_interaction") continue;
-    if (!Array.isArray(item.queues) || item.queues.length === 0) continue;
-
     const interactionId = INTERACTION_ATTENTION_ID_RE.exec(item.id ?? "")?.[1] ?? null;
     const issueId = typeof item.relatedIssue?.id === "string" ? item.relatedIssue.id : null;
-    if (!interactionId || !issueId) {
-      counts.skipped += 1;
+    if (interactionId && issueId) issueByInteraction.set(interactionId, issueId);
+  }
+
+  const counts = { queued: queued.size, sent: 0, updated: 0, notified: 0, unresolved: 0 };
+  const unresolved = [];
+  for (const interactionId of queued) {
+    const issueId = issueByInteraction.get(interactionId);
+    if (!issueId) {
+      counts.unresolved += 1;
+      unresolved.push(interactionId);
       continue;
     }
 
@@ -161,7 +189,7 @@ async function pollDecisions(args) {
     if (!complete) counts.notified += 1;
     else counts[status] += 1;
   }
-  process.stdout.write(`${JSON.stringify({ ok: true, command: "poll", ...counts })}\n`);
+  process.stdout.write(`${JSON.stringify({ ok: true, command: "poll", ...counts, unresolvedInteractionIds: unresolved })}\n`);
 }
 
 async function resolveDecision(args) {

@@ -146,6 +146,7 @@ describe("paperclip-decision-bridge helper", () => {
   let telegramMode: "ok" | "api-failure" | "hung";
   let tempDir: string;
   let stateFile: string;
+  let queueItems: Array<Record<string, unknown>>;
 
   beforeEach(async () => {
     requests = [];
@@ -155,6 +156,7 @@ describe("paperclip-decision-bridge helper", () => {
     telegramMode = "ok";
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-decision-bridge-"));
     stateFile = path.join(tempDir, "state.json");
+    queueItems = [{ sourceKind: "issue_thread_interaction", sourceId: interactionId }];
 
     server = http.createServer(async (req, res) => {
       let raw = "";
@@ -222,7 +224,21 @@ describe("paperclip-decision-bridge helper", () => {
       }
       if (
         req.method === "GET"
-        && req.url === `/api/companies/${companyId}/attention?all=true`
+        && req.url === `/api/companies/${companyId}/decision-queues`
+      ) {
+        res.end(JSON.stringify([{ key: "plans", title: "Plans" }]));
+        return;
+      }
+      if (
+        req.method === "GET"
+        && req.url === `/api/companies/${companyId}/decision-queues/plans/items`
+      ) {
+        res.end(JSON.stringify(queueItems));
+        return;
+      }
+      if (
+        req.method === "GET"
+        && req.url === `/api/companies/${companyId}/attention?all=true&includeDismissed=true`
       ) {
         res.end(JSON.stringify({
           items: [
@@ -813,6 +829,33 @@ describe("paperclip-decision-bridge helper", () => {
     expect(resweep.filter((request) => request.url.endsWith("/sendMessage"))).toHaveLength(0);
     expect(resweep.filter((request) => request.url.endsWith("/editMessageText"))).toHaveLength(1);
     expectNoSensitiveOutput(second);
+  });
+
+  it("poll reports a queued interaction it cannot map to an issue instead of dropping it", async () => {
+    const orphan = "77777777-7777-4777-8777-777777777777";
+    queueItems = [
+      { sourceKind: "issue_thread_interaction", sourceId: interactionId },
+      { sourceKind: "issue_thread_interaction", sourceId: orphan },
+    ];
+    const result = await runHelper(["poll", "--sender", senderId, "--company", companyId], env());
+
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('"queued":2');
+    expect(result.stdout).toContain('"sent":1');
+    expect(result.stdout).toContain('"unresolved":1');
+    expect(result.stdout).toContain(orphan);
+    expectNoSensitiveOutput(result);
+  });
+
+  it("poll covers a queued interaction that was dismissed from the attention desk", async () => {
+    const result = await runHelper(["poll", "--sender", senderId, "--company", companyId], env());
+
+    expect(result.code).toBe(0);
+    // The desk feed is read with includeDismissed, so a dismissed-but-queued
+    // decision is still delivered rather than silently skipped.
+    const feedRequest = requests.find((request) => request.url.includes("/attention?"));
+    expect(feedRequest?.url).toContain("includeDismissed=true");
+    expect(result.stdout).toContain('"unresolved":0');
   });
 
   it("poll falls back to a notice when a queued interaction has incomplete evidence", async () => {
