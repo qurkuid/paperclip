@@ -47,6 +47,7 @@ import { cn, SIDEBAR_RAIL_HIDDEN_LABEL } from "../lib/utils";
 import { PluginSlotOutlet } from "@/plugins/slots";
 import { PluginLauncherOutlet } from "@/plugins/launchers";
 import { SidebarCompanyMenu } from "./SidebarCompanyMenu";
+import { koMenu } from "@/i18n/korean-menu";
 
 export function Sidebar() {
   const { openNewIssue } = useDialogActions();
@@ -144,8 +145,8 @@ export function Sidebar() {
                   variant="ghost"
                   size="icon-sm"
                   className="text-muted-foreground shrink-0"
-                  aria-label="Keep sidebar expanded"
-                  title="Keep sidebar expanded"
+                  aria-label={koMenu("Keep sidebar expanded")}
+                  title={koMenu("Keep sidebar expanded")}
                   onClick={() => setCollapsed(false)}
                 >
                   <Pin className="h-4 w-4" />
@@ -156,8 +157,8 @@ export function Sidebar() {
                   size="icon-sm"
                   className="text-muted-foreground shrink-0"
                   aria-expanded={!collapsed}
-                  aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                  title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                  aria-label={collapsed ? koMenu("Expand sidebar") : koMenu("Collapse sidebar")}
+                  title={collapsed ? koMenu("Expand sidebar") : koMenu("Collapse sidebar")}
                   onClick={() => toggleCollapsed()}
                 >
                   {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
@@ -180,13 +181,13 @@ export function Sidebar() {
                 className="flex items-center gap-2.5 mx-2 rounded-lg px-2 py-1.5 pointer-coarse:py-1 text-(length:--text-compact) font-medium text-foreground/80 hover:bg-accent/50 hover:text-foreground transition-colors"
               >
                 <SquarePen className="h-4 w-4 shrink-0" />
-                <span className={rail ? SIDEBAR_RAIL_HIDDEN_LABEL : "truncate"}>New Task</span>
+                <span className={rail ? SIDEBAR_RAIL_HIDDEN_LABEL : "truncate"}>{koMenu("New Task")}</span>
               </button>
             );
             return rail ? (
               <Tooltip>
                 <TooltipTrigger asChild>{newTaskButton}</TooltipTrigger>
-                <TooltipContent side="right">New Task</TooltipContent>
+                <TooltipContent side="right">{koMenu("New Task")}</TooltipContent>
               </Tooltip>
             ) : (
               newTaskButton
@@ -196,11 +197,11 @@ export function Sidebar() {
               width; a nav row also keeps search reachable from the
               collapsed rail, where the old header icon was dropped entirely.
               Cmd/Ctrl+K remains the keyboard path (command palette). */}
-          <SidebarNavItem to="/search" label="Search" icon={Search} />
-          <SidebarNavItem to="/dashboard" label="Dashboard" icon={LayoutDashboard} liveCount={liveRunCount} />
+          <SidebarNavItem to="/search" label={koMenu("Search")} icon={Search} />
+          <SidebarNavItem to="/dashboard" label={koMenu("Dashboard")} icon={LayoutDashboard} liveCount={liveRunCount} />
           <SidebarNavItem
             to="/inbox"
-            label="Inbox"
+            label={koMenu("Inbox")}
             icon={Inbox}
             badge={inboxBadge.inbox}
             badgeLabel="unread"
@@ -210,31 +211,31 @@ export function Sidebar() {
           {showDecisions ? (
             <SidebarNavItem
               to="/decisions"
-              label="Decisions"
+              label={koMenu("Decisions")}
               icon={ListChecks}
               badge={attentionCount}
               badgeLabel="decisions"
             />
           ) : null}
           {showStatusCards ? (
-            <SidebarNavItem to="/status" label="Status" icon={LayoutGrid} textBadge="beta" />
+            <SidebarNavItem to="/status" label={koMenu("Status")} icon={LayoutGrid} textBadge="beta" />
           ) : null}
           {conferenceRoomChatEnabled ? (
-            <SidebarNavItem to="/board-chat" label="Conference Room" icon={MessagesSquare} />
+            <SidebarNavItem to="/board-chat" label={koMenu("Conference Room")} icon={MessagesSquare} />
           ) : null}
         </div>
 
-        <SidebarSection label="Work" collapsible={{ open: workOpen, onOpenChange: setWorkOpen }}>
-          <SidebarNavItem to="/issues" label="Tasks" icon={CircleDot} />
+        <SidebarSection label={koMenu("Work")} collapsible={{ open: workOpen, onOpenChange: setWorkOpen }}>
+          <SidebarNavItem to="/issues" label={koMenu("Tasks")} icon={CircleDot} />
           {showCases ? (
-            <SidebarNavItem to="/cases" label="Cases" icon={Layers} textBadge="beta" />
+            <SidebarNavItem to="/cases" label={koMenu("Cases")} icon={Layers} textBadge="beta" />
           ) : null}
-          <SidebarNavItem to="/routines" label="Routines" icon={Repeat} />
+          <SidebarNavItem to="/routines" label={koMenu("Routines")} icon={Repeat} />
           {showPipelines ? (
-            <SidebarNavItem to="/pipelines" label="Pipelines" icon={GitBranch} />
+            <SidebarNavItem to="/pipelines" label={koMenu("Pipelines")} icon={GitBranch} />
           ) : null}
           {showGoalsLink ? (
-            <SidebarNavItem to="/goals" label="Goals" icon={Target} />
+            <SidebarNavItem to="/goals" label={koMenu("Goals")} icon={Target} />
           ) : goalsLinkPending ? (
             <div
               data-testid="sidebar-goals-placeholder"
@@ -242,14 +243,14 @@ export function Sidebar() {
               aria-hidden="true"
             />
           ) : null}
-          <SidebarNavItem to="/artifacts" label="Artifacts" icon={Package} />
-          <SidebarNavItem to="/skills" label="Skills" icon={Boxes} />
+          <SidebarNavItem to="/artifacts" label={koMenu("Artifacts")} icon={Package} />
+          <SidebarNavItem to="/skills" label={koMenu("Skills")} icon={Boxes} />
           {showWorkspacesLink ? (
-            <SidebarNavItem to="/workspaces" label="Workspaces" icon={GitBranch} />
+            <SidebarNavItem to="/workspaces" label={koMenu("Workspaces")} icon={GitBranch} />
           ) : null}
           {streamlined ? (
             <>
-              <SidebarNavItem to="/projects" label="Projects" icon={FolderOpen} />
+              <SidebarNavItem to="/projects" label={koMenu("Projects")} icon={FolderOpen} />
               <SidebarStarredProjects />
             </>
           ) : null}
@@ -273,14 +274,14 @@ export function Sidebar() {
 
         <SidebarAgents streamlined={streamlined} />
 
-        <SidebarSection label="Company" collapsible={{ open: companyOpen, onOpenChange: setCompanyOpen }}>
-          <SidebarNavItem to="/org" label="Org" icon={Network} />
-          {showApps ? <SidebarNavItem to="/apps" label="Apps" icon={AppWindow} /> : null}
-          <SidebarNavItem to="/timeline" label="Timeline" icon={GanttChartSquare} />
-          <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />
+        <SidebarSection label={koMenu("Company")} collapsible={{ open: companyOpen, onOpenChange: setCompanyOpen }}>
+          <SidebarNavItem to="/org" label={koMenu("Org")} icon={Network} />
+          {showApps ? <SidebarNavItem to="/apps" label={koMenu("Apps")} icon={AppWindow} /> : null}
+          <SidebarNavItem to="/timeline" label={koMenu("Timeline")} icon={GanttChartSquare} />
+          <SidebarNavItem to="/costs" label={koMenu("Costs")} icon={DollarSign} />
           {/* One entry — /audit merged into the rich Activity feed (PAP-16302). */}
-          <SidebarNavItem to="/activity" label="Activity" icon={History} />
-          <SidebarNavItem to="/company/settings" label="Settings" icon={Settings} />
+          <SidebarNavItem to="/activity" label={koMenu("Activity")} icon={History} />
+          <SidebarNavItem to="/company/settings" label={koMenu("Settings")} icon={Settings} />
         </SidebarSection>
 
         <PluginSlotOutlet

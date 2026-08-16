@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Sidebar } from "./Sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { koMenu } from "@/i18n/korean-menu";
 
 const mockHeartbeatsApi = vi.hoisted(() => ({
   liveRunsForCompany: vi.fn(),
@@ -166,9 +167,9 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableIsolatedWorkspaces: false });
     const root = await renderSidebar();
 
-    expect(container.querySelector('a[aria-label="Open search"]')).toBeNull();
+    expect(container.querySelector(`a[aria-label="${koMenu("Open search")}"]`)).toBeNull();
     const navSearchLink = [...container.querySelectorAll("nav a")]
-      .find((anchor) => anchor.textContent?.trim() === "Search");
+      .find((anchor) => anchor.textContent?.trim() === koMenu("Search"));
     expect(navSearchLink?.getAttribute("href")).toBe("/search");
 
     flushSync(() => {
@@ -189,12 +190,12 @@ describe("Sidebar", () => {
     // The Work section is a Collapsible now (one extra wrapper level), so
     // resolve the section root by walking up until the header label appears.
     let workSectionContainer = workSection?.parentElement ?? null;
-    while (workSectionContainer && !workSectionContainer.textContent?.includes("Work")) {
+    while (workSectionContainer && !workSectionContainer.textContent?.includes(koMenu("Work"))) {
       workSectionContainer = workSectionContainer.parentElement;
     }
-    expect(workSectionContainer?.textContent).toContain("Work");
-    expect(workSectionContainer?.textContent).toContain("Tasks");
-    expect(workSectionContainer?.textContent).not.toContain("Goals");
+    expect(workSectionContainer?.textContent).toContain(koMenu("Work"));
+    expect(workSectionContainer?.textContent).toContain(koMenu("Tasks"));
+    expect(workSectionContainer?.textContent).not.toContain(koMenu("Goals"));
 
     flushSync(() => {
       root.unmount();
@@ -208,14 +209,14 @@ describe("Sidebar", () => {
     });
     const root = await renderSidebar();
 
-    expect(container.textContent).toContain("New Task");
+    expect(container.textContent).toContain(koMenu("New Task"));
     expect(container.textContent).not.toContain("New Issue");
 
     const navLabels = [...container.querySelectorAll("nav a")].map((a) => a.textContent?.trim());
-    expect(navLabels).toContain("Tasks");
+    expect(navLabels).toContain(koMenu("Tasks"));
     expect(navLabels).not.toContain("Issues");
 
-    const projectsLink = [...container.querySelectorAll("nav a")].find((a) => a.textContent?.trim() === "Projects");
+    const projectsLink = [...container.querySelectorAll("nav a")].find((a) => a.textContent?.trim() === koMenu("Projects"));
     expect(projectsLink?.getAttribute("href")).toBe("/projects");
 
     expect(container.querySelector('[data-testid="sidebar-projects"]')).toBeNull();
@@ -233,7 +234,7 @@ describe("Sidebar", () => {
     const root = await renderSidebar();
 
     const navLabels = [...container.querySelectorAll("nav a")].map((a) => a.textContent?.trim());
-    expect(navLabels).toContain("Projects");
+    expect(navLabels).toContain(koMenu("Projects"));
     expect(container.querySelector('[data-testid="sidebar-projects"]')).toBeNull();
     expect(
       container.querySelector('[data-testid="sidebar-agents"]')?.getAttribute("data-streamlined"),
@@ -254,9 +255,9 @@ describe("Sidebar", () => {
     const root = await renderSidebar();
 
     const navLabels = [...container.querySelectorAll("nav a")].map((a) => a.textContent?.trim());
-    expect(navLabels).toContain("Tasks");
+    expect(navLabels).toContain(koMenu("Tasks"));
     // Top-level Projects link + starred children stay, per-project collapsible gone.
-    expect(navLabels).toContain("Projects");
+    expect(navLabels).toContain(koMenu("Projects"));
     expect(container.querySelector('[data-testid="sidebar-projects"]')).toBeNull();
     expect(container.querySelector('[data-testid="sidebar-starred-projects"]')).not.toBeNull();
     expect(
@@ -275,14 +276,17 @@ describe("Sidebar", () => {
     const sidebarSlot = [...container.querySelectorAll("nav [data-plugin-slot-types]")]
       .find((node) => node.getAttribute("data-plugin-slot-types") === "sidebar");
     expect(sidebarSlot?.textContent).toContain("Plugin slot outlet");
-    const workSectionContainer = sidebarSlot?.parentElement?.parentElement;
+    let workSectionContainer = sidebarSlot?.parentElement?.parentElement;
+    while (workSectionContainer && !workSectionContainer.textContent?.includes(koMenu("Work"))) {
+      workSectionContainer = workSectionContainer.parentElement ?? undefined;
+    }
     const workText = workSectionContainer?.textContent ?? "";
-    expect(workText).toContain("Work");
-    expect(workText).toContain("Workspaces");
-    expect(workText.indexOf("Workspaces")).toBeLessThan(workText.indexOf("Plugin slot outlet"));
+    expect(workText).toContain(koMenu("Work"));
+    expect(workText).toContain(koMenu("Workspaces"));
+    expect(workText.indexOf(koMenu("Workspaces"))).toBeLessThan(workText.indexOf("Plugin slot outlet"));
 
     const primaryNavText = container.querySelector("nav > div:first-child")?.textContent ?? "";
-    expect(primaryNavText).toContain("Inbox");
+    expect(primaryNavText).toContain(koMenu("Inbox"));
     expect(primaryNavText).not.toContain("Plugin slot outlet");
 
     flushSync(() => {
@@ -294,7 +298,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockImplementation(() => new Promise(() => {}));
     const root = await renderSidebar();
 
-    expect(container.textContent).not.toContain("Workspaces");
+    expect(container.textContent).not.toContain(koMenu("Workspaces"));
 
     flushSync(() => {
       root.unmount();
@@ -321,11 +325,11 @@ describe("Sidebar", () => {
 
     const primaryNavLinks = [...container.querySelectorAll("nav > div:first-child a")];
     const decisionsLink = primaryNavLinks.find(
-      (anchor) => anchor.textContent?.trim() === "Decisions",
+      (anchor) => anchor.textContent?.trim() === koMenu("Decisions"),
     );
     const statusLink = primaryNavLinks.find((anchor) => anchor.getAttribute("href") === "/status");
 
-    expect(statusLink?.textContent).toContain("Status");
+    expect(statusLink?.textContent).toContain(koMenu("Status"));
     expect(statusLink?.textContent).toContain("beta");
     expect(statusLink?.textContent).not.toContain("exp");
     expect(statusLink?.textContent).not.toContain("cards");
@@ -341,20 +345,20 @@ describe("Sidebar", () => {
     const root = await renderSidebar();
 
     const artifactsLink = [...container.querySelectorAll("a")].find(
-      (anchor) => anchor.textContent === "Artifacts",
+      (anchor) => anchor.textContent === koMenu("Artifacts"),
     );
     expect(artifactsLink?.getAttribute("href")).toBe("/artifacts");
 
     const navText = container.querySelector("nav")?.textContent ?? "";
-    expect(navText).toContain("Artifacts");
-    expect(navText).toContain("Skills");
-    expect(navText.indexOf("Artifacts")).toBeLessThan(navText.indexOf("Skills"));
+    expect(navText).toContain(koMenu("Artifacts"));
+    expect(navText).toContain(koMenu("Skills"));
+    expect(navText.indexOf(koMenu("Artifacts"))).toBeLessThan(navText.indexOf(koMenu("Skills")));
 
     const sections = [...container.querySelectorAll("nav > div")];
-    const workSection = sections.find((section) => section.textContent?.startsWith("Work"));
-    const companySection = sections.find((section) => section.textContent?.startsWith("Company"));
-    expect(workSection?.textContent).toContain("Skills");
-    expect(companySection?.textContent).not.toContain("Skills");
+    const workSection = sections.find((section) => section.textContent?.startsWith(koMenu("Work")));
+    const companySection = sections.find((section) => section.textContent?.startsWith(koMenu("Company")));
+    expect(workSection?.textContent).toContain(koMenu("Skills"));
+    expect(companySection?.textContent).not.toContain(koMenu("Skills"));
 
     flushSync(() => {
       root.unmount();
@@ -368,7 +372,7 @@ describe("Sidebar", () => {
     });
     const root = await renderSidebar();
 
-    expect([...container.querySelectorAll("nav a")].map((a) => a.textContent?.trim())).not.toContain("Goals");
+    expect([...container.querySelectorAll("nav a")].map((a) => a.textContent?.trim())).not.toContain(koMenu("Goals"));
 
     flushSync(() => {
       root.unmount();
@@ -379,7 +383,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockImplementation(() => new Promise(() => {}));
     const root = await renderSidebar();
 
-    expect([...container.querySelectorAll("nav a")].map((a) => a.textContent?.trim())).not.toContain("Goals");
+    expect([...container.querySelectorAll("nav a")].map((a) => a.textContent?.trim())).not.toContain(koMenu("Goals"));
     expect(container.querySelector('[data-testid="sidebar-goals-placeholder"]')).not.toBeNull();
 
     flushSync(() => {
@@ -394,11 +398,11 @@ describe("Sidebar", () => {
     });
     const root = await renderSidebar();
 
-    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "Goals");
+    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === koMenu("Goals"));
     expect(link?.getAttribute("href")).toBe("/goals");
 
     const navText = container.querySelector("nav")?.textContent ?? "";
-    expect(navText.indexOf("Goals")).toBeLessThan(navText.indexOf("Artifacts"));
+    expect(navText.indexOf(koMenu("Goals"))).toBeLessThan(navText.indexOf(koMenu("Artifacts")));
 
     flushSync(() => {
       root.unmount();
@@ -410,12 +414,12 @@ describe("Sidebar", () => {
     const root = await renderSidebar();
 
     const sections = [...container.querySelectorAll("nav > div")];
-    const workSection = sections.find((section) => section.textContent?.startsWith("Work"));
-    const companySection = sections.find((section) => section.textContent?.startsWith("Company"));
-    expect(workSection?.textContent).not.toContain("Timeline");
-    expect(companySection?.textContent).toContain("Timeline");
+    const workSection = sections.find((section) => section.textContent?.startsWith(koMenu("Work")));
+    const companySection = sections.find((section) => section.textContent?.startsWith(koMenu("Company")));
+    expect(workSection?.textContent).not.toContain(koMenu("Timeline"));
+    expect(companySection?.textContent).toContain(koMenu("Timeline"));
 
-    const timelineLink = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "Timeline");
+    const timelineLink = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === koMenu("Timeline"));
     expect(timelineLink?.getAttribute("href")).toBe("/timeline");
 
     flushSync(() => {
@@ -431,7 +435,7 @@ describe("Sidebar", () => {
     const root = await renderSidebar();
 
     const link = [...container.querySelectorAll("nav a")].find(
-      (anchor) => anchor.textContent?.trim() === "Conference Room",
+      (anchor) => anchor.textContent?.trim() === koMenu("Conference Room"),
     );
     expect(link?.getAttribute("href")).toBe("/board-chat");
 
@@ -447,7 +451,7 @@ describe("Sidebar", () => {
     });
     const root = await renderSidebar();
 
-    expect(container.textContent).not.toContain("Conference Room");
+    expect(container.textContent).not.toContain(koMenu("Conference Room"));
 
     flushSync(() => {
       root.unmount();
@@ -458,7 +462,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockImplementation(() => new Promise(() => {}));
     const root = await renderSidebar();
 
-    expect(container.textContent).not.toContain("Conference Room");
+    expect(container.textContent).not.toContain(koMenu("Conference Room"));
 
     flushSync(() => {
       root.unmount();
@@ -472,7 +476,7 @@ describe("Sidebar", () => {
     });
     const root = await renderSidebar();
 
-    expect(container.textContent).not.toContain("Pipelines");
+    expect(container.textContent).not.toContain(koMenu("Pipelines"));
 
     flushSync(() => {
       root.unmount();
@@ -483,7 +487,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableApps: false });
     const disabledRoot = await renderSidebar();
 
-    expect([...container.querySelectorAll("a")].some((anchor) => anchor.textContent === "Apps")).toBe(false);
+    expect([...container.querySelectorAll("a")].some((anchor) => anchor.textContent === koMenu("Apps"))).toBe(false);
 
     flushSync(() => {
       disabledRoot.unmount();
@@ -492,7 +496,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableApps: true });
     const enabledRoot = await renderSidebar();
 
-    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "Apps");
+    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === koMenu("Apps"));
     expect(link?.getAttribute("href")).toBe("/apps");
 
     flushSync(() => {
@@ -507,7 +511,7 @@ describe("Sidebar", () => {
     });
     const root = await renderSidebar();
 
-    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "Pipelines");
+    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === koMenu("Pipelines"));
     expect(link?.getAttribute("href")).toBe("/pipelines");
 
     flushSync(() => {
@@ -519,7 +523,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockImplementation(() => new Promise(() => {}));
     const root = await renderSidebar();
 
-    expect(container.textContent).not.toContain("Pipelines");
+    expect(container.textContent).not.toContain(koMenu("Pipelines"));
 
     flushSync(() => {
       root.unmount();
@@ -530,7 +534,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableIsolatedWorkspaces: true });
     const root = await renderSidebar();
 
-    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "Workspaces");
+    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === koMenu("Workspaces"));
     expect(link?.getAttribute("href")).toBe("/workspaces");
 
     flushSync(() => {
@@ -542,7 +546,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableIsolatedWorkspaces: false });
     const root = await renderSidebar();
 
-    const toggle = container.querySelector<HTMLButtonElement>('button[aria-label="Collapse sidebar"]');
+    const toggle = container.querySelector<HTMLButtonElement>(`button[aria-label="${koMenu("Collapse sidebar")}"]`);
     expect(toggle).not.toBeNull();
     expect(toggle?.getAttribute("aria-expanded")).toBe("true");
 
@@ -563,8 +567,8 @@ describe("Sidebar", () => {
     mockSidebar.collapseLocked = true;
     const root = await renderSidebar();
 
-    expect(container.querySelector('button[aria-label="Collapse sidebar"]')).toBeNull();
-    expect(container.querySelector('button[aria-label="Expand sidebar"]')).toBeNull();
+    expect(container.querySelector(`button[aria-label="${koMenu("Collapse sidebar")}"]`)).toBeNull();
+    expect(container.querySelector(`button[aria-label="${koMenu("Expand sidebar")}"]`)).toBeNull();
 
     mockSidebar.collapseLocked = false;
     flushSync(() => {
@@ -582,7 +586,7 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableIsolatedWorkspaces: false });
     const root = await renderSidebar();
 
-    expect(container.querySelector('button[aria-label="Expand sidebar"]')).toBeNull();
+    expect(container.querySelector(`button[aria-label="${koMenu("Expand sidebar")}"]`)).toBeNull();
     // The company menu (company switcher / logo) is still present in the rail.
     expect(container.textContent).toContain("Company menu");
     // Search survives the rail as an icon-only nav item — the old
@@ -604,8 +608,8 @@ describe("Sidebar", () => {
     const root = await renderSidebar();
 
     // The collapse toggle is replaced by the pin while peeking.
-    expect(container.querySelector('button[aria-label="Expand sidebar"]')).toBeNull();
-    const pin = container.querySelector<HTMLButtonElement>('button[aria-label="Keep sidebar expanded"]');
+    expect(container.querySelector(`button[aria-label="${koMenu("Expand sidebar")}"]`)).toBeNull();
+    const pin = container.querySelector<HTMLButtonElement>(`button[aria-label="${koMenu("Keep sidebar expanded")}"]`);
     expect(pin).not.toBeNull();
 
     flushSync(() => {
@@ -623,8 +627,8 @@ describe("Sidebar", () => {
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableIsolatedWorkspaces: false });
     const root = await renderSidebar();
 
-    expect(container.querySelector('button[aria-label="Collapse sidebar"]')).toBeNull();
-    expect(container.querySelector('button[aria-label="Keep sidebar expanded"]')).toBeNull();
+    expect(container.querySelector(`button[aria-label="${koMenu("Collapse sidebar")}"]`)).toBeNull();
+    expect(container.querySelector(`button[aria-label="${koMenu("Keep sidebar expanded")}"]`)).toBeNull();
 
     flushSync(() => {
       root.unmount();

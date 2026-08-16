@@ -58,6 +58,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Agent } from "@paperclipai/shared";
+import { koMenu } from "@/i18n/korean-menu";
 
 /**
  * When no agent is running, the sidebar falls back to showing at most this many
@@ -67,9 +68,9 @@ const RECENT_AGENT_LIMIT = 3;
 const LIVE_AGENT_LINGER_MS = 120_000;
 
 const AGENT_SORT_CHOICES: SidebarSectionRadioChoice[] = [
-  { value: "top", label: "Top" },
-  { value: "alphabetical", label: "Alphabetical" },
-  { value: "recent", label: "Recent" },
+  { value: "top", label: koMenu("Top") },
+  { value: "alphabetical", label: koMenu("Alphabetical") },
+  { value: "recent", label: koMenu("Recent") },
 ];
 
 function agentTimestamp(agent: Agent, field: "lastHeartbeatAt" | "updatedAt" | "createdAt"): number {
@@ -145,14 +146,14 @@ function SidebarAgentItem({
   const isPaused = agent.status === "paused";
   const isBudgetPaused = isPaused && agent.pauseReason === "budget";
   const hasInvalidOrgChain = agent.orgChainHealth?.status === "invalid_org_chain";
-  const pauseResumeLabel = isPaused ? "Resume agent" : "Pause agent";
+  const pauseResumeLabel = isPaused ? koMenu("Resume agent") : koMenu("Pause agent");
   const pauseResumeDisabled = disabled || agent.status === "pending_approval" || isBudgetPaused || (isPaused && hasInvalidOrgChain);
   const pauseResumeDisabledLabel = disabled
-    ? "Updating..."
+    ? koMenu("Updating...")
     : isBudgetPaused
-      ? "Budget paused"
+      ? koMenu("Budget paused")
       : isPaused && hasInvalidOrgChain
-        ? "Invalid org chain"
+        ? koMenu("Invalid org chain")
       : pauseResumeLabel;
   const showBuiltInLifecycle = builtInStatus === "needs_setup" || builtInStatus === "pending_approval";
   const trailingLabel = [
@@ -248,7 +249,7 @@ function SidebarAgentItem({
                 ) : (
                   <Star className={cn("size-4", starred && "fill-amber-500 text-amber-500")} />
                 )}
-                <span>{starred ? "Remove from starred" : "Star agent"}</span>
+                <span>{starred ? koMenu("Remove from starred") : koMenu("Star agent")}</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
             </>
@@ -261,7 +262,7 @@ function SidebarAgentItem({
               }}
             >
               <Pencil className="size-4" />
-              <span>Edit agent</span>
+              <span>{koMenu("Edit agent")}</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -285,7 +286,7 @@ function SidebarAgentItem({
             disabled={leaving}
           >
             {leaving ? <Loader2 className="size-4 motion-safe:animate-spin" /> : <LogOut className="size-4" />}
-            <span>{leaving ? "Leaving..." : "Leave agent"}</span>
+            <span>{leaving ? koMenu("Leaving...") : koMenu("Leave agent")}</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -631,20 +632,20 @@ export function SidebarAgents({ streamlined = false }: { streamlined?: boolean }
 
   return (
     <SidebarSection
-      label="Agents"
+      label={koMenu("Agents")}
       collapsible={{ open, onOpenChange: setOpen }}
       headerAction={{
-        ariaLabel: "New agent",
+        ariaLabel: koMenu("New agent"),
         icon: Plus,
         onClick: openNewAgent,
       }}
       menu={{
-        ariaLabel: "Agents section actions",
+        ariaLabel: koMenu("Agents section actions"),
         actions: [
-          { type: "item", label: "Browse agents", icon: Users, href: "/agents/all" },
+          { type: "item", label: koMenu("Browse agents"), icon: Users, href: "/agents/all" },
           { type: "separator" },
         ],
-        radioLabel: "Agent sort",
+        radioLabel: koMenu("Agent sort"),
         radioChoices: AGENT_SORT_CHOICES,
         radioValue: sortMode,
         onRadioValueChange: persistSortMode,
@@ -666,13 +667,13 @@ export function SidebarAgents({ streamlined = false }: { streamlined?: boolean }
             className="flex items-center gap-2.5 mx-2 rounded-lg px-2 py-1.5 pointer-coarse:py-1 text-(length:--text-compact) font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
           >
             <Users className="shrink-0 h-4 w-4" />
-            <span className={rail ? SIDEBAR_RAIL_HIDDEN_LABEL : undefined}>See all agents</span>
+            <span className={rail ? SIDEBAR_RAIL_HIDDEN_LABEL : undefined}>{koMenu("See all agents")}</span>
           </Link>
         );
         return rail ? (
           <Tooltip>
             <TooltipTrigger asChild>{seeAllLink}</TooltipTrigger>
-            <TooltipContent side="right">See all agents</TooltipContent>
+            <TooltipContent side="right">{koMenu("See all agents")}</TooltipContent>
           </Tooltip>
         ) : (
           seeAllLink

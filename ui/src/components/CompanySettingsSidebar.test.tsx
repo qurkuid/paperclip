@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CompanySettingsSidebar } from "./CompanySettingsSidebar";
+import { koMenu } from "@/i18n/korean-menu";
 
 const sidebarNavItemMock = vi.hoisted(() => vi.fn());
 const mockSidebarBadgesApi = vi.hoisted(() => ({
@@ -137,21 +138,21 @@ describe("CompanySettingsSidebar", () => {
     await flushReact();
 
     expect(container.textContent).toContain("Paperclip");
-    expect(container.textContent).toContain("Company Settings");
-    expect(container.textContent).toContain("Company settings");
-    expect(container.textContent).toContain("Instance settings");
-    expect(container.textContent).toContain("General");
-    expect(container.textContent).toContain("Environments");
+    expect(container.textContent).toContain(koMenu("Company Settings"));
+    expect(container.textContent).toContain(koMenu("Company settings"));
+    expect(container.textContent).toContain(koMenu("Instance settings"));
+    expect(container.textContent).toContain(koMenu("General"));
+    expect(container.textContent).toContain(koMenu("Environments"));
     expect(container.textContent).toContain("Export");
     expect(container.textContent).toContain("Import");
-    expect(container.textContent).toContain("Members");
-    expect(container.textContent).toContain("Invites");
-    expect(container.textContent).toContain("Secrets");
+    expect(container.textContent).toContain(koMenu("Members"));
+    expect(container.textContent).toContain(koMenu("Invites"));
+    expect(container.textContent).toContain(koMenu("Secrets"));
     expect(container.textContent).not.toContain("Tools & Access");
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings",
-        label: "General",
+        label: koMenu("General"),
         end: true,
       }),
     );
@@ -171,14 +172,14 @@ describe("CompanySettingsSidebar", () => {
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/instance/environments",
-        label: "Environments",
+        label: koMenu("Environments"),
         end: true,
       }),
     );
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/members",
-        label: "Members",
+        label: koMenu("Members"),
         badge: 2,
         end: true,
       }),
@@ -186,41 +187,41 @@ describe("CompanySettingsSidebar", () => {
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/invites",
-        label: "Invites",
+        label: koMenu("Invites"),
         end: true,
       }),
     );
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/secrets",
-        label: "Secrets",
+        label: koMenu("Secrets"),
         end: true,
       }),
     );
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/instance/profile",
-        label: "Profile",
+        label: koMenu("Profile"),
         end: true,
       }),
     );
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/instance/general",
-        label: "General",
+        label: koMenu("General"),
         end: true,
       }),
     );
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/instance/plugins",
-        label: "Plugins",
+        label: koMenu("Plugins"),
       }),
     );
     expect(sidebarNavItemMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "/company/settings/instance/adapters",
-        label: "Adapters",
+        label: koMenu("Adapters"),
       }),
     );
     expect(sidebarNavItemMock).not.toHaveBeenCalledWith(
