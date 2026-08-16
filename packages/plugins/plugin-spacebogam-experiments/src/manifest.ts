@@ -209,7 +209,7 @@ const manifest: PaperclipPluginManifestV1 = {
       {
         type: "sidebar",
         id: "spacebogam-experiments-sidebar",
-        displayName: "실험 운영",
+        displayName: "전체 현황",
         exportName: "SpacebogamExperimentsSidebar",
         order: 60,
       },
@@ -218,13 +218,6 @@ const manifest: PaperclipPluginManifestV1 = {
         id: "spacebogam-experiments-page",
         displayName: "실험 운영",
         exportName: "SpacebogamExperimentsPage",
-        routePath: ROUTE_PATH,
-      },
-      {
-        type: "routeSidebar",
-        id: "spacebogam-experiments-route-sidebar",
-        displayName: "실험 운영",
-        exportName: "SpacebogamExperimentsRouteSidebar",
         routePath: ROUTE_PATH,
       },
     ],

@@ -21,6 +21,7 @@ import { fetchSpacebogamFunnel } from "../api/spacebogam-funnel";
 interface QueryOptions {
   queryKey?: readonly unknown[];
   enabled?: boolean;
+  retry?: boolean;
   staleTime?: number;
   refetchInterval?: number | false;
   queryFn?: () => Promise<unknown>;
@@ -45,6 +46,7 @@ describe("useSpacebogamFunnel", () => {
 
     expect(options.queryKey).toEqual(["spacebogam-funnel", "company-1", 90]);
     expect(options.enabled).toBe(true);
+    expect(options.retry).toBe(false);
     expect(options.staleTime).toBe(60_000);
     expect(options.refetchInterval).toBe(300_000);
     if (!options.queryFn) throw new Error("queryFn was not set");

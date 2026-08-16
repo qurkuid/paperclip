@@ -80,6 +80,7 @@ describe.sequential("spacebogam funnel routes", () => {
     delete process.env.SPACEBOGAM_FUNNEL_UPSTREAM_TOKEN;
     delete process.env.SPACEBOGAM_FUNNEL_PAPERCLIP_COMPANY_ID;
     delete process.env.SPACEBOGAM_NAVER_SEARCH_AD_CREDENTIALS_PATH;
+    delete process.env.SPACEBOGAM_NAVER_SEARCH_AD_TIMEOUT_MS;
   });
 
   afterEach(() => {
@@ -148,6 +149,32 @@ describe.sequential("spacebogam funnel routes", () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ...report, naverSearchAds: snapshot });
+    expect(adsClient.fetchSnapshot).toHaveBeenCalledWith({
+      companyId: spacebogamCompanyId,
+      rangeDays: 28,
+      dataThrough: report.dataThrough,
+    });
+  });
+
+  it("returns the funnel report when Naver Search Ads snapshot does not return quickly", async () => {
+    const report = validSpacebogamReport(28);
+    const upstreamClient = client({ ok: true, report });
+    const adsClient = {
+      fetchSnapshot: vi.fn(async () => {
+        await new Promise<null>(() => {});
+        return null;
+      }),
+    };
+    process.env.SPACEBOGAM_NAVER_SEARCH_AD_TIMEOUT_MS = "5";
+    const app = await createRouteApp({
+      upstreamClient,
+      naverSearchAdsClient: adsClient,
+    });
+
+    const res = await request(app).get(routePath);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(report);
     expect(adsClient.fetchSnapshot).toHaveBeenCalledWith({
       companyId: spacebogamCompanyId,
       rangeDays: 28,
@@ -264,6 +291,7 @@ describe.sequential("spacebogam funnel routes", () => {
     process.env.SPACEBOGAM_FUNNEL_UPSTREAM_URL = upstreamUrl;
     process.env.SPACEBOGAM_FUNNEL_UPSTREAM_TOKEN = secretToken;
     process.env.SPACEBOGAM_FUNNEL_PAPERCLIP_COMPANY_ID = spacebogamCompanyId;
+    process.env.SPACEBOGAM_NAVER_SEARCH_AD_CREDENTIALS_PATH = "";
     const report = validSpacebogamReport(7);
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(report))));
     const { createApp } = await import("../app.js");

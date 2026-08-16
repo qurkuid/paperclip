@@ -35,6 +35,7 @@ import {
   deriveRecoveryDisplayState,
   type RecoveryDisplayState,
 } from "@/lib/recovery-display";
+import { koMenu } from "@/i18n/korean-menu";
 
 export type RecoveryCardCardState = RecoveryDisplayState;
 export const deriveRecoveryCardState = deriveRecoveryDisplayState;
@@ -737,7 +738,7 @@ function readWakePolicySummary(action: IssueRecoveryAction): string | null {
   if (!policy) return null;
   const type = readEvidenceString(policy.type);
   if (!type) return null;
-  if (type === "wake_owner") return "Corrective wake queued";
+  if (type === "wake_owner") return koMenu("Corrective wake queued");
   if (type === "board_escalation") return "Escalated to board";
   if (type === "manual") return "Manual";
   if (type === "manual_repair_required") return "Manual repair required";
@@ -746,6 +747,23 @@ function readWakePolicySummary(action: IssueRecoveryAction): string | null {
     return interval ? `Monitor scheduled · ${interval}` : "Monitor scheduled";
   }
   return type.replaceAll("_", " ");
+}
+
+function readNextActionSummary(action: IssueRecoveryAction): string | null {
+  if (!action.nextAction) return null;
+  const normalizedNextAction = action.nextAction
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\.$/, "");
+  if (
+    normalizedNextAction ===
+    "Retry the original assignee from durable progress without redoing completed steps"
+  ) {
+    return koMenu(
+      "Retry the original assignee from durable progress without redoing completed steps.",
+    );
+  }
+  return action.nextAction;
 }
 
 function formatTimeShort(value: string | Date | null | undefined): string | null {
@@ -926,6 +944,7 @@ export function IssueRecoveryActionCard({
   }, [action.kind, action.outcome, cardState]);
 
   const wakeSummary = readWakePolicySummary(action);
+  const nextActionSummary = readNextActionSummary(action);
   const evidenceSummary = pickEvidenceSummary(action);
   const sourceRunId = readEvidenceRunId(action, "sourceRunId") ?? readEvidenceRunId(action, "latestRunId");
   const correctiveRunId = readEvidenceRunId(action, "correctiveRunId");
@@ -1089,11 +1108,11 @@ export function IssueRecoveryActionCard({
           )}
         </MetadataRow>
         <MetadataRow label="Next action">
-          {action.nextAction ? <span>{action.nextAction}</span> : <MissingValue />}
+          {nextActionSummary ? <span>{nextActionSummary}</span> : <MissingValue />}
         </MetadataRow>
-        <MetadataRow label="Wake">
+        <MetadataRow label={koMenu("Wake")}>
           <span className="inline-flex flex-wrap items-center gap-1.5">
-            {wakeSummary ? <span>{wakeSummary}</span> : <MissingValue />}
+            {wakeSummary ? <span>{` ${wakeSummary}`}</span> : <MissingValue />}
             {showAttempt ? (
               <span className="rounded-md border border-border/50 bg-background/60 px-1.5 py-0.5 text-(length:--text-micro) text-muted-foreground">
                 attempt {action.attemptCount} of {action.maxAttempts}

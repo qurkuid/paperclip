@@ -55,6 +55,39 @@ function routeError(error: SpacebogamFunnelUpstreamError): HttpError {
   return new HttpError(502, "spacebogam_funnel_upstream_error");
 }
 
+type NaverSearchAdsSnapshot = Awaited<ReturnType<SpacebogamNaverSearchAdsClient["fetchSnapshot"]>>;
+
+function readNaverTimeoutMs(): number {
+  const raw = process.env.SPACEBOGAM_NAVER_SEARCH_AD_TIMEOUT_MS;
+  const parsed = typeof raw === "string" ? Number.parseInt(raw, 10) : Number.NaN;
+  return Number.isNaN(parsed) || parsed <= 0 ? 5_000 : parsed;
+}
+
+async function fetchNaverSearchAdsSnapshotWithTimeout(
+  client: SpacebogamNaverSearchAdsClient,
+  input: {
+    companyId: string;
+    rangeDays: 7 | 28 | 90;
+    dataThrough: string | null;
+  },
+): Promise<NaverSearchAdsSnapshot | null> {
+  const timeoutMs = readNaverTimeoutMs();
+  const snapshot = client.fetchSnapshot(input).catch(() => null);
+
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const fallback = new Promise<NaverSearchAdsSnapshot>((resolve) => {
+    timeout = setTimeout(() => {
+      resolve(null);
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([snapshot, fallback]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
 export function spacebogamFunnelRoutes(
   client?: SpacebogamFunnelUpstreamClient,
   naverClient: SpacebogamNaverSearchAdsClient = envNaverClient(),
@@ -82,7 +115,7 @@ export function spacebogamFunnelRoutes(
       throw routeError(result.error);
     }
 
-    const naverSearchAds = await naverClient.fetchSnapshot({
+    const naverSearchAds = await fetchNaverSearchAdsSnapshotWithTimeout(naverClient, {
       companyId,
       rangeDays,
       dataThrough: result.report.dataThrough,

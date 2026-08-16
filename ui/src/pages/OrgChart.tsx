@@ -571,7 +571,8 @@ export function OrgChart() {
                   left: node.x,
                   top: node.y,
                   width: CARD_W,
-                  minHeight: CARD_H,
+                  height: CARD_H,
+                  overflow: "hidden",
                 }}
                 onClick={() => navigate(agent ? agentUrl(agent) : `/agents/${node.id}`)}
                 onClickCapture={(e) => {
@@ -594,14 +595,14 @@ export function OrgChart() {
                   </div>
                   {/* Name + role + adapter type */}
                   <div className="flex flex-col items-start min-w-0 flex-1">
-                    <span className="text-sm font-semibold text-foreground leading-tight">
+                    <span className="max-w-full truncate text-sm font-semibold text-foreground leading-tight">
                       {node.name}
                     </span>
-                    <span className="text-(length:--text-micro) text-muted-foreground leading-tight mt-0.5">
+                    <span className="mt-0.5 max-w-full truncate text-(length:--text-micro) text-muted-foreground leading-tight">
                       {agent?.title ?? roleLabel(node.role)}
                     </span>
                     {agent && (
-                      <span className="text-(length:--text-nano) text-muted-foreground/60 font-mono leading-tight mt-1">
+                      <span className="mt-1 max-w-full truncate text-(length:--text-nano) text-muted-foreground/60 font-mono leading-tight">
                         {getAdapterLabel(agent.adapterType)}
                       </span>
                     )}

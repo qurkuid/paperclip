@@ -289,6 +289,10 @@ describe("shared ACPX engine runtime behavior", () => {
     expect(prompt).toContain("PAPERCLIP_API_KEY");
     expect(prompt).toContain("PAPERCLIP_WAKE_PAYLOAD_JSON");
     expect(prompt).toContain("Paperclip API access note:");
+    expect(prompt).toContain("Paperclip task-state freshness rule:");
+    expect(prompt).toContain(
+      "Current wake fields and a fresh canonical issue response override continuation summaries and older comments.",
+    );
     expect(prompt).toContain('PAPERCLIP_API_BASE="${PAPERCLIP_API_URL%/}"; PAPERCLIP_API_BASE="${PAPERCLIP_API_BASE%/api}"');
     expect(prompt).toContain("$PAPERCLIP_API_BASE/api/agents/me");
     expect(prompt).toContain("$PAPERCLIP_API_BASE/api/issues/$PAPERCLIP_TASK_ID");
@@ -594,7 +598,7 @@ describe("shared ACPX engine runtime behavior", () => {
       paperclipInstanceId,
       "companies",
       "company-1",
-      "codex-home",
+      "codex-acp-home",
     );
     await fs.mkdir(sourceCodexHome, { recursive: true });
     await fs.mkdir(managedCodexHome, { recursive: true });
@@ -1241,7 +1245,7 @@ describe("shared ACPX engine runtime behavior", () => {
     expect(first.result.sessionParams?.configFingerprint).not.toBe(second.result.sessionParams?.configFingerprint);
   });
 
-  it("injects runtime MCP servers and fingerprints their identity without persisting bearer tokens", async () => {
+  it("tells Codex to resolve attached MCP callables from ALL_TOOLS without requiring tool search", async () => {
     const root = await makeTempRoot();
     const baseConfig = {
       agent: "custom",
@@ -1252,6 +1256,7 @@ describe("shared ACPX engine runtime behavior", () => {
       name: "github",
       url: "https://paperclip.example/api/tool-gateway/gateways/github/mcp",
       connectionId: "connection-1",
+      toolNames: ["publish_content", "stage_content"],
     };
     const first = await runExecutor(baseConfig, {
       runtimeMcp: { getServers: () => [{ ...server, token: "token-one" }] },
@@ -1275,7 +1280,35 @@ describe("shared ACPX engine runtime behavior", () => {
       name: "github",
       url: server.url,
       connectionId: "connection-1",
+      toolNames: ["publish_content", "stage_content"],
     }]);
+    expect(String(first.meta[0]?.prompt ?? "")).toContain("Paperclip managed tool delivery:");
+    expect(String(first.meta[0]?.prompt ?? "")).toContain("publish_content");
+    expect(String(first.meta[0]?.prompt ?? "")).toContain("stage_content");
+    expect(String(first.meta[0]?.prompt ?? "")).toContain(
+      "Do not report these managed tools as missing merely because you have not called them yet.",
+    );
+    expect(String(first.meta[0]?.prompt ?? "")).toContain(
+      "The catalog identities below are not JavaScript property names and must not be read as tools[catalogIdentity].",
+    );
+    expect(String(first.meta[0]?.prompt ?? "")).toContain(
+      "resolve the callable name from ALL_TOOLS",
+    );
+    expect(String(first.meta[0]?.prompt ?? "")).toContain(
+      "call tools[candidate.name](args)",
+    );
+    expect(String(first.meta[0]?.prompt ?? "")).toContain(
+      "callable prefix: mcp__github__",
+    );
+    expect(String(first.meta[0]?.prompt ?? "")).toContain(
+      "catalog identity: publish_content",
+    );
+    expect(String(first.meta[0]?.prompt ?? "")).toContain(
+      "catalog identity: stage_content",
+    );
+    expect(String(first.meta[0]?.prompt ?? "")).not.toContain(
+      "Before declaring a listed tool unregistered, use the tool-search capability",
+    );
     expect(JSON.stringify(first.result.sessionParams)).not.toContain("token-one");
     expect(first.result.sessionParams?.configFingerprint).toBe(rotatedToken.result.sessionParams?.configFingerprint);
     expect(first.result.sessionParams?.configFingerprint).not.toBe(changedSet.result.sessionParams?.configFingerprint);

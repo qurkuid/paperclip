@@ -64,7 +64,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { CircleDot, Plus, ArrowUpDown, Layers, Check, ChevronRight, List, ListTree, User, Search, CircleSlash2, ChevronsDownUp, PanelTopClose, RotateCcw, ListCollapse,
-  SquareKanban,
+  GitBranch, SquareKanban,
 } from "lucide-react";
 import {
   KanbanBoard,
@@ -74,6 +74,7 @@ import {
   KANBAN_COLUMN_PAGE_SIZE_OPTIONS,
   type KanbanColumnPageSize,
 } from "./KanbanBoard";
+import { TaskFlowView } from "./TaskFlowView";
 import { buildIssueTree, countDescendants } from "../lib/issue-tree";
 import { getInboxKeyboardSelectionIndex } from "../lib/inbox";
 import { hasBlockingShortcutDialog, isKeyboardShortcutTextInputTarget } from "../lib/keyboardShortcuts";
@@ -145,12 +146,13 @@ export type IssueSortField = "status" | "priority" | "title" | "created" | "upda
 export type BoardCardDensity = "auto" | "compact" | "comfortable";
 export type BoardColdLaneMode = "auto" | "collapsed" | "expanded";
 export type BoardColumnPageSize = KanbanColumnPageSize;
+export type IssueViewMode = "list" | "board" | "flow";
 
 export type IssueViewState = IssueFilterState & {
   sortField: IssueSortField;
   sortDir: "asc" | "desc";
   groupBy: "status" | "priority" | "assignee" | "project" | "workspace" | "parent" | "none";
-  viewMode: "list" | "board";
+  viewMode: IssueViewMode;
   nestingEnabled: boolean;
   collapsedGroups: string[];
   collapsedParents: string[];
@@ -187,6 +189,10 @@ function normalizeBoardColumnPageSize(value: unknown): BoardColumnPageSize {
     : KANBAN_COLUMN_DEFAULT_PAGE_SIZE;
 }
 
+function normalizeIssueViewMode(value: unknown): IssueViewMode {
+  return value === "board" || value === "flow" ? value : "list";
+}
+
 function getViewState(key: string): IssueViewState {
   try {
     const raw = localStorage.getItem(key);
@@ -196,6 +202,7 @@ function getViewState(key: string): IssueViewState {
         ...defaultViewState,
         ...parsed,
         ...normalizeIssueFilterState(parsed),
+        viewMode: normalizeIssueViewMode(parsed.viewMode),
         boardCardDensity: normalizeBoardCardDensity(parsed.boardCardDensity),
         boardColdLaneMode: normalizeBoardColdLaneMode(parsed.boardColdLaneMode),
         boardColumnPageSize: normalizeBoardColumnPageSize(parsed.boardColumnPageSize),
@@ -1639,6 +1646,15 @@ export function IssuesList({
             >
               <SquareKanban className="h-3.5 w-3.5" />
             </button>
+            <button
+              className={`flex h-8 w-8 items-center justify-center transition-colors ${viewState.viewMode === "flow" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              onClick={() => updateView({ viewMode: "flow" })}
+              title="흐름 보기"
+              aria-label="흐름 보기"
+              aria-pressed={viewState.viewMode === "flow"}
+            >
+              <GitBranch className="h-3.5 w-3.5" />
+            </button>
           </div>
 
           {viewState.viewMode === "list" && (
@@ -1870,6 +1886,14 @@ export function IssuesList({
           initialVisibleCount={viewState.boardColumnPageSize}
           revealIncrement={viewState.boardColumnPageSize}
           onUpdateIssue={onUpdateIssue}
+        />
+      ) : viewState.viewMode === "flow" ? (
+        <TaskFlowView
+          issues={filtered}
+          agents={agents ?? []}
+          currentUserId={currentUserId}
+          liveIssueIds={liveIssueIds ?? new Set<string>()}
+          issueLinkState={issueLinkState}
         />
       ) : (
         <>

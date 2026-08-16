@@ -37,39 +37,39 @@ function blockedAttentionLabel(blockerAttention: IssueBlockerAttention | null | 
   if (blockerAttention.reason === "active_child") {
     const count = blockerAttention.coveredBlockerCount;
     if (count === 1 && blockerAttention.sampleBlockerIdentifier) {
-      return `Blocked · waiting on active sub-task ${blockerAttention.sampleBlockerIdentifier}`;
+      return `차단됨 · 진행 중인 하위 작업 ${blockerAttention.sampleBlockerIdentifier}을(를) 기다리는 중`;
     }
-    if (count === 1) return "Blocked · waiting on 1 active sub-task";
-    return `Blocked · waiting on ${count} active sub-tasks`;
+    if (count === 1) return "차단됨 · 진행 중인 하위 작업 1개를 기다리는 중";
+    return `차단됨 · 진행 중인 하위 작업 ${count}개를 기다리는 중`;
   }
 
   if (blockerAttention.reason === "active_dependency") {
     const count = blockerAttention.coveredBlockerCount;
     if (count === 1 && blockerAttention.sampleBlockerIdentifier) {
-      return `Blocked · covered by active dependency ${blockerAttention.sampleBlockerIdentifier}`;
+      return `차단됨 · 진행 중인 선행 작업 ${blockerAttention.sampleBlockerIdentifier}이(가) 처리 중`;
     }
-    if (count === 1) return "Blocked · covered by 1 active dependency";
-    return `Blocked · covered by ${count} active dependencies`;
+    if (count === 1) return "차단됨 · 진행 중인 선행 작업 1개가 처리 중";
+    return `차단됨 · 진행 중인 선행 작업 ${count}개가 처리 중`;
   }
 
   if (blockerAttention.reason === "stalled_review") {
     const count = blockerAttention.stalledBlockerCount;
     const leaf = blockerAttention.sampleStalledBlockerIdentifier ?? blockerAttention.sampleBlockerIdentifier;
-    if (count === 1 && leaf) return `Blocked · review stalled on ${leaf}`;
-    if (count === 1) return "Blocked · review stalled with no clear next step";
-    return `Blocked · ${count} reviews stalled with no clear next step`;
+    if (count === 1 && leaf) return `차단됨 · ${leaf} 검토가 멈춰 있음`;
+    if (count === 1) return "차단됨 · 다음 단계가 확인되지 않아 검토가 멈춰 있음";
+    return `차단됨 · 다음 단계가 확인되지 않아 검토 ${count}건이 멈춰 있음`;
   }
 
   if (blockerAttention.reason === "attention_required") {
     const count = blockerAttention.attentionBlockerCount || blockerAttention.unresolvedBlockerCount;
     const attentionCopy = count > 0
-      ? `${count} ${count === 1 ? "blocker needs" : "blockers need"} attention`
-      : "attention details unavailable";
+      ? `선행 작업 ${count}개 확인 필요`
+      : "확인할 선행 작업 정보를 불러올 수 없음";
     const coveredCount = blockerAttention.coveredBlockerCount;
     if (coveredCount > 0) {
-      return `Blocked · ${attentionCopy}; ${coveredCount} covered by active work`;
+      return `차단됨 · ${attentionCopy}; 진행 중인 작업 ${coveredCount}개가 처리 중`;
     }
-    return `Blocked · ${attentionCopy}`;
+    return `차단됨 · ${attentionCopy}`;
   }
 
   return "Blocked";
@@ -141,6 +141,17 @@ export function StatusIcon({ status, blockerAttention, onChange, className, show
             {statusLabel(s)}
           </Button>
         ))}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start gap-2 text-xs"
+          onClick={() => {
+            window.dispatchEvent(new Event("paperclip:start-debug-request"));
+            setOpen(false);
+          }}
+        >
+          디버그 요청하기
+        </Button>
       </PopoverContent>
     </Popover>
   );

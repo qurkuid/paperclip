@@ -29,6 +29,7 @@ import {
   type ReactNode,
   type ComponentType,
 } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import * as ReactModule from "react";
 import { useQuery } from "@tanstack/react-query";
 import type {
@@ -41,9 +42,11 @@ import { pluginsApi, type PluginUiContribution } from "@/api/plugins";
 import { authApi } from "@/api/auth";
 import { queryKeys } from "@/lib/queryKeys";
 import { cn } from "@/lib/utils";
-import { withAppBasePath } from "@/lib/base-path";
+import { appBasePath, withAppBasePath } from "@/lib/base-path";
 import {
   PluginBridgeContext,
+  resolveHostNavigationHref,
+  useHostNavigation,
   type PluginHostContext,
 } from "./bridge";
 
@@ -380,6 +383,7 @@ function getShimBlobUrl(specifier: "react" | "react-dom" | "react-dom/client" | 
  * - `import React from "react";`
  * - `import * as React from "react";`
  * - `import { ... } from "@paperclipai/plugin-sdk/ui";`
+ * - `import { ... } from "@paperclipai_dld/plugin-sdk/ui";`
  *
  * Also handles re-exports:
  * - `export { ... } from "react";`
@@ -391,6 +395,8 @@ function rewriteBareSpecifiers(source: string): string {
     "'@paperclipai/plugin-sdk/ui'": `'${getShimBlobUrl("sdk-ui")}'`,
     '"@paperclipai/plugin-sdk/ui/hooks"': `"${getShimBlobUrl("sdk-ui")}"`,
     "'@paperclipai/plugin-sdk/ui/hooks'": `'${getShimBlobUrl("sdk-ui")}'`,
+    '"@paperclipai_dld/plugin-sdk/ui"': `"${getShimBlobUrl("sdk-ui")}"`,
+    "'@paperclipai_dld/plugin-sdk/ui'": `'${getShimBlobUrl("sdk-ui")}'`,
     '"react/jsx-runtime"': `"${getShimBlobUrl("react/jsx-runtime")}"`,
     "'react/jsx-runtime'": `'${getShimBlobUrl("react/jsx-runtime")}'`,
     '"react-dom/client"': `"${getShimBlobUrl("react-dom/client")}"`,
@@ -794,6 +800,102 @@ function slotContextToHostContext(
   };
 }
 
+function stripAppBasePath(href: string, basePath: string): string {
+  const normalizedBase = basePath.trim().replace(/\/+$/, "");
+  if (!normalizedBase || normalizedBase === "/") return href;
+  if (href === normalizedBase) return "/";
+  return href.startsWith(`${normalizedBase}/`) ? href.slice(normalizedBase.length) : href;
+}
+
+export function resolvePluginSlotAnchorHref(
+  href: string,
+  companyPrefix: string | null | undefined,
+  basePath = appBasePath,
+): string {
+  if (!href.startsWith("/") || href.startsWith("//")) return href;
+  const appRelativeHref = stripAppBasePath(href, basePath);
+  return withAppBasePath(
+    resolveHostNavigationHref(appRelativeHref, companyPrefix),
+    basePath,
+  );
+}
+
+function PluginSlotNavigationBoundary({
+  children,
+  className,
+  companyPrefix,
+}: {
+  children: ReactNode;
+  className: string;
+  companyPrefix: string | null | undefined;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const navigation = useHostNavigation();
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const normalizeAnchor = (anchor: HTMLAnchorElement) => {
+      const href = anchor.getAttribute("href");
+      if (!href) return;
+      const resolvedHref = resolvePluginSlotAnchorHref(href, companyPrefix);
+      if (resolvedHref !== href) anchor.setAttribute("href", resolvedHref);
+    };
+    const normalizeAnchors = () => {
+      for (const anchor of container.querySelectorAll<HTMLAnchorElement>("a[href]")) {
+        normalizeAnchor(anchor);
+      }
+    };
+
+    normalizeAnchors();
+    const observer = new MutationObserver(normalizeAnchors);
+    observer.observe(container, {
+      attributes: true,
+      attributeFilter: ["href"],
+      childList: true,
+      subtree: true,
+    });
+    return () => observer.disconnect();
+  }, [companyPrefix]);
+
+  function handleClickCapture(event: ReactMouseEvent<HTMLDivElement>) {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.shiftKey
+    ) {
+      return;
+    }
+
+    const target = event.target instanceof Element
+      ? event.target.closest<HTMLAnchorElement>("a[href]")
+      : null;
+    if (
+      !target ||
+      !event.currentTarget.contains(target) ||
+      (target.target && target.target !== "_self") ||
+      target.hasAttribute("download")
+    ) {
+      return;
+    }
+
+    const href = target.getAttribute("href");
+    if (!href || !href.startsWith("/") || href.startsWith("//")) return;
+    event.preventDefault();
+    navigation.navigate(stripAppBasePath(href, appBasePath));
+  }
+
+  return (
+    <div ref={containerRef} className={className} onClickCapture={handleClickCapture}>
+      {children}
+    </div>
+  );
+}
+
 /**
  * Wrapper component that sets the active bridge context around plugin renders.
  *
@@ -865,7 +967,14 @@ export function PluginSlotMount({
     return (
       <PluginSlotErrorBoundary slot={slot} className={className}>
         <PluginBridgeScope pluginId={slot.pluginId} context={context}>
-          {className ? <div className={className}>{node}</div> : node}
+          {className ? (
+            <PluginSlotNavigationBoundary
+              className={className}
+              companyPrefix={context.companyPrefix}
+            >
+              {node}
+            </PluginSlotNavigationBoundary>
+          ) : node}
         </PluginBridgeScope>
       </PluginSlotErrorBoundary>
     );

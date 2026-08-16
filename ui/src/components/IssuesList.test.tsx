@@ -20,6 +20,7 @@ const dialogState = vi.hoisted(() => ({
 const mockIssuesApi = vi.hoisted(() => ({
   list: vi.fn(),
   listLabels: vi.fn(),
+  get: vi.fn(),
 }));
 
 const mockKanbanBoard = vi.hoisted(() => vi.fn());
@@ -320,6 +321,7 @@ describe("IssuesList", () => {
     mockKanbanBoard.mockReset();
     mockIssuesApi.list.mockReset();
     mockIssuesApi.listLabels.mockReset();
+    mockIssuesApi.get.mockReset();
     mockAuthApi.getSession.mockReset();
     mockAccessApi.listMembers.mockReset();
     mockAccessApi.listUserDirectory.mockReset();
@@ -329,6 +331,7 @@ describe("IssuesList", () => {
     mockExternalObjectsApi.getIssueSummaries.mockReset();
     mockIssuesApi.list.mockResolvedValue([]);
     mockIssuesApi.listLabels.mockResolvedValue([]);
+    mockIssuesApi.get.mockImplementation(async (id: string) => createIssue({ id }));
     mockAuthApi.getSession.mockResolvedValue({ user: null, session: null });
     mockAccessApi.listMembers.mockResolvedValue({ members: [], access: {} });
     mockAccessApi.listUserDirectory.mockResolvedValue({ users: [] });
@@ -346,6 +349,49 @@ describe("IssuesList", () => {
   afterEach(() => {
     vi.useRealTimers();
     container.remove();
+  });
+
+  it("switches to the persisted task flow view", async () => {
+    mockAuthApi.getSession.mockResolvedValue({
+      user: { id: "user-1" },
+      session: { userId: "user-1" },
+    });
+    const instruction = createIssue({
+      id: "instruction",
+      identifier: "CMP-20",
+      title: "Prepare launch",
+      createdByUserId: "user-1",
+    });
+
+    const { root } = renderWithQueryClient(
+      <IssuesList
+        issues={[instruction]}
+        agents={[]}
+        projects={[]}
+        viewStateKey="paperclip:test-issues"
+        onUpdateIssue={() => undefined}
+      />,
+      container,
+    );
+
+    await waitForAssertion(() => {
+      expect(container.querySelector("[aria-label='흐름 보기']")).not.toBeNull();
+    });
+
+    act(() => {
+      container.querySelector("[aria-label='흐름 보기']")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    await waitForAssertion(() => {
+      expect(container.querySelector("[data-task-flow-node]")?.textContent).toContain("Prepare launch");
+    });
+    expect(JSON.parse(localStorage.getItem("paperclip:test-issues:company-1") ?? "{}").viewMode)
+      .toBe("flow");
+
+    act(() => {
+      root.unmount();
+    });
   });
 
   it("forwards external-object summaries into issue rows", async () => {

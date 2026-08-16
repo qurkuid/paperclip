@@ -50,6 +50,7 @@ interface ReferencedGitHubSourceDescriptor {
 
 interface ReferencedSkillDescriptor {
   source: ReferencedGitHubSourceDescriptor;
+  description?: string;
   files?: string[];
   defaultInstall?: boolean;
   recommendedForRoles?: string[];
@@ -374,7 +375,7 @@ async function buildReferencedCatalogSkill(
   const name = asString(parsed.frontmatter.name);
   if (!name) errors.push(`${source.url}/${SKILL_ENTRYPOINT} frontmatter must include name.`);
 
-  const description = asString(parsed.frontmatter.description);
+  const description = descriptor.description ?? asString(parsed.frontmatter.description);
   if (!description) errors.push(`${source.url}/${SKILL_ENTRYPOINT} frontmatter must include description.`);
 
   const explicitKey = asString(parsed.frontmatter.key);
@@ -519,6 +520,7 @@ async function readReferencedSkillDescriptor(
       commit,
       path: sourcePath,
     },
+    description: asString(raw.description) ?? undefined,
     defaultInstall: asBoolean(raw.defaultInstall) ?? false,
     files: asStringArray(raw.files ?? undefined) ?? undefined,
     recommendedForRoles: asStringArray(raw.recommendedForRoles ?? undefined) ?? undefined,
@@ -527,6 +529,7 @@ async function readReferencedSkillDescriptor(
   };
 
   if (raw.files !== undefined && !descriptor.files) errors.push(`${prefix}/${CATALOG_REFERENCE_FILE} files must be an array of strings.`);
+  if (raw.description !== undefined && !descriptor.description) errors.push(`${prefix}/${CATALOG_REFERENCE_FILE} description must be a non-empty string.`);
   if (raw.recommendedForRoles !== undefined && !descriptor.recommendedForRoles) errors.push(`${prefix}/${CATALOG_REFERENCE_FILE} recommendedForRoles must be an array of strings.`);
   if (raw.requires !== undefined && !descriptor.requires) errors.push(`${prefix}/${CATALOG_REFERENCE_FILE} requires must be an array of strings.`);
   if (raw.tags !== undefined && !descriptor.tags) errors.push(`${prefix}/${CATALOG_REFERENCE_FILE} tags must be an array of strings.`);
@@ -755,6 +758,7 @@ function classifyCatalogFile(relativePath: string): CatalogSkillFileKind {
   if (relativePath === SKILL_ENTRYPOINT) return "skill";
   if (relativePath.startsWith("references/")) return "reference";
   if (relativePath.startsWith("scripts/")) return "script";
+  if (/\.(?:cjs|js|mjs|py|sh)$/.test(relativePath)) return "script";
   if (relativePath.startsWith("assets/")) return "asset";
   if (relativePath.endsWith(".md") || relativePath.endsWith(".mdx")) return "markdown";
   return "other";

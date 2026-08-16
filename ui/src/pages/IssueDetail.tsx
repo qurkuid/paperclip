@@ -1805,7 +1805,10 @@ export function IssueDetail() {
   const feedbackDataSharingPreference = instanceGeneralSettings?.feedbackDataSharingPreference ?? "prompt";
   const showPlanDecompositionsSection =
     instanceExperimentalSettings?.enableIssuePlanDecompositions === true;
-  const fileViewerEnabled = instanceExperimentalSettings?.enableExperimentalFileViewer === true;
+  // A file path in a comment is only actionable when this issue can resolve it.
+  // Otherwise the link opens an empty viewer (for example, attachment-only issues).
+  const fileViewerEnabled = instanceExperimentalSettings?.enableExperimentalFileViewer === true
+    && Boolean(issue?.executionWorkspaceId || issue?.projectWorkspaceId || issue?.projectId);
   const { orderedProjects } = useProjectOrder({
     projects: projects ?? [],
     companyId: selectedCompanyId,

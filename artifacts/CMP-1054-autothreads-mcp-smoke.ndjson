@@ -1,0 +1,6 @@
+{"at":"2026-08-02T12:40:55.309Z","event":"initialize","serverInfo":{"name":"autothreads-pinned-draft-sidecar","version":"0.1.0"},"protocolVersion":"2024-11-05"}
+{"at":"2026-08-02T12:40:55.313Z","event":"tools/list","count":3,"tools":["autothreads_source_integrity","autothreads_list_drafts","autothreads_create_draft"],"publishExposed":false}
+{"at":"2026-08-02T12:40:55.313Z","event":"tools/call","tool":"autothreads_source_integrity","result":{"repository":"eisenjimmy/autoTHREADS","commit":"3dd347e506040fbf614cd5af0dd739cbc77b8b2b","tree":"2f6fee3811c95ec4628ad6639f264c4aec108712","clean":true}}
+{"at":"2026-08-02T12:40:55.315Z","event":"tools/call","tool":"autothreads_create_draft","result":{"draft":{"id":"cmp-1049-dry-run-1","kind":"post","text":"CMP-1049 secret-free MCP draft dry-run","status":"draft","createdAt":1785674455313,"updatedAt":1785674455313},"count":1,"publishable":false}}
+{"at":"2026-08-02T12:40:55.315Z","event":"tools/call","tool":"autothreads_list_drafts","count":1}
+{"at":"2026-08-02T12:40:55.315Z","event":"safety","secretKeysPassed":[],"externalCalls":0,"costsIncurred":0,"publishExposed":false}

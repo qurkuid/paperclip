@@ -445,7 +445,7 @@ describe("IssueBlockedNotice", () => {
   it("does not claim a message won't reopen when a blocked issue has no unresolved blockers (Rule B path)", () => {
     const node = render(<IssueBlockedNotice issueStatus="blocked" blockers={[]} />);
 
-    expect(node.textContent).toContain("Work on this task is blocked until it is moved back to todo");
+    expect(node.textContent).toContain("이 작업은 할 일 상태로 다시 옮길 때까지 중단됩니다");
     expect(node.textContent).not.toContain("A message won’t move this back to todo yet");
     expect(node.querySelector('[data-testid="issue-blocked-notice-reopen-suppressed"]')).toBeNull();
   });

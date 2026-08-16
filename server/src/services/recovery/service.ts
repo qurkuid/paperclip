@@ -74,6 +74,7 @@ import {
   withRecoveryModelProfileHint,
 } from "./model-profile-hint.js";
 import { isAutomaticRecoverySuppressedByPauseHold } from "./pause-hold-guard.js";
+import { failOverClaudeQuotaToCodex } from "../provider-failover.js";
 
 const EXECUTION_PATH_HEARTBEAT_RUN_STATUSES = ["queued", "running", "scheduled_retry"] as const;
 const UNSUCCESSFUL_HEARTBEAT_RUN_TERMINAL_STATUSES = ["interrupted", "failed", "cancelled", "timed_out"] as const;
@@ -3490,6 +3491,7 @@ export function recoveryService(db: Db, deps: { enqueueWakeup: RecoveryWakeup })
       escalated: 0,
       waitingOnReviewResolved: 0,
       providerQuotaMonitored: 0,
+      providerFailedOver: 0,
       recentProgressExempted: 0,
       skipped: 0,
       issueIds: [] as string[],
@@ -3582,6 +3584,14 @@ export function recoveryService(db: Db, deps: { enqueueWakeup: RecoveryWakeup })
         }
 
         if (adapterFailureClassification.kind === "provider_quota") {
+          const failedOver = await failOverClaudeQuotaToCodex({
+            db,
+            companyId: issue.companyId,
+            agentId: latestRun.agentId,
+            runId: latestRun.id,
+            reason: "claude_usage_limit",
+          });
+          if (failedOver) result.providerFailedOver += 1;
           const monitored = await scheduleProviderQuotaRecoveryMonitor({
             issue,
             latestRun,

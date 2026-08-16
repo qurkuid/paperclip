@@ -741,6 +741,36 @@ describe("IssueThreadInteractionCard tool-action card", () => {
     expect(host.textContent).not.toContain("args hash");
   });
 
+  it("treats a pending tool action as expired after its approval window closes", () => {
+    // Given: the backend interaction still says pending, but its approval deadline elapsed.
+    const toolAction = pendingToolActionWriteInteraction.payload.toolAction;
+    if (!toolAction) expect.fail("The pending tool-action fixture must include its toolAction payload");
+    const interaction = {
+      ...pendingToolActionWriteInteraction,
+      payload: {
+        ...pendingToolActionWriteInteraction.payload,
+        toolAction: {
+          ...toolAction,
+          expiresAt: "2000-01-01T00:00:00.000Z",
+        },
+      },
+    };
+
+    // When: the decision card renders from that temporarily stale server state.
+    const host = renderCard({
+      interaction,
+      onAcceptInteraction: vi.fn(),
+      onRejectInteraction: vi.fn(),
+    });
+
+    // Then: the card is terminal and no mutation controls remain available.
+    expect(host.textContent).toContain("Expired");
+    expect(host.textContent).toContain("the agent can request approval again");
+    expect(host.textContent).not.toContain("Awaiting approval");
+    expect(host.textContent).not.toContain("Approve & run");
+    expect(host.textContent).not.toContain("Decline");
+  });
+
   it("uses the destructive risk badge and a destructive primary button", () => {
     const host = renderCard({
       interaction: pendingToolActionDestructiveInteraction,

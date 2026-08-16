@@ -742,6 +742,12 @@ function toRuntimeSlot(row: typeof toolRuntimeSlots.$inferSelect): ToolRuntimeSl
   };
 }
 
+export function connectionHealthSweepAction(
+  transport: typeof toolConnections.$inferSelect.transport,
+): "refresh_catalog" | "health_check" {
+  return transport === "mcp_remote" ? "refresh_catalog" : "health_check";
+}
+
 function builtInStdioTemplate(templateId: string): ToolStdioCommandTemplate | null {
   const template = APPROVED_STDIO_TEMPLATES[templateId];
   if (!template) return null;
@@ -3198,7 +3204,12 @@ export function toolAccessService(db: Db, options: ToolAccessServiceOptions = {}
     const failedConnectionIds: string[] = [];
     for (const connection of due) {
       try {
-        await checkConnectionHealth(connection.id, { actorType: "system", actorId: "tool_health_sweep" });
+        const actor = { actorType: "system" as const, actorId: "tool_health_sweep" };
+        if (connectionHealthSweepAction(connection.transport) === "refresh_catalog") {
+          await refreshCatalog(connection.id, actor);
+        } else {
+          await checkConnectionHealth(connection.id, actor);
+        }
         healthy += 1;
       } catch {
         failed += 1;

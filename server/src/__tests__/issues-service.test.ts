@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import {
@@ -5436,7 +5436,7 @@ describeEmbeddedPostgres("accepted plan decomposition", () => {
       resolvedByUserId: "local-board",
     });
 
-    return { companyId, sourceIssueId, acceptedPlanRevisionId, assigneeAgentId };
+    return { companyId, sourceIssueId, acceptedPlanRevisionId, acceptedInteractionId, assigneeAgentId };
   }
 
   async function getAcceptedPlanClaim(sourceIssueId: string) {
@@ -5566,6 +5566,87 @@ describeEmbeddedPostgres("accepted plan decomposition", () => {
     expect(result.childIssueIds).toHaveLength(1);
     expect(result.newlyCreatedIssues).toHaveLength(1);
     expect(result.decomposition.status).toBe("completed");
+  });
+
+  it("rejects an expired approval path after a newer plan revision supersedes it", async () => {
+    const { companyId, sourceIssueId, acceptedPlanRevisionId, acceptedInteractionId, assigneeAgentId } = await seedAcceptedPlanIssue();
+    const newerRevisionId = randomUUID();
+    const planDocument = await db
+      .select({ documentId: issueDocuments.documentId })
+      .from(issueDocuments)
+      .where(and(eq(issueDocuments.companyId, companyId), eq(issueDocuments.issueId, sourceIssueId), eq(issueDocuments.key, "plan")))
+      .then((rows) => rows[0]);
+    expect(planDocument).toBeTruthy();
+
+    await db.insert(documentRevisions).values({
+      id: newerRevisionId,
+      companyId,
+      documentId: planDocument!.documentId,
+      revisionNumber: 2,
+      title: "Plan",
+      format: "markdown",
+      body: "Revised plan body",
+      createdByAgentId: assigneeAgentId,
+    });
+    await db.update(documents)
+      .set({ latestRevisionId: newerRevisionId, latestRevisionNumber: 2, latestBody: "Revised plan body" })
+      .where(eq(documents.id, planDocument!.documentId));
+    await db.update(issueThreadInteractions)
+      .set({ status: "expired", result: { version: 1, outcome: "stale_target" } })
+      .where(eq(issueThreadInteractions.id, acceptedInteractionId));
+
+    await expect(svc.decomposeAcceptedPlan(sourceIssueId, {
+      acceptedPlanRevisionId,
+      children: [{
+        title: "Must wait for the latest plan approval",
+        status: "todo",
+        workMode: "standard",
+        priority: "medium",
+      }],
+      actorAgentId: assigneeAgentId,
+    })).rejects.toMatchObject({ status: 422 });
+
+    const children = await db.select({ id: issues.id }).from(issues).where(eq(issues.parentId, sourceIssueId));
+    expect(children).toHaveLength(0);
+  });
+
+  it.each([
+    ["is pending", { status: "pending" }],
+    ["is rejected", { status: "rejected" }],
+    ["targets another issue", { target: { issueId: randomUUID() } }],
+    ["targets another document key", { target: { key: "proposal" } }],
+  ])("refuses child creation when the plan confirmation %s", async (_label, change) => {
+    const { companyId, sourceIssueId, acceptedPlanRevisionId, acceptedInteractionId, assigneeAgentId } = await seedAcceptedPlanIssue();
+    const interaction = await db
+      .select({ payload: issueThreadInteractions.payload })
+      .from(issueThreadInteractions)
+      .where(eq(issueThreadInteractions.id, acceptedInteractionId))
+      .then((rows) => rows[0]!);
+    const payload = interaction.payload as { target: { issueId: string; key: string } };
+
+    await db.update(issueThreadInteractions)
+      .set({
+        ...(change.status ? { status: change.status } : {}),
+        ...(change.target ? { payload: { ...payload, target: { ...payload.target, ...change.target } } } : {}),
+      })
+      .where(eq(issueThreadInteractions.id, acceptedInteractionId));
+
+    await expect(svc.decomposeAcceptedPlan(sourceIssueId, {
+      acceptedPlanRevisionId,
+      children: [{
+        title: "Must not start implementation",
+        status: "todo",
+        workMode: "standard",
+        priority: "medium",
+      }],
+      actorAgentId: assigneeAgentId,
+    })).rejects.toMatchObject({ status: 422 });
+
+    const children = await db
+      .select({ id: issues.id })
+      .from(issues)
+      .where(and(eq(issues.companyId, companyId), eq(issues.parentId, sourceIssueId)));
+    expect(children).toHaveLength(0);
   });
 
   it("serializes concurrent accepted-plan retries for the same parent issue without duplicate children", async () => {

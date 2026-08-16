@@ -11,6 +11,7 @@ type TargetProject = {
 type TargetAgent = {
   id: string;
   name: string;
+  urlKey?: string;
   status: string;
 };
 
@@ -36,12 +37,13 @@ export function resolveDebugRequestTargets(input: {
 
   const agent = input.agents.find(
     (candidate) =>
-      candidate.name.trim().toLowerCase() === "founding engineer" &&
+      (candidate.name.trim().toLowerCase() === "paperclip 개발자" ||
+        candidate.urlKey === "paperclip") &&
       candidate.status !== "terminated" &&
       candidate.status !== "paused",
   );
   if (!agent) {
-    throw conflict("Founding Engineer is not available for this company.");
+    throw conflict("Paperclip developer agent is not available for this company.");
   }
 
   return {

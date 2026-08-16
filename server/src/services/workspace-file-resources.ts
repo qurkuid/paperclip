@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { executionWorkspaces, issues, projects, projectWorkspaces } from "@paperclipai/db";
+import { isUuidLike } from "@paperclipai/shared";
 import type {
   ResolvedWorkspaceResource,
   WorkspaceFileContent,
@@ -898,7 +899,11 @@ async function listChangedWorkspaceFiles(input: {
 
 export function workspaceFileResourceService(db: Db) {
   async function getIssue(issueId: string): Promise<IssueRow> {
-    const [issue] = await db.select().from(issues).where(eq(issues.id, issueId)).limit(1);
+    const [issue] = await db.select().from(issues).where(
+      isUuidLike(issueId)
+        ? eq(issues.id, issueId)
+        : eq(issues.identifier, issueId.toUpperCase()),
+    ).limit(1);
     if (!issue) throw notFound("Issue not found");
     return issue;
   }

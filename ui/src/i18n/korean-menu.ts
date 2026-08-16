@@ -159,6 +159,10 @@ export const KOREAN_MENU_LABELS = {
   "Sub-tasks": "하위 작업",
   "Related tasks": "관련 작업",
   "Scheduled retry": "예약된 재시도",
+  Wake: "후속 실행",
+  "Corrective wake queued": "복구 실행 대기 중",
+  "Retry the original assignee from durable progress without redoing completed steps.":
+    "완료한 작업은 반복하지 않고 저장된 진행 상황부터 기존 담당자가 다시 실행합니다.",
   Watchdog: "감시 작업",
   Service: "서비스",
   Branch: "브랜치",

@@ -1,5 +1,16 @@
 export { agentAdapterTypeSchema, optionalAgentAdapterTypeSchema } from "./adapter-type.js";
 export {
+  createGitHubRepositorySnapshotSchema,
+  type CreateGitHubRepositorySnapshot,
+} from "./validators/github-repository-snapshot.js";
+export type {
+  GitHubRepositorySnapshot,
+  GitHubRepositorySnapshotFailure,
+  GitHubRepositorySnapshotData,
+  GitHubRepositorySnapshotRecommendation,
+  GitHubRepositorySnapshotStatus,
+} from "./types/github-repository-snapshot.js";
+export {
   getAgentOrgChainHealth,
   getAgentWorkEligibility,
   isAgentAssignableToWork,

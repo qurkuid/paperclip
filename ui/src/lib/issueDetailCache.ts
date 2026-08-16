@@ -1,10 +1,11 @@
-import type { QueryClient } from "@tanstack/react-query";
+import type { Query, QueryClient } from "@tanstack/react-query";
 import type { Issue } from "@paperclipai/shared";
 import { issuesApi } from "@/api/issues";
 import { queryKeys } from "@/lib/queryKeys";
 
 const ISSUE_DETAIL_QUERY_PREFIX = ["issues", "detail"] as const;
 export const ISSUE_DETAIL_STALE_TIME_MS = 60_000;
+export const ACTIVE_RECOVERY_ACTION_REFETCH_INTERVAL_MS = 5_000;
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
@@ -113,6 +114,18 @@ export async function fetchIssueDetail(
   return seedIssueDetailCache(queryClient, issue, { issueRef });
 }
 
+export function getActiveRecoveryActionRefetchInterval(
+  issue: Pick<Issue, "activeRecoveryAction"> | null | undefined,
+): number | false {
+  return issue?.activeRecoveryAction
+    ? ACTIVE_RECOVERY_ACTION_REFETCH_INTERVAL_MS
+    : false;
+}
+
+function issueDetailRefetchInterval(query: Query<Issue>): number | false {
+  return getActiveRecoveryActionRefetchInterval(query.state.data);
+}
+
 export function getIssueDetailQueryOptions(
   queryClient: QueryClient,
   issueRef: string,
@@ -124,6 +137,9 @@ export function getIssueDetailQueryOptions(
     queryKey: queryKeys.issues.detail(issueRef),
     queryFn: ({ signal }: { signal?: AbortSignal }) => fetchIssueDetail(queryClient, issueRef, { signal }),
     placeholderData: getCachedIssueDetail(queryClient, issueRef, options?.placeholderIssue ?? undefined),
+    // Live activity normally invalidates this query. Poll only while a recovery card is visible
+    // so a missed socket event cannot leave a resolved action pinned on an open task page.
+    refetchInterval: issueDetailRefetchInterval,
   };
 }
 

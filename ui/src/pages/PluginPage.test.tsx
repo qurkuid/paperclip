@@ -44,8 +44,8 @@ vi.mock("@/plugins/slots", async () => {
   const actual = await vi.importActual<typeof import("@/plugins/slots")>("@/plugins/slots");
   return {
     resolveRouteSidebarSlot: actual.resolveRouteSidebarSlot,
-    PluginSlotMount: ({ slot }: { slot: { displayName: string } }) => (
-      <div data-testid="plugin-slot-mount">{slot.displayName}</div>
+    PluginSlotMount: ({ slot, className }: { slot: { displayName: string }; className?: string }) => (
+      <div data-testid="plugin-slot-mount" data-class-name={className}>{slot.displayName}</div>
     ),
   };
 });
@@ -135,6 +135,8 @@ describe("PluginPage", () => {
     ]);
     expect(container.textContent).toContain("Back");
     expect(container.querySelector('a[href="/PAP/dashboard"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="plugin-slot-mount"]')?.getAttribute("data-class-name"))
+      .toContain("flex-1");
 
     await act(async () => {
       root.unmount();

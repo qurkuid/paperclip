@@ -117,8 +117,17 @@ describe("DebugRequestLauncher", () => {
       }),
     );
     expect(pushToastMock).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "CMP-99 작업을 생성했습니다" }),
+      expect.objectContaining({
+        title: "CMP-99 작업을 생성했습니다",
+        body: "Paperclip 개발자가 선택한 요소와 요청사항을 전달받았습니다.",
+      }),
     );
+  });
+
+  it("starts element selection when requested from a task status menu", () => {
+    flushSync(() => window.dispatchEvent(new Event("paperclip:start-debug-request")));
+
+    expect(document.body.textContent).toContain("개발할 요소를 선택하세요");
   });
 
   it("opens the independent developer console when its URL is configured", async () => {

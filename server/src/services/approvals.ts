@@ -1,6 +1,6 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import { approvalComments, approvals } from "@paperclipai/db";
+import { approvalComments, approvals, issues, issueThreadInteractions, issueWorkProducts } from "@paperclipai/db";
 import { notFound, unprocessable } from "../errors.js";
 import { redactCurrentUserText } from "../log-redaction.js";
 import { agentService } from "./agents.js";
@@ -16,6 +16,95 @@ export function approvalService(db: Db) {
   const resolvableStatuses = Array.from(canResolveStatuses);
   type ApprovalRecord = typeof approvals.$inferSelect;
   type ResolutionResult = { approval: ApprovalRecord; applied: boolean };
+
+  type ApprovalInboxItem = {
+    id: string;
+    kind: "approval" | "request_confirmation";
+    status: string;
+    issueId: string | null;
+    issueIdentifier: string | null;
+    issueTitle: string | null;
+    originalInstruction: string | null;
+    resultSummary: string | null;
+    resultUrl: string | null;
+    managerReview: string | null;
+    ceoReview: string | null;
+    userApprovalStatus: string;
+    pendingConfirmation: string | null;
+    updatedAt: Date;
+  };
+
+  function reviewStateForIssue(executionState: Record<string, unknown> | null) {
+    const currentStageType = executionState?.currentStageType;
+    if (currentStageType === "review") return "pending review";
+    return null;
+  }
+
+  async function listInbox(companyId: string, status?: string): Promise<ApprovalInboxItem[]> {
+    const approvalsRows = await db.select().from(approvals).where(and(
+      eq(approvals.companyId, companyId),
+      status ? eq(approvals.status, status) : undefined,
+    ));
+    const confirmationRows = await db
+      .select({ interaction: issueThreadInteractions, issue: issues })
+      .from(issueThreadInteractions)
+      .innerJoin(issues, eq(issueThreadInteractions.issueId, issues.id))
+      .where(and(
+        eq(issueThreadInteractions.companyId, companyId),
+        eq(issueThreadInteractions.kind, "request_confirmation"),
+        status ? eq(issueThreadInteractions.status, status) : undefined,
+      ));
+    const issueIds = confirmationRows.map(({ issue }) => issue.id);
+    const products = issueIds.length === 0 ? [] : await db
+      .select()
+      .from(issueWorkProducts)
+      .where(and(eq(issueWorkProducts.companyId, companyId), inArray(issueWorkProducts.issueId, issueIds)))
+      .orderBy(desc(issueWorkProducts.isPrimary), desc(issueWorkProducts.updatedAt));
+    const primaryProductByIssue = new Map<string, typeof products[number]>();
+    for (const product of products) {
+      if (!primaryProductByIssue.has(product.issueId)) primaryProductByIssue.set(product.issueId, product);
+    }
+
+    return [
+      ...approvalsRows.map((approval): ApprovalInboxItem => ({
+        id: approval.id,
+        kind: "approval",
+        status: approval.status,
+        issueId: null,
+        issueIdentifier: null,
+        issueTitle: approval.type,
+        originalInstruction: null,
+        resultSummary: null,
+        resultUrl: null,
+        managerReview: null,
+        ceoReview: null,
+        userApprovalStatus: approval.status,
+        pendingConfirmation: null,
+        updatedAt: approval.updatedAt,
+      })),
+      ...confirmationRows.map(({ interaction, issue }): ApprovalInboxItem => {
+        const product = primaryProductByIssue.get(issue.id);
+        const metadata = product?.metadata ?? {};
+        const contentPath = typeof metadata.contentPath === "string" ? metadata.contentPath : null;
+        return {
+          id: interaction.id,
+          kind: "request_confirmation",
+          status: interaction.status,
+          issueId: issue.id,
+          issueIdentifier: issue.identifier,
+          issueTitle: issue.title,
+          originalInstruction: issue.description,
+          resultSummary: interaction.summary ?? product?.summary ?? null,
+          resultUrl: product?.url ?? contentPath,
+          managerReview: reviewStateForIssue(issue.executionState),
+          ceoReview: null,
+          userApprovalStatus: interaction.status,
+          pendingConfirmation: interaction.title ?? interaction.summary ?? "request_confirmation",
+          updatedAt: interaction.updatedAt > issue.updatedAt ? interaction.updatedAt : issue.updatedAt,
+        };
+      }),
+    ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  }
 
   function redactApprovalComment<T extends { body: string }>(comment: T, censorUsernameInLogs: boolean): T {
     return {
@@ -91,6 +180,8 @@ export function approvalService(db: Db) {
       if (status) conditions.push(eq(approvals.status, status));
       return db.select().from(approvals).where(and(...conditions));
     },
+
+    listInbox,
 
     getById: (id: string) =>
       db

@@ -119,6 +119,34 @@ Use `--drain-required` only when the deploy intentionally requires the old termi
 
 A healthy guarded deploy must compare the report against `/api/health` (`version` or `serverVersion`) and treat any `lostRunIds` entry as a continuity failure that needs recovery before marking deployment complete.
 
+### PM2
+
+Use the repository-owned process definition so PM2 manages the actual Paperclip
+server process instead of the `tsx` wrapper. It disables PM2 tree-kill and gives
+the graceful heartbeat drain up to five minutes to persist retry state before
+embedded PostgreSQL is stopped:
+
+```sh
+pm2 start ecosystem.config.cjs --only paperclip --update-env
+pm2 save
+```
+
+For later PM2 deploys, restart from the same definition. Paperclip will persist
+running runs as `server_shutdown_interrupted` and queue their retries before it
+stops embedded PostgreSQL:
+
+```sh
+pm2 restart ecosystem.config.cjs --only paperclip --update-env
+```
+
+Do not launch Paperclip through `cli/node_modules/tsx/dist/cli.mjs` under PM2.
+That makes the managed PID differ from the server PID and invalidates the
+hot-restart intent.
+
+Do not request process-adoption hot restarts for adapters that have not
+persisted `processPid` or `processGroupId`. Those runs cannot be adopted; use
+the graceful drain-and-retry path above.
+
 Tailscale/private-auth dev mode:
 
 ```sh

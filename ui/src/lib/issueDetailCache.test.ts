@@ -3,7 +3,9 @@ import type { Issue } from "@paperclipai/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { issuesApi } from "@/api/issues";
 import {
+  ACTIVE_RECOVERY_ACTION_REFETCH_INTERVAL_MS,
   fetchIssueDetail,
+  getActiveRecoveryActionRefetchInterval,
   getCachedIssueDetail,
   prefetchIssueDetail,
   seedIssueDetailCache,
@@ -138,5 +140,23 @@ describe("issueDetailCache", () => {
     expect(result).toEqual(issue);
     expect(queryClient.getQueryData(queryKeys.issues.detail(issue.identifier!))).toEqual(issue);
     expect(queryClient.getQueryData(queryKeys.issues.detail(issue.id))).toEqual(issue);
+  });
+
+  it("polls only while an active recovery action is visible", () => {
+    expect(getActiveRecoveryActionRefetchInterval(createIssue())).toBe(false);
+    expect(
+      getActiveRecoveryActionRefetchInterval(
+        createIssue({
+          activeRecoveryAction: {
+            id: "recovery-action-1",
+          } as Issue["activeRecoveryAction"],
+        }),
+      ),
+    ).toBe(ACTIVE_RECOVERY_ACTION_REFETCH_INTERVAL_MS);
+    expect(
+      getActiveRecoveryActionRefetchInterval(
+        createIssue({ activeRecoveryAction: null }),
+      ),
+    ).toBe(false);
   });
 });

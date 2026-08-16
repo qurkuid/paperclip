@@ -12,6 +12,13 @@ const attachmentMaxBytesSchema = z
   .int()
   .min(1)
   .max(MAX_COMPANY_ATTACHMENT_MAX_BYTES);
+const providerFailoverConfigSchema = z.object({
+  claudeQuotaFallback: z.object({
+    enabled: z.literal(true),
+    adapterType: z.literal("codex_local"),
+    model: z.literal("gpt-5.6-sol"),
+  }).strict().optional(),
+}).strict();
 
 export const createCompanySchema = z.object({
   name: z.string().min(1),
@@ -36,6 +43,7 @@ export const updateCompanySchema = createCompanySchema
     brandColor: brandColorSchema,
     logoAssetId: logoAssetIdSchema,
     attachmentMaxBytes: attachmentMaxBytesSchema.optional(),
+    providerFailoverConfig: providerFailoverConfigSchema.optional(),
   });
 
 export type UpdateCompany = z.infer<typeof updateCompanySchema>;

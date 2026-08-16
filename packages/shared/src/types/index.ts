@@ -1,5 +1,12 @@
 export type { Company } from "./company.js";
 export type {
+  GitHubRepositorySnapshot,
+  GitHubRepositorySnapshotFailure,
+  GitHubRepositorySnapshotData,
+  GitHubRepositorySnapshotRecommendation,
+  GitHubRepositorySnapshotStatus,
+} from "./github-repository-snapshot.js";
+export type {
   GenerateSummarySlotRequest,
   GenerateSummarySlotResponse,
   GetSummarySlotResponse,

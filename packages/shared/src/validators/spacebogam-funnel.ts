@@ -64,6 +64,14 @@ export const spacebogamFunnelCampaignSchema = z.object({
   sampleStatus: spacebogamFunnelCampaignSampleStatusSchema,
 }).strict();
 
+export const spacebogamFunnelLeadReconciliationSchema = z.object({
+  funnelLeads: countSchema,
+  sourceLeads: countSchema,
+  sourceTestExcluded: countSchema,
+  missingInFunnel: z.number().int(),
+  comparedFrom: z.string().nullable(),
+}).strict();
+
 export const spacebogamFunnelQualitySchema = z.object({
   status: spacebogamFunnelQualityStatusSchema,
   sampleSessions: countSchema,
@@ -73,6 +81,9 @@ export const spacebogamFunnelQualitySchema = z.object({
   utmTaggedVisitRate: nullableReportRateSchema,
   missingDataDays: z.array(dateStringSchema),
   isMonotonic: z.boolean(),
+  // 상류(INTM CMP-171)가 퍼널 lead 단계와 원천 consult_req 를 대조한 결과.
+  // 상류가 아직 안 보내는 배포본도 있으므로 optional 로 둔다.
+  leadReconciliation: spacebogamFunnelLeadReconciliationSchema.nullable().optional(),
   warnings: z.array(z.string()),
 }).strict();
 
@@ -195,5 +206,6 @@ export const spacebogamFunnelReportSchema = z.object({
 export type SpacebogamFunnelRangeDays = z.infer<typeof spacebogamFunnelRangeDaysSchema>;
 export type SpacebogamFunnelStageKey = z.infer<typeof spacebogamFunnelStageKeySchema>;
 export type SpacebogamFunnelQualityStatus = z.infer<typeof spacebogamFunnelQualityStatusSchema>;
+export type SpacebogamFunnelLeadReconciliation = z.infer<typeof spacebogamFunnelLeadReconciliationSchema>;
 export type SpacebogamNaverSearchAdsSnapshot = z.infer<typeof spacebogamNaverSearchAdsSnapshotSchema>;
 export type SpacebogamFunnelReport = z.infer<typeof spacebogamFunnelReportSchema>;

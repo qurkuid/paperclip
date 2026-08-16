@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   ensureAdapterExecutionTargetCommandResolvable,
@@ -128,8 +131,17 @@ function buildContext(config: Record<string, unknown> = {}) {
 }
 
 describe("codex_local ACP startup fallback", () => {
+  const cleanupDirs: string[] = [];
+
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    while (cleanupDirs.length > 0) {
+      const dir = cleanupDirs.pop();
+      if (dir) await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it("falls back to Codex CLI when auto-selected ACP fails before execution starts", async () => {
@@ -157,5 +169,28 @@ describe("codex_local ACP startup fallback", () => {
     await expect(execute(ctx as never)).rejects.toThrow('Unexpected "<<"');
 
     expect(runAdapterExecutionTargetProcess).not.toHaveBeenCalled();
+  });
+
+  it("uses the resolved agent workspace instead of a stale configured cwd", async () => {
+    const workspaceDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-codex-workspace-"));
+    cleanupDirs.push(workspaceDir);
+
+    await execute({
+      ...buildContext({ cwd: "/paperclip" }),
+      context: {
+        paperclipWorkspace: {
+          cwd: workspaceDir,
+          source: "agent_home",
+        },
+      },
+    } as never);
+
+    expect(runAdapterExecutionTargetProcess).toHaveBeenCalledWith(
+      "run-1",
+      null,
+      "codex",
+      expect.any(Array),
+      expect.objectContaining({ cwd: workspaceDir }),
+    );
   });
 });

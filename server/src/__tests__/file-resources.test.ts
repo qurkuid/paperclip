@@ -80,6 +80,7 @@ async function seedGraph(db: Db, input: {
   const executionWorkspaceId = crypto.randomUUID();
   const issueId = crypto.randomUUID();
   const otherIssueId = crypto.randomUUID();
+  const issueIdentifier = `F${prefixSuffix}-1`;
 
   await db.insert(companies).values([
     { id: companyId, name: `Company ${suffix}`, issuePrefix: `F${prefixSuffix}` },
@@ -126,6 +127,7 @@ async function seedGraph(db: Db, input: {
   await db.insert(issues).values([
     {
       id: issueId,
+      identifier: issueIdentifier,
       companyId,
       projectId,
       goalId,
@@ -232,6 +234,27 @@ describeEmbeddedPostgres("workspace file resources", () => {
     expect(res.body.resource.displayPath).toBe("src/app.ts");
     expect(JSON.stringify(res.body)).not.toContain(root);
     expect(res.body.content.data).toContain("export const ok");
+  });
+
+  it("resolves a workspace file through the issue identifier used by the board URL", async () => {
+    const { projectRoot, executionRoot } = await makeWorkspace();
+    const graph = await seedGraph(db, { projectRoot, executionRoot });
+    await fs.writeFile(path.join(projectRoot, "preview.html"), "<main>Preview</main>\n", "utf8");
+    const [issue] = await db.select({ identifier: issues.identifier }).from(issues).where(eq(issues.id, graph.issueId));
+    const app = createApp(db, {
+      type: "board",
+      userId: "board-user",
+      companyIds: [graph.companyId],
+      source: "session",
+      isInstanceAdmin: false,
+    });
+
+    const res = await request(app)
+      .get(`/api/issues/${issue!.identifier}/file-resources/content`)
+      .query({ workspace: "project", path: "preview.html" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.content.data).toContain("Preview");
   });
 
   it("lists and downloads non-previewable workspace files", async () => {

@@ -21,6 +21,7 @@ export function useSpacebogamFunnel(
       return fetchSpacebogamFunnel(companyId, rangeDays);
     },
     enabled: Boolean(companyId),
+    retry: false,
     staleTime: SPACEBOGAM_FUNNEL_STALE_MS,
     refetchInterval: SPACEBOGAM_FUNNEL_REFETCH_MS,
   });

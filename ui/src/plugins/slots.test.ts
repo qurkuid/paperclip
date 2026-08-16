@@ -9,6 +9,8 @@ import {
   _buildPluginUiUrlForTests,
   _collectRegisterableExportNamesForTests,
   _resetPluginModuleLoader,
+  _rewriteBareSpecifiersForTests,
+  resolvePluginSlotAnchorHref,
   registerPluginWebComponent,
   type ResolvedPluginSlot,
 } from "./slots";
@@ -41,6 +43,35 @@ describe("plugin slot export registration", () => {
 
     expect(_buildPluginUiUrlForTests(contribution, "/af/")).toBe(
       "/af/_plugins/plugin%20id/ui/index.js?v=2026-07-27T00%3A00%3A00.000Z",
+    );
+  });
+
+  it("keeps raw plugin sidebar links inside the company and application base path", () => {
+    expect(resolvePluginSlotAnchorHref("/CMP/agent-chat", "CMP", "/af/")).toBe(
+      "/af/CMP/agent-chat",
+    );
+    expect(resolvePluginSlotAnchorHref("/agent-chat", "CMP", "/af/")).toBe(
+      "/af/CMP/agent-chat",
+    );
+    expect(resolvePluginSlotAnchorHref("/af/CMP/agent-chat", "CMP", "/af/")).toBe(
+      "/af/CMP/agent-chat",
+    );
+    expect(resolvePluginSlotAnchorHref("https://example.com/agent-chat", "CMP", "/af/")).toBe(
+      "https://example.com/agent-chat",
+    );
+  });
+
+  it("maps the Agent Chat community SDK import to the official host UI shim", () => {
+    const officialImport = _rewriteBareSpecifiersForTests(
+      'import { usePluginData } from "@paperclipai/plugin-sdk/ui";',
+    );
+    const communityImport = _rewriteBareSpecifiersForTests(
+      'import { usePluginData } from "@paperclipai_dld/plugin-sdk/ui";',
+    );
+
+    expect(communityImport).toBe(officialImport);
+    expect(communityImport).not.toContain(
+      'from "@paperclipai_dld/plugin-sdk/ui"',
     );
   });
 

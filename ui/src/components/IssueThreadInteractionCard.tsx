@@ -273,9 +273,14 @@ type ToolActionCardState =
  */
 function toolActionCardState(
   interaction: RequestConfirmationInteraction,
+  nowMs: number,
 ): ToolActionCardState {
   const execStatus = interaction.result?.toolAction?.status ?? null;
-  if (interaction.status === "pending") return "pending";
+  if (interaction.status === "pending") {
+    const expiresAt = interaction.payload.toolAction?.expiresAt;
+    const expiresMs = expiresAt ? new Date(expiresAt).getTime() : Number.NaN;
+    return !Number.isNaN(expiresMs) && expiresMs <= nowMs ? "expired" : "pending";
+  }
   if (interaction.status === "rejected") return "declined";
   if (interaction.status === "expired") return "expired";
   // Terminal execution outcomes take precedence over the coarse interaction
@@ -1619,6 +1624,7 @@ function ToolActionResolution({
 function RequestToolActionCard({
   interaction,
   state,
+  nowMs,
   resolvedByLabel,
   requestedByLabel,
   onAcceptInteraction,
@@ -1627,6 +1633,7 @@ function RequestToolActionCard({
 }: {
   interaction: RequestConfirmationInteraction;
   state: ToolActionCardState;
+  nowMs: number;
   resolvedByLabel: string | null;
   requestedByLabel: string;
   onAcceptInteraction?: (
@@ -1643,15 +1650,8 @@ function RequestToolActionCard({
   const [rejectReason, setRejectReason] = useState("");
   const [working, setWorking] = useState<"accept" | "reject" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
   const isPending = state === "pending";
   const isDestructive = payload.risk === "destructive";
-
-  useEffect(() => {
-    if (!isPending) return;
-    const timer = setInterval(() => setNowMs(Date.now()), 30000);
-    return () => clearInterval(timer);
-  }, [isPending]);
 
   useEffect(() => {
     if (state !== "pending") {
@@ -3025,9 +3025,15 @@ export function IssueThreadInteractionCard({
   const isPlan = isPlanConfirmation(interaction);
   const isToolAction =
     interaction.kind === "request_confirmation" && isToolActionConfirmation(interaction);
+  const [toolActionNowMs, setToolActionNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isToolAction || interaction.status !== "pending") return;
+    const timer = setInterval(() => setToolActionNowMs(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, [interaction.id, interaction.status, isToolAction]);
   const toolActionState =
     isToolAction && interaction.kind === "request_confirmation"
-      ? toolActionCardState(interaction)
+      ? toolActionCardState(interaction, toolActionNowMs)
       : null;
   const toolActionStyles = toolActionState ? toolActionStatusClasses(toolActionState) : null;
   const resumeFailure = requestConfirmationResumeFailure(interaction);
@@ -3131,6 +3137,7 @@ export function IssueThreadInteractionCard({
           <RequestToolActionCard
             interaction={interaction}
             state={toolActionState}
+            nowMs={toolActionNowMs}
             resolvedByLabel={resolvedByLabel}
             requestedByLabel={createdByLabel}
             onAcceptInteraction={onAcceptInteraction}

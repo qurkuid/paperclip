@@ -1,0 +1,394 @@
+From c5748b9fde37e06cbe6f4dd02fd4edcc5a16d0e9 Mon Sep 17 00:00:00 2001
+From: webdib <qurkuid@gmail.com>
+Date: Thu, 30 Jul 2026 19:09:28 +0900
+Subject: [PATCH] fix(funnel): align independent entries and linked leads
+
+Co-Authored-By: Paperclip <noreply@paperclip.ing>
+---
+ src/lib/spacebogam-funnel/analytics.ts        |  9 ++--
+ .../spacebogam-funnel/leadReconciliation.ts   | 30 +++++++----
+ src/lib/spacebogam-funnel/repository.ts       | 50 +++++++++++++------
+ src/lib/spacebogam-funnel/tenantScope.ts      |  7 +--
+ .../spacebogam-consultation-tracking.spec.ts  | 10 ++++
+ tests/spacebogam-funnel-analytics.spec.ts     |  9 ++--
+ tests/spacebogam-funnel-repository.spec.ts    | 31 ++++++++++++
+ tests/spacebogam-funnel-service.spec.ts       | 43 ++++++++++++++--
+ 8 files changed, 151 insertions(+), 38 deletions(-)
+
+diff --git a/src/lib/spacebogam-funnel/analytics.ts b/src/lib/spacebogam-funnel/analytics.ts
+index ebfb5306..9b1c8301 100644
+--- a/src/lib/spacebogam-funnel/analytics.ts
++++ b/src/lib/spacebogam-funnel/analytics.ts
+@@ -4,7 +4,7 @@ const STAGE_METADATA: readonly Pick<FunnelStage, 'key' | 'label'>[] = [
+   { key: 'visit', label: '방문' },
+   { key: 'engaged', label: '10초 이상 참여' },
+   { key: 'consultation', label: '상담 CTA 클릭' },
+-  { key: 'form_start', label: '상담 작성 시작' },
++  { key: 'form_start', label: '상담 작성 시작 (독립 진입점)' },
+   { key: 'lead', label: '상담 제출 완료' },
+ ];
+ 
+@@ -128,7 +128,9 @@ function buildDailySeries(input: SpacebogamAnalyticsInput): ReportDaily[] {
+     const row = byDate.get(date);
+     const visits = row?.visits ?? 0;
+     const submittedLeads = row?.submittedLeads ?? 0;
+-    return { date, visits, submittedLeads, visitToLeadRate: visits > 0 ? reportRate(submittedLeads, visits) : null };
++    // 홈페이지 방문과 폼 제출은 독립 진입점이다. 같은 익명 세션을 확인하는
++    // 별도 교집합이 없으므로 두 독립 카운터로 전환율을 만들지 않는다.
++    return { date, visits, submittedLeads, visitToLeadRate: null };
+   });
+ }
+ 
+@@ -199,7 +201,8 @@ function buildQuality(input: SpacebogamAnalyticsInput, daily: ReportDaily[]): Fu
+ function buildCampaigns(campaigns: CampaignInput[]) {
+   return campaigns.map((campaign) => ({
+     ...campaign,
+-    visitToLeadRate: campaign.visits > 0 ? reportRate(campaign.submittedLeads, campaign.visits) : null,
++    // 캠페인 귀속이 같다는 사실만으로 같은 익명 여정이라고 볼 수 없다.
++    visitToLeadRate: null,
+     sampleStatus: campaign.visits >= MINIMUM_USABLE_CAMPAIGN_VISITS ? 'usable' : 'insufficient',
+   }));
+ }
+diff --git a/src/lib/spacebogam-funnel/leadReconciliation.ts b/src/lib/spacebogam-funnel/leadReconciliation.ts
+index c0574e51..865c5bd5 100644
+--- a/src/lib/spacebogam-funnel/leadReconciliation.ts
++++ b/src/lib/spacebogam-funnel/leadReconciliation.ts
+@@ -29,6 +29,17 @@ export function testConsultationSql(alias: string): string {
+   )`;
+ }
+ 
++export function leadSourceLinkSql(
++  sourceAlias: string,
++  eventAlias: string,
++): string {
++  return `(
++    ${sourceAlias}.id = ${eventAlias}.consultation_request_id
++    OR NULLIF(${sourceAlias}.marketing_attribution->>'lead_event_id', '') = ${eventAlias}.event_id::text
++    OR NULLIF(${sourceAlias}.marketing_attribution->>'sbSubmitEventId', '') = ${eventAlias}.event_id::text
++  )`;
++}
++
+ /**
+  * Resolve a lead event to one non-test source consultation in the same
+  * company. New rows use the direct ID; legacy rows can use their stable event
+@@ -42,11 +53,7 @@ export function confirmedLeadSourceIdSql(
+       FROM consult_req AS source_consultation
+      WHERE source_consultation.company_id = ${eventAlias}.company_id
+        AND NOT ${testConsultationSql('source_consultation')}
+-       AND (
+-         source_consultation.id = ${eventAlias}.consultation_request_id
+-         OR NULLIF(source_consultation.marketing_attribution->>'lead_event_id', '') = ${eventAlias}.event_id::text
+-         OR NULLIF(source_consultation.marketing_attribution->>'sbSubmitEventId', '') = ${eventAlias}.event_id::text
+-       )
++       AND ${leadSourceLinkSql('source_consultation', eventAlias)}
+      ORDER BY (source_consultation.id = ${eventAlias}.consultation_request_id) DESC
+      LIMIT 1
+   )`;
+@@ -60,20 +67,21 @@ export function confirmedLeadSourceIdSql(
+  * 상단 단계(방문·참여·클릭)에는 적용하지 않는다. 그쪽 필터링은 CMP-175 범위다.
+  * 여기서는 원천 `consult_req` 와 정의를 맞춰야 하는 lead 단계에만 건다.
+  */
+-export function testFunnelEventSql(): string {
++export function testFunnelEventSql(alias?: string): string {
++  const prefix = alias ? `${alias}.` : '';
+   return `(
+-    is_test = true
+-    OR utm_source ILIKE 'qa%'
+-    OR utm_campaign ILIKE 'qa%'
++    ${prefix}is_test = true
++    OR ${prefix}utm_source ILIKE 'qa%'
++    OR ${prefix}utm_campaign ILIKE 'qa%'
+   )`;
+ }
+ 
+ export type LeadReconciliation = {
+   /** 퍼널 이벤트 기준 lead 세션 수 */
+   readonly funnelLeads: number;
+-  /** 원천 `consult_req` 중 검증용을 제외한 건수 */
++  /** 웹 제출 이벤트와 안정 키로 연결된 원천 `consult_req` 중 검증용을 제외한 건수 */
+   readonly sourceLeads: number;
+-  /** 원천에서 검증용으로 걸러낸 건수 */
++  /** 연결된 원천·이벤트에서 동일 규칙으로 검증용 처리한 건수 */
+   readonly sourceTestExcluded: number;
+   /** sourceLeads - funnelLeads. 양수면 퍼널이 실제 상담을 놓치고 있다는 뜻 */
+   readonly missingInFunnel: number;
+diff --git a/src/lib/spacebogam-funnel/repository.ts b/src/lib/spacebogam-funnel/repository.ts
+index 3f03484b..77b5897e 100644
+--- a/src/lib/spacebogam-funnel/repository.ts
++++ b/src/lib/spacebogam-funnel/repository.ts
+@@ -6,6 +6,7 @@ import type {
+ } from './contracts';
+ import {
+   confirmedLeadSourceIdSql,
++  leadSourceLinkSql,
+   testConsultationSql,
+   testFunnelEventSql,
+ } from './leadReconciliation';
+@@ -314,28 +315,49 @@ export async function loadFunnelCampaigns(
+ }
+ 
+ /**
+- * 원천 `consult_req` 기준 상담 제출 건수. 퍼널 lead 단계 대조용이다. (CMP-171)
++ * 웹 제출 이벤트와 연결된 원천 `consult_req` 기준 상담 제출 건수. (CMP-512)
+  *
+- * 퍼널 이벤트와 같은 회사·같은 기간을 본다. 퍼널 쪽은 원천 ID 존재를 검증해
+- * orphan·중복을 제거하지만, 이 원천 카운터는 독립적으로 세어 누락을 드러낸다.
++ * 과거 행을 보정하지 않고 조회 시점에만 회사·기간·테스트 규칙과 안정 연결 키를
++ * 함께 적용한다. 직접 원천 ID 또는 안정적인 lead event ID가 없는 비웹 상담은
++ * 웹 퍼널의 대조 모집단에 포함하지 않는다.
+  */
+ export async function loadSourceLeadCounts(
+   companyId: string,
+   rangeDays: number,
+   collectionStartedAt: string | null,
+ ): Promise<{ sourceLeads: number; sourceTestExcluded: number }> {
+-  // 퍼널 이벤트 수집 시작 이전의 상담은 퍼널에 있을 수가 없다. 그 구간까지 대조하면
+-  // 영구히 undercount 경고가 뜨고, 경고가 무의미해진다. 창을 늦은 쪽으로 맞춘다.
++  // 원천과 이벤트 양쪽을 같은 창으로 자르고 같은 테스트 판별을 함께 적용한다.
++  // BOOL_OR 는 같은 원천에 재시도 이벤트가 여러 개 있어도 실 제출 1건으로 유지한다.
+   const result = await query<{ sourceLeads: number | string; sourceTestExcluded: number | string }>(
+-    `SELECT
+-       COUNT(*) FILTER (WHERE NOT ${testConsultationSql('cr')})::int AS source_leads,
+-       COUNT(*) FILTER (WHERE ${testConsultationSql('cr')})::int AS source_test_excluded
+-     FROM consult_req cr
+-     WHERE cr.company_id = $1
+-       AND cr.created_at >= GREATEST(
+-             NOW() - ($2 * INTERVAL '1 day'),
+-             COALESCE($3::timestamptz, NOW() - ($2 * INTERVAL '1 day'))
+-           )`,
++    `WITH linked_sources AS (
++       SELECT
++         cr.id,
++         BOOL_OR(
++           NOT ${testConsultationSql('cr')}
++           AND NOT ${testFunnelEventSql('funnel_event')}
++         ) AS included
++       FROM consult_req cr
++       JOIN spacebogam_funnel_events funnel_event
++         ON funnel_event.company_id = cr.company_id
++        AND ${leadSourceLinkSql('cr', 'funnel_event')}
++       WHERE cr.company_id = $1
++         AND cr.created_at >= GREATEST(
++               NOW() - ($2 * INTERVAL '1 day'),
++               COALESCE($3::timestamptz, NOW() - ($2 * INTERVAL '1 day'))
++             )
++         AND funnel_event.occurred_at >= GREATEST(
++               NOW() - ($2 * INTERVAL '1 day'),
++               COALESCE($3::timestamptz, NOW() - ($2 * INTERVAL '1 day'))
++             )
++         AND funnel_event.event_name IN ('lead_submit_success', 'consultation_submit')
++         AND funnel_event.is_active = true
++         AND ${spacebogamTenantEventSql('funnel_event')}
++       GROUP BY cr.id
++     )
++     SELECT
++       COUNT(*) FILTER (WHERE included)::int AS source_leads,
++       COUNT(*) FILTER (WHERE NOT included)::int AS source_test_excluded
++     FROM linked_sources`,
+     [companyId, rangeDays, collectionStartedAt],
+   );
+   const row = result.rows[0];
+diff --git a/src/lib/spacebogam-funnel/tenantScope.ts b/src/lib/spacebogam-funnel/tenantScope.ts
+index d2f7bc0f..43362aed 100644
+--- a/src/lib/spacebogam-funnel/tenantScope.ts
++++ b/src/lib/spacebogam-funnel/tenantScope.ts
+@@ -19,10 +19,11 @@ export function isAllowedSpacebogamFunnelPath(
+  * 테넌트는 `/consultation/:slug`로 구분되므로 공간보감 slug만 보고서에 포함한다.
+  * 이 조건은 행을 삭제하거나 수정하지 않고 집계 시점에만 적용된다.
+  */
+-export function spacebogamTenantEventSql(): string {
++export function spacebogamTenantEventSql(alias?: string): string {
++  const prefix = alias ? `${alias}.` : '';
+   return `NOT (
+-    page_path ~ '^/consultation/[^/?#]+'
+-    AND regexp_replace(split_part(split_part(page_path, '?', 1), '#', 1), '/+$', '')
++    ${prefix}page_path ~ '^/consultation/[^/?#]+'
++    AND regexp_replace(split_part(split_part(${prefix}page_path, '?', 1), '#', 1), '/+$', '')
+       <> '${SPACEBOGAM_CONSULTATION_PATH}'
+   )`;
+ }
+diff --git a/tests/spacebogam-consultation-tracking.spec.ts b/tests/spacebogam-consultation-tracking.spec.ts
+index 3746b063..58e436f4 100644
+--- a/tests/spacebogam-consultation-tracking.spec.ts
++++ b/tests/spacebogam-consultation-tracking.spec.ts
+@@ -144,9 +144,14 @@ test('normalizes oversized UTM values once for every funnel stage', () => {
+ 
+ test('browser context creation needs only session storage and never crashes the form', () => {
+   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
++  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+   const stored = new Map<string, string>();
+ 
+   try {
++    Object.defineProperty(globalThis, 'document', {
++      configurable: true,
++      value: { referrer: '', title: '공간보감 상담 신청' },
++    });
+     Object.defineProperty(globalThis, 'window', {
+       configurable: true,
+       value: {
+@@ -212,6 +217,11 @@ test('browser context creation needs only session storage and never crashes the
+     } else {
+       Reflect.deleteProperty(globalThis, 'window');
+     }
++    if (originalDocument) {
++      Object.defineProperty(globalThis, 'document', originalDocument);
++    } else {
++      Reflect.deleteProperty(globalThis, 'document');
++    }
+   }
+ });
+ 
+diff --git a/tests/spacebogam-funnel-analytics.spec.ts b/tests/spacebogam-funnel-analytics.spec.ts
+index 1c78f0c7..ef6c50df 100644
+--- a/tests/spacebogam-funnel-analytics.spec.ts
++++ b/tests/spacebogam-funnel-analytics.spec.ts
+@@ -250,8 +250,8 @@ test('emits schema v1 report rates as ratios', () => {
+ 
+   assert.equal(report.stages[1]?.conversionFromPrevious, 0.667);
+   assert.equal(report.stages[1]?.dropOffRate, 0.333);
+-  assert.equal(report.daily.find((day) => day.date === '2026-07-25')?.visitToLeadRate, 0.067);
+-  assert.equal(report.campaigns[0]?.visitToLeadRate, 0.067);
++  assert.equal(report.daily.find((day) => day.date === '2026-07-25')?.visitToLeadRate, null);
++  assert.equal(report.campaigns[0]?.visitToLeadRate, null);
+   assert.equal(report.quality.utmTaggedVisitRate, 0.5);
+   assert.equal(report.bottleneck?.lossRate, 0.6);
+ });
+@@ -296,7 +296,10 @@ test('treats direct form traffic as a parallel entry point without hiding action
+ 
+   assert.equal(report.quality.status, 'ready');
+   assert.equal(report.quality.isMonotonic, true);
+-  assert.equal(report.stages.find((stage) => stage.key === 'form_start')?.previousCount, null);
++  const formStart = report.stages.find((stage) => stage.key === 'form_start');
++  assert.equal(formStart?.previousCount, null);
++  assert.equal(formStart?.conversionFromPrevious, null);
++  assert.equal(formStart?.label, '상담 작성 시작 (독립 진입점)');
+   assert.notEqual(report.bottleneck, null);
+   assert.ok(report.recommendations.length > 0);
+   assert.notDeepEqual(report.bottleneck, {
+diff --git a/tests/spacebogam-funnel-repository.spec.ts b/tests/spacebogam-funnel-repository.spec.ts
+index 43b638e0..9d3ad7d4 100644
+--- a/tests/spacebogam-funnel-repository.spec.ts
++++ b/tests/spacebogam-funnel-repository.spec.ts
+@@ -6,6 +6,7 @@ import {
+   loadFunnelCampaigns,
+   loadFunnelReportInputs,
+   loadFunnelStageCounts,
++  loadSourceLeadCounts,
+   storeFunnelEvent,
+ } from '../src/lib/spacebogam-funnel/repository';
+ import {
+@@ -165,6 +166,36 @@ test('characterizes current collection start lookup as aggregate-only', async ()
+   assert.doesNotMatch(calls[0]?.text ?? '', /client_id|event_id|session_id/);
+ });
+ 
++test('CMP-512: source leads include only linked web submissions in the same scoped window', async () => {
++  const calls = mockPoolQuery([{ sourceLeads: 2, sourceTestExcluded: 1 }]);
++
++  const counts = await loadSourceLeadCounts(
++    'company-a',
++    28,
++    '2026-07-25T02:38:23.332Z',
++  );
++
++  assert.deepEqual(counts, { sourceLeads: 2, sourceTestExcluded: 1 });
++  const sql = calls[0]?.text ?? '';
++  assert.match(sql, /JOIN spacebogam_funnel_events funnel_event/);
++  assert.match(sql, /funnel_event\.company_id = cr\.company_id/);
++  assert.match(sql, /cr\.id = funnel_event\.consultation_request_id/);
++  assert.match(sql, /marketing_attribution->>'lead_event_id'/);
++  assert.match(sql, /marketing_attribution->>'sbSubmitEventId'/);
++  assert.match(sql, /cr\.created_at >= GREATEST/);
++  assert.match(sql, /funnel_event\.occurred_at >= GREATEST/);
++  assert.match(sql, /funnel_event\.event_name IN \('lead_submit_success', 'consultation_submit'\)/);
++  assert.match(sql, /funnel_event\.is_active = true/);
++  assert.match(sql, /funnel_event\.page_path ~ '\^\/consultation\/\[\^\/\?#\]\+'/);
++  assert.match(sql, /BOOL_OR\([\s\S]*NOT \([\s\S]*cr\.marketing_attribution[\s\S]*AND NOT \([\s\S]*funnel_event\.is_test = true/);
++  assert.doesNotMatch(sql, /UPDATE|DELETE/);
++  assert.deepEqual(calls[0]?.params, [
++    'company-a',
++    28,
++    '2026-07-25T02:38:23.332Z',
++  ]);
++});
++
+ function buildDailyRows(): object[] {
+   return Array.from({ length: 28 }, (_, index) => {
+     const day = String(index + 1).padStart(2, '0');
+diff --git a/tests/spacebogam-funnel-service.spec.ts b/tests/spacebogam-funnel-service.spec.ts
+index b9073280..1f49e01d 100644
+--- a/tests/spacebogam-funnel-service.spec.ts
++++ b/tests/spacebogam-funnel-service.spec.ts
+@@ -20,6 +20,9 @@ function dateKey(offsetFromEnd: number): string {
+ type ReportQueryOptions = {
+   visits?: number;
+   engagedVisits?: number;
++  consultationClicks?: number;
++  formStarts?: number;
++  submittedLeads?: number;
+   sampleSessions?: number;
+   freshnessHours?: number | null;
+   isMonotonic?: boolean;
+@@ -55,9 +58,9 @@ function mockReportQueries(rangeDays: 7 | 28 | 90, options: ReportQueryOptions =
+   const calls: QueryCall[] = [];
+   const visits = options.visits ?? 120;
+   const engagedVisits = options.engagedVisits ?? Math.min(80, visits);
+-  const consultationClicks = Math.min(32, engagedVisits);
+-  const formStarts = Math.min(16, consultationClicks);
+-  const submittedLeads = Math.min(8, formStarts);
++  const consultationClicks = options.consultationClicks ?? Math.min(32, engagedVisits);
++  const formStarts = options.formStarts ?? Math.min(16, consultationClicks);
++  const submittedLeads = options.submittedLeads ?? Math.min(8, formStarts);
+   const rowsByCall = [
+     // CMP-171: 대조 창을 자르려면 수집 시작 시각을 먼저 읽는다. 이 호출이 항상 첫 번째다.
+     [{ collectionStartedAt: options.collectionStartedAt === undefined ? COLLECTION_STARTED_DEFAULT : options.collectionStartedAt }],
+@@ -120,6 +123,34 @@ test('propagates aggregate quality state from report inputs', async () => {
+   assert.deepEqual(report.quality.warnings, []);
+ });
+ 
++test('CMP-512: 7, 28, and 90 day reports keep parallel entries monotonic and reconciled', async () => {
++  for (const rangeDays of [7, 28, 90] as const) {
++    mockReportQueries(rangeDays, {
++      visits: 367,
++      engagedVisits: 139,
++      consultationClicks: 23,
++      formStarts: 35,
++      submittedLeads: 0,
++      sourceLeads: 0,
++      sourceTestExcluded: 8,
++    });
++    const report = await buildSpacebogamFunnelReport('company-a', rangeDays, generatedAt);
++
++    assert.equal(report.quality.isMonotonic, true);
++    assert.equal(report.quality.leadReconciliation?.funnelLeads, 0);
++    assert.equal(report.quality.leadReconciliation?.sourceLeads, 0);
++    assert.equal(
++      report.stages.find((stage) => stage.key === 'form_start')?.previousCount,
++      null,
++    );
++    assert.match(
++      report.stages.find((stage) => stage.key === 'form_start')?.label ?? '',
++      /독립 진입점/,
++    );
++    mock.restoreAll();
++  }
++});
++
+ test('uses aggregate quality states to suppress directional actions', async () => {
+   const cases = [
+     { expected: 'empty', options: { visits: 0, sampleSessions: 0 } },
+@@ -200,7 +231,11 @@ test('excludes QA-tagged sessions from every funnel lead count', async () => {
+   await buildSpacebogamFunnelReport('company-a', 7, generatedAt);
+ 
+   const leadCountingQueries = calls.filter((call) => call.text.includes('lead_submit_success'));
+-  assert.equal(leadCountingQueries.length, 3, 'stage, campaign, daily/quality queries all count leads');
++  assert.equal(
++    leadCountingQueries.length,
++    4,
++    'stage, campaign, source reconciliation, and daily/quality queries all count leads',
++  );
+   for (const call of leadCountingQueries) {
+     assert.match(call.text, /utm_source ILIKE 'qa%'/);
+     assert.match(call.text, /utm_campaign ILIKE 'qa%'/);
+-- 
+2.50.1 (Apple Git-155)
+

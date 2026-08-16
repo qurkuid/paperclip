@@ -430,6 +430,10 @@ export interface PluginRouteBridgeDeps {
   streamBus?: PluginStreamBus;
 }
 
+// An agent-backed plugin action can legitimately wait for a heartbeat response.
+// Keep its invocation scope alive longer than ordinary data reads.
+const PLUGIN_ACTION_TIMEOUT_MS = 5 * 60 * 1_000;
+
 export interface PluginRouteToolGatewayDeps {
   toolGateway: ToolGatewayService;
 }
@@ -1487,6 +1491,7 @@ export function pluginRoutes(
           actorContext: performActionActorContext(req, companyId),
           renderEnvironment: body.renderEnvironment ?? null,
         },
+        PLUGIN_ACTION_TIMEOUT_MS,
       );
       res.json({ data: result });
     } catch (err) {
@@ -1671,6 +1676,7 @@ export function pluginRoutes(
           actorContext: performActionActorContext(req, companyId),
           renderEnvironment: body?.renderEnvironment ?? null,
         },
+        PLUGIN_ACTION_TIMEOUT_MS,
       );
       res.json({ data: result });
     } catch (err) {

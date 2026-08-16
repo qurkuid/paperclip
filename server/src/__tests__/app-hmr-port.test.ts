@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { resolveViteHmrHost, resolveViteHmrPort } from "../app.ts";
+import {
+  resolveViteBasePath,
+  resolveViteHmrHost,
+  resolveViteHmrPort,
+  resolveViteMiddlewareUrl,
+  resolveUiBaseMountPath,
+} from "../app.ts";
+
+describe("resolveViteBasePath", () => {
+  it("normalizes a reverse-proxy prefix for Vite module URLs", () => {
+    expect(resolveViteBasePath("/af")).toBe("/af/");
+    expect(resolveViteBasePath("af/")).toBe("/af/");
+    expect(resolveViteBasePath(undefined)).toBe("/");
+    expect(resolveUiBaseMountPath("/af/")).toBe("/af");
+    expect(resolveUiBaseMountPath(undefined)).toBe("");
+    expect(resolveViteMiddlewareUrl("/src/main.tsx", "/af/")).toBe("/af/src/main.tsx");
+    expect(resolveViteMiddlewareUrl("/af/src/main.tsx", "/af/")).toBe("/src/main.tsx");
+    expect(resolveViteMiddlewareUrl("/af/@vite/client", "/af/")).toBe("/@vite/client");
+    expect(resolveViteMiddlewareUrl("/src/main.tsx", "/")).toBe("/src/main.tsx");
+  });
+});
 
 describe("resolveViteHmrPort", () => {
   it("uses serverPort + 10000 when the result stays in range", () => {

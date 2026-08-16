@@ -1,0 +1,474 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1786824622778,
+  "projectRoot": "/Users/baegchangseog/Documents/paperclip",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": ">=20",
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "@playwright/test",
+        "version": "1.61.1",
+        "category": "testing"
+      },
+      {
+        "name": "esbuild",
+        "version": "0.28.1",
+        "category": "build"
+      },
+      {
+        "name": "vitest",
+        "version": "4.1.10",
+        "category": "testing"
+      }
+    ],
+    "packageManager": "pnpm",
+    "runtime": "Node.js 20"
+  },
+  "build": {
+    "buildCommand": "pnpm build",
+    "testCommand": "pnpm test",
+    "lintCommand": null,
+    "devCommand": "pnpm dev",
+    "scripts": {
+      "postinstall": "node scripts/link-plugin-dev-sdk.mjs",
+      "preflight:workspace-links": "node cli/node_modules/tsx/dist/cli.mjs scripts/ensure-workspace-package-links.ts",
+      "dev": "pnpm --filter @paperclipai/server exec tsx ../scripts/dev-runner.ts watch",
+      "dev:watch": "pnpm --filter @paperclipai/server exec tsx ../scripts/dev-runner.ts watch",
+      "dev:once": "pnpm --filter @paperclipai/server exec tsx ../scripts/dev-runner.ts dev",
+      "dev:list": "pnpm --filter @paperclipai/server exec tsx ../scripts/dev-service.ts list",
+      "dev:stop": "pnpm --filter @paperclipai/server exec tsx ../scripts/dev-service.ts stop",
+      "dev:server": "pnpm --filter @paperclipai/server dev",
+      "dev:ui": "pnpm --filter @paperclipai/ui dev",
+      "storybook": "pnpm --filter @paperclipai/ui storybook",
+      "build-storybook": "pnpm --filter @paperclipai/ui build-storybook",
+      "build": "pnpm run preflight:workspace-links && pnpm -r build",
+      "typecheck": "pnpm run preflight:workspace-links && pnpm -r typecheck",
+      "typecheck:build-gaps": "pnpm run preflight:workspace-links && pnpm --filter @paperclipai/plugin-sdk ensure-build-deps && pnpm --filter @paperclipai/server build && node scripts/run-typecheck-build-gaps.mjs",
+      "test": "pnpm run test:run",
+      "test:watch": "pnpm run preflight:workspace-links && vitest",
+      "test:run": "pnpm run preflight:workspace-links && node scripts/run-vitest-stable.mjs",
+      "test:run:general": "pnpm run preflight:workspace-links && pnpm --filter @paperclipai/plugin-sdk ensure-build-deps && node scripts/run-vitest-stable.mjs --mode general",
+      "test:run:serialized": "pnpm run preflight:workspace-links && pnpm --filter @paperclipai/plugin-sdk ensure-build-deps && node scripts/run-vitest-stable.mjs --mode serialized",
+      "db:generate": "pnpm --filter @paperclipai/db generate",
+      "db:migrate": "pnpm --filter @paperclipai/db migrate",
+      "issue-references:backfill": "pnpm run preflight:workspace-links && tsx scripts/backfill-issue-reference-mentions.ts",
+      "secrets:migrate-inline-env": "tsx scripts/migrate-inline-env-secrets.ts",
+      "db:backup": "./scripts/backup-db.sh",
+      "paperclipai": "node cli/node_modules/tsx/dist/cli.mjs cli/src/index.ts",
+      "build:npm": "./scripts/build-npm.sh",
+      "release": "./scripts/release.sh",
+      "release:canary": "./scripts/release.sh canary",
+      "release:stable": "./scripts/release.sh stable",
+      "release:github": "./scripts/create-github-release.sh",
+      "release:rollback": "./scripts/rollback-latest.sh",
+      "release:bootstrap-package": "node scripts/bootstrap-npm-package.mjs",
+      "check:tokens": "node scripts/check-forbidden-tokens.mjs",
+      "check:token-gates": "node scripts/check-token-gates.mjs",
+      "check:no-git-push": "node scripts/check-no-git-push.mjs",
+      "test:check-no-git-push": "node --test scripts/check-no-git-push.test.mjs",
+      "test:hermes-gateway-smoke": "node --test scripts/smoke/hermes-gateway-smoke.test.mjs",
+      "docs:dev": "cd docs && npx mintlify dev",
+      "smoke:hermes-gateway-join": "./scripts/smoke/hermes-gateway-join.sh",
+      "smoke:hermes-gateway-e2e": "./scripts/smoke/hermes-gateway-e2e.sh",
+      "smoke:openclaw-join": "./scripts/smoke/openclaw-join.sh",
+      "smoke:openclaw-docker-ui": "./scripts/smoke/openclaw-docker-ui.sh",
+      "smoke:openclaw-sse-standalone": "./scripts/smoke/openclaw-sse-standalone.sh",
+      "smoke:mcp-fixtures": "node scripts/smoke/mcp-fixture-harness.mjs",
+      "smoke:pipelines-tutorial": "./scripts/smoke/pipelines-tutorial-smoke.sh",
+      "smoke:terminal-bench-loop-skill": "node scripts/smoke/terminal-bench-loop-skill-smoke.mjs",
+      "test:release-registry": "node --test scripts/verify-release-registry-state.test.mjs scripts/release-package-map.test.mjs scripts/check-release-package-bootstrap.test.mjs scripts/check-no-git-push.test.mjs scripts/release-lib.test.mjs scripts/release-registry-versions.test.mjs scripts/link-plugin-dev-sdk.test.js scripts/acpx-patch-packaging.test.mjs",
+      "storybook-visual:baseline": "node scripts/storybook-visual-baseline.mjs",
+      "test:storybook-visual": "node scripts/storybook-visual-baseline.mjs download && node scripts/storybook-visual-baseline.mjs verify && pnpm build-storybook && npx playwright test --config tests/storybook-visual/playwright.config.ts",
+      "test:storybook-visual:update": "node scripts/storybook-visual-baseline.mjs download && pnpm build-storybook && npx playwright test --config tests/storybook-visual/playwright.config.ts --update-snapshots && node scripts/storybook-visual-baseline.mjs pack",
+      "test:e2e": "npx playwright test --config tests/e2e/playwright.config.ts",
+      "test:e2e:mcp-user-stories": "node scripts/e2e-mcp-user-stories.mjs",
+      "test:e2e:headed": "npx playwright test --config tests/e2e/playwright.config.ts --headed",
+      "test:e2e:multiuser-authenticated": "npx playwright test --config tests/e2e/playwright-multiuser-authenticated.config.ts",
+      "evals:smoke": "cd evals/promptfoo && npx promptfoo@0.103.3 eval",
+      "test:release-smoke": "npx playwright test --config tests/release-smoke/playwright.config.ts",
+      "test:release-smoke:headed": "npx playwright test --config tests/release-smoke/playwright.config.ts --headed",
+      "metrics:paperclip-commits": "tsx scripts/paperclip-commit-metrics.ts",
+      "perf:issue-chat-long-thread": "node scripts/measure-issue-chat-long-thread.mjs",
+      "connections:ingest-app-definitions": "node scripts/ingest-app-definitions.mjs"
+    }
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": true,
+    "workspaces": [],
+    "mainDirectories": [
+      "docs",
+      "scripts",
+      "tests"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "agent-instructions": {
+      "path": "agent-instructions",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1786824622761,
+      "keyFiles": []
+    },
+    "artifacts": {
+      "path": "artifacts",
+      "purpose": null,
+      "fileCount": 13,
+      "lastAccessed": 1786824622761,
+      "keyFiles": [
+        "CMP-1024-autothreads-mcp-poc-2026-08-02.md",
+        "CMP-1025-autothreads-independent-qa-2026-08-02.md",
+        "CMP-1049-autothreads-mcp-smoke.ndjson",
+        "CMP-1049-autothreads-operating-proof-2026-08-02.md",
+        "CMP-1049-autothreads-upstream-3dd347e.tar.gz"
+      ]
+    },
+    "cli": {
+      "path": "cli",
+      "purpose": null,
+      "fileCount": 6,
+      "lastAccessed": 1786824622765,
+      "keyFiles": [
+        "CHANGELOG.md",
+        "README.md",
+        "esbuild.config.mjs",
+        "package.json",
+        "tsconfig.json"
+      ]
+    },
+    "design": {
+      "path": "design",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1786824622766,
+      "keyFiles": []
+    },
+    "doc": {
+      "path": "doc",
+      "purpose": null,
+      "fileCount": 35,
+      "lastAccessed": 1786824622766,
+      "keyFiles": [
+        "AF-FUNNEL-SMOKE.md",
+        "AGENT-ARTIFACTS.md",
+        "AGENTCOMPANIES_SPEC_INVENTORY.md",
+        "CLI.md",
+        "CLIPHUB.md"
+      ]
+    },
+    "docker": {
+      "path": "docker",
+      "purpose": null,
+      "fileCount": 6,
+      "lastAccessed": 1786824622766,
+      "keyFiles": [
+        "Dockerfile.onboard-smoke",
+        "docker-compose.quickstart.yml",
+        "docker-compose.untrusted-review.yml",
+        "docker-compose.yml",
+        "ecs-task-definition.json"
+      ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 6,
+      "lastAccessed": 1786824622767,
+      "keyFiles": [
+        "agents-runtime.md",
+        "built-in-agents.md",
+        "docs.json",
+        "favicon.svg",
+        "feedback-voting.md"
+      ]
+    },
+    "evals": {
+      "path": "evals",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1786824622767,
+      "keyFiles": [
+        "README.md"
+      ]
+    },
+    "packages": {
+      "path": "packages",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1786824622767,
+      "keyFiles": []
+    },
+    "patches": {
+      "path": "patches",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1786824622767,
+      "keyFiles": [
+        "acpx@0.12.0.patch",
+        "embedded-postgres@18.1.0-beta.16.patch"
+      ]
+    },
+    "releases": {
+      "path": "releases",
+      "purpose": null,
+      "fileCount": 23,
+      "lastAccessed": 1786824622768,
+      "keyFiles": [
+        "v0.2.7.md",
+        "v0.3.0.md",
+        "v0.3.1.md",
+        "v2026.318.0.md",
+        "v2026.325.0.md"
+      ]
+    },
+    "report": {
+      "path": "report",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1786824622768,
+      "keyFiles": [
+        "2026-03-13-08-46-token-optimization-implementation.md"
+      ]
+    },
+    "runs": {
+      "path": "runs",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1786824622768,
+      "keyFiles": []
+    },
+    "screenshots": {
+      "path": "screenshots",
+      "purpose": null,
+      "fileCount": 12,
+      "lastAccessed": 1786824622768,
+      "keyFiles": [
+        "PAP-10535-live-run-menu-after.png",
+        "PAP-10535-live-run-menu-before.png",
+        "PAP-9841-workspace-diff.png",
+        "PR-7938-agent-config-forced-kubernetes-missing-env.png",
+        "PR-7938-agent-config-forced-kubernetes.png"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 91,
+      "lastAccessed": 1786824622768,
+      "keyFiles": [
+        "acpx-patch-packaging.test.mjs",
+        "backfill-issue-reference-mentions.ts",
+        "backup-db.sh",
+        "bootstrap-npm-package.mjs",
+        "bootstrap-npm-package.test.mjs"
+      ]
+    },
+    "server": {
+      "path": "server",
+      "purpose": null,
+      "fileCount": 4,
+      "lastAccessed": 1786824622768,
+      "keyFiles": [
+        "CHANGELOG.md",
+        "package.json",
+        "tsconfig.json",
+        "vitest.config.ts"
+      ]
+    },
+    "skills": {
+      "path": "skills",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1786824622769,
+      "keyFiles": []
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 0,
+      "lastAccessed": 1786824622769,
+      "keyFiles": []
+    },
+    "tools": {
+      "path": "tools",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1786824622769,
+      "keyFiles": []
+    },
+    "ui": {
+      "path": "ui",
+      "purpose": null,
+      "fileCount": 10,
+      "lastAccessed": 1786824622769,
+      "keyFiles": [
+        "README.md",
+        "components.json",
+        "index.html",
+        "package.json",
+        "tsconfig.json"
+      ]
+    },
+    "cli/dist": {
+      "path": "cli/dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 2,
+      "lastAccessed": 1786824622770,
+      "keyFiles": [
+        "index.js",
+        "index.js.map"
+      ]
+    },
+    "cli/node_modules": {
+      "path": "cli/node_modules",
+      "purpose": "Dependencies",
+      "fileCount": 0,
+      "lastAccessed": 1786824622771,
+      "keyFiles": []
+    },
+    "cli/src": {
+      "path": "cli/src",
+      "purpose": "Source code",
+      "fileCount": 3,
+      "lastAccessed": 1786824622771,
+      "keyFiles": [
+        "index.ts",
+        "telemetry.ts",
+        "version.ts"
+      ]
+    },
+    "docs/api": {
+      "path": "docs/api",
+      "purpose": "API routes",
+      "fileCount": 13,
+      "lastAccessed": 1786824622771,
+      "keyFiles": [
+        "activity.md",
+        "agents.md",
+        "approvals.md"
+      ]
+    },
+    "docs/assets": {
+      "path": "docs/assets",
+      "purpose": "Static assets",
+      "fileCount": 0,
+      "lastAccessed": 1786824622771,
+      "keyFiles": []
+    },
+    "scripts/__tests__": {
+      "path": "scripts/__tests__",
+      "purpose": "Test files",
+      "fileCount": 10,
+      "lastAccessed": 1786824622772,
+      "keyFiles": [
+        "build-standalone-concurrency.test.mjs",
+        "e2e-shard.test.mjs",
+        "embedded-postgres-shutdown-contract.test.mjs"
+      ]
+    },
+    "server/dist": {
+      "path": "server/dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 116,
+      "lastAccessed": 1786824622774,
+      "keyFiles": [
+        "agent-auth-jwt.d.ts",
+        "agent-auth-jwt.d.ts.map",
+        "agent-auth-jwt.js"
+      ]
+    },
+    "server/node_modules": {
+      "path": "server/node_modules",
+      "purpose": "Dependencies",
+      "fileCount": 0,
+      "lastAccessed": 1786824622774,
+      "keyFiles": []
+    },
+    "server/scripts": {
+      "path": "server/scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 1,
+      "lastAccessed": 1786824622775,
+      "keyFiles": [
+        "dev-watch.ts"
+      ]
+    },
+    "server/src": {
+      "path": "server/src",
+      "purpose": "Source code",
+      "fileCount": 29,
+      "lastAccessed": 1786824622775,
+      "keyFiles": [
+        "agent-auth-jwt.ts",
+        "app.ts",
+        "attachment-types.ts"
+      ]
+    },
+    "ui/dist": {
+      "path": "ui/dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 15,
+      "lastAccessed": 1786824622776,
+      "keyFiles": [
+        "android-chrome-192x192.png",
+        "android-chrome-512x512.png",
+        "apple-touch-icon.png"
+      ]
+    },
+    "ui/node_modules": {
+      "path": "ui/node_modules",
+      "purpose": "Dependencies",
+      "fileCount": 0,
+      "lastAccessed": 1786824622776,
+      "keyFiles": []
+    },
+    "ui/public": {
+      "path": "ui/public",
+      "purpose": "Public files",
+      "fileCount": 14,
+      "lastAccessed": 1786824622776,
+      "keyFiles": [
+        "android-chrome-192x192.png",
+        "android-chrome-512x512.png",
+        "apple-touch-icon.png"
+      ]
+    },
+    "ui/src": {
+      "path": "ui/src",
+      "purpose": "Source code",
+      "fileCount": 7,
+      "lastAccessed": 1786824622776,
+      "keyFiles": [
+        "App.cases-routing.test.tsx",
+        "App.test.tsx",
+        "App.tsx"
+      ]
+    }
+  },
+  "hotPaths": [],
+  "userDirectives": []
+}

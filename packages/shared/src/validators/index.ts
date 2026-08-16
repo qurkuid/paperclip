@@ -43,6 +43,10 @@ export {
   type UpdateCompanyBranding,
 } from "./company.js";
 export {
+  createGitHubRepositorySnapshotSchema,
+  type CreateGitHubRepositorySnapshot,
+} from "./github-repository-snapshot.js";
+export {
   environmentDriverSchema,
   environmentStatusSchema,
   environmentLeaseStatusSchema,

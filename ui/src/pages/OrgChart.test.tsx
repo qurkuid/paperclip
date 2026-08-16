@@ -245,6 +245,15 @@ describe("OrgChart mobile gestures", () => {
 
     expect(navigateMock).toHaveBeenCalledWith("/agents/ceo");
   });
+
+  it("keeps cards within the fixed height used by the tree layout", async () => {
+    await renderOrgChart();
+    const card = container.querySelector("[data-org-card]") as HTMLDivElement;
+
+    expect(card.style.height).toBe("100px");
+    expect(card.style.overflow).toBe("hidden");
+  });
+
   it("pinch-zooms toward the touch center", async () => {
     const { viewport, layer } = await renderOrgChart();
 

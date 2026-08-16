@@ -66,6 +66,15 @@ export function DebugRequestLauncher() {
     };
   }, [selecting]);
 
+  useEffect(() => {
+    const startSelection = () => {
+      setSelecting(true);
+      setHoveredRect(null);
+    };
+    window.addEventListener("paperclip:start-debug-request", startSelection);
+    return () => window.removeEventListener("paperclip:start-debug-request", startSelection);
+  }, []);
+
   if (!selectedCompanyId) return null;
 
   async function submitRequest(request: string) {
@@ -94,7 +103,7 @@ export function DebugRequestLauncher() {
       setDialogOpen(false);
       toastActions?.pushToast({
         title: `${issueRef} 작업을 생성했습니다`,
-        body: "Founding Engineer가 선택한 요소와 요청사항을 전달받았습니다.",
+        body: "Paperclip 개발자가 선택한 요소와 요청사항을 전달받았습니다.",
         tone: "success",
         action: { label: "작업 보기", href: `/issues/${issueRef}` },
       });

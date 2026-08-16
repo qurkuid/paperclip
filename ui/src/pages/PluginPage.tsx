@@ -164,7 +164,7 @@ export function PluginPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       {!routeSidebarActive && (
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" asChild>
@@ -178,7 +178,7 @@ export function PluginPage() {
       <PluginSlotMount
         slot={pageSlot}
         context={context}
-        className="min-h-(--sz-200px)"
+        className="min-h-(--sz-200px) flex-1"
         missingBehavior="placeholder"
       />
     </div>

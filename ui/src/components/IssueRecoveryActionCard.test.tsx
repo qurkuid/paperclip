@@ -150,7 +150,10 @@ describe("IssueRecoveryActionCard", () => {
     expect(node.textContent).toContain("ClaudeCoder");
     expect(node.textContent).toContain("CodexCoder");
     expect(node.textContent).toContain("Choose and record a valid issue disposition.");
-    expect(node.textContent).toContain("Corrective wake queued");
+    expect(node.textContent).toContain("후속 실행");
+    expect(node.textContent).toContain("복구 실행 대기 중");
+    expect(node.textContent).not.toContain("후속 실행복구 실행 대기 중");
+    expect(node.textContent).not.toContain("Corrective wake queued");
   });
 
   it("falls back to em dash when wake policy is absent", () => {
@@ -158,6 +161,42 @@ describe("IssueRecoveryActionCard", () => {
       <IssueRecoveryActionCard action={buildAction({ wakePolicy: null })} />,
     );
     expect(node.textContent).toContain("—");
+  });
+
+  it("translates the durable-progress retry action", () => {
+    const node = render(
+      <IssueRecoveryActionCard
+        action={buildAction({
+          nextAction:
+            "Retry the original assignee from durable progress without redoing completed steps.",
+        })}
+      />,
+    );
+
+    expect(node.textContent).toContain(
+      "완료한 작업은 반복하지 않고 저장된 진행 상황부터 기존 담당자가 다시 실행합니다.",
+    );
+    expect(node.textContent).not.toContain(
+      "Retry the original assignee from durable progress without redoing completed steps.",
+    );
+  });
+
+  it("normalizes durable-progress retry action formatting before translation", () => {
+    const node = render(
+      <IssueRecoveryActionCard
+        action={buildAction({
+          nextAction:
+            "  Retry the original assignee from durable progress without redoing completed steps.\n",
+        })}
+      />,
+    );
+
+    expect(node.textContent).toContain(
+      "완료한 작업은 반복하지 않고 저장된 진행 상황부터 기존 담당자가 다시 실행합니다.",
+    );
+    expect(node.textContent).not.toContain(
+      "Retry the original assignee from durable progress without redoing completed steps.",
+    );
   });
 
   it("renders observe_only tone for active_run_watchdog", () => {

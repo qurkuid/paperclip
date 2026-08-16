@@ -42,7 +42,7 @@ describe("StatusIcon", () => {
     expect(html).not.toContain("bg-cyan");
     expect(html).not.toContain("border-cyan");
     // Full blocked reason still rides on the accessible label.
-    expect(html).toContain("Blocked · waiting on active sub-task PAP-9");
+    expect(html).toContain("차단됨 · 진행 중인 하위 작업 PAP-9을(를) 기다리는 중");
   });
 
   it("surfaces attention-required blocked copy and keeps the blocked glyph", () => {
@@ -61,7 +61,7 @@ describe("StatusIcon", () => {
         }}
       />,
     );
-    expect(html).toContain("Blocked · 3 blockers need attention; 2 covered by active work");
+    expect(html).toContain("차단됨 · 선행 작업 3개 확인 필요; 진행 중인 작업 2개가 처리 중");
     // needs_attention is not "covered", so it keeps the blocked glyph (not in_queue).
     expect(html).toContain("var(--status-task-icon-blocked)");
     expect(html).not.toContain("var(--status-task-icon-in_queue)");
@@ -83,9 +83,9 @@ describe("StatusIcon", () => {
         }}
       />,
     );
-    expect(html).toContain("Blocked · attention details unavailable");
-    expect(html).not.toContain("0 blockers");
-    expect(html).not.toContain("no blockers need attention");
+    expect(html).toContain("차단됨 · 확인할 선행 작업 정보를 불러올 수 없음");
+    expect(html).not.toContain("0개");
+    expect(html).not.toContain("확인 필요 없음");
   });
 
   it("surfaces stalled-review blocked copy on the accessible label", () => {
@@ -104,7 +104,7 @@ describe("StatusIcon", () => {
         }}
       />,
     );
-    expect(html).toContain("Blocked · review stalled on PAP-2279");
+    expect(html).toContain("차단됨 · PAP-2279 검토가 멈춰 있음");
   });
 
   it("keeps the onChange picker working with the glyph", () => {

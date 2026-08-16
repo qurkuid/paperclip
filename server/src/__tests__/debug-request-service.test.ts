@@ -15,7 +15,7 @@ const element = {
 };
 
 describe("debug request issue construction", () => {
-  it("targets the Paperclip project and Founding Engineer without ambiguity", () => {
+  it("targets the Paperclip project and Paperclip developer without ambiguity", () => {
     const result = resolveDebugRequestTargets({
       projects: [
         { id: "project-other", name: "Onboarding", primaryWorkspaceId: null },
@@ -23,15 +23,29 @@ describe("debug request issue construction", () => {
       ],
       agents: [
         { id: "agent-other", name: "QA", status: "idle" },
-        { id: "agent-founding", name: "Founding Engineer", status: "idle" },
+        { id: "agent-paperclip", name: "Paperclip 개발자", urlKey: "paperclip", status: "idle" },
       ],
     });
 
     expect(result).toEqual({
       projectId: "project-paperclip",
       projectWorkspaceId: "workspace-paperclip",
-      assigneeAgentId: "agent-founding",
+      assigneeAgentId: "agent-paperclip",
     });
+  });
+
+  it("rejects an unavailable Paperclip developer instead of falling back to Founding Engineer", () => {
+    expect(() =>
+      resolveDebugRequestTargets({
+        projects: [
+          { id: "project-paperclip", name: "Paperclip", primaryWorkspaceId: "workspace-paperclip" },
+        ],
+        agents: [
+          { id: "agent-paperclip", name: "Paperclip 개발자", urlKey: "paperclip", status: "paused" },
+          { id: "agent-founding", name: "Founding Engineer", status: "idle" },
+        ],
+      }),
+    ).toThrow("Paperclip developer agent");
   });
 
   it("creates an implementation task with a narrow Paperclip restart authorization", () => {

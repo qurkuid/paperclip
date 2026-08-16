@@ -12,6 +12,7 @@ import { issuesApi } from "../api/issues";
 import { queryKeys } from "../lib/queryKeys";
 import { parseIssueReferenceFromHref, remarkLinkIssueReferences } from "../lib/issue-reference";
 import { remarkLinkCaseReferences } from "../lib/case-reference";
+import { resolveAppResourceUrl } from "../lib/base-path";
 
 const CASE_HREF_RE = /^\/cases\/([A-Z][A-Z0-9]*-C\d+)$/i;
 
@@ -816,6 +817,7 @@ function MarkdownBodyImpl({
       </code>
     ),
     a: ({ node: _node, href, style: linkStyle, children: linkChildren, ...anchorProps }) => {
+      const resolvedHref = href ? resolveAppResourceUrl(href) : href;
       const workspaceFileRef = parseWorkspaceFileHref(href);
       if (workspaceFileRef) {
         return (
@@ -917,7 +919,7 @@ function MarkdownBodyImpl({
       ) : null;
       return (
         <a
-          href={href}
+          href={resolvedHref}
           {...(isExternal
             ? { target: "_blank", rel: "noopener noreferrer" }
             : { rel: "noreferrer" })}

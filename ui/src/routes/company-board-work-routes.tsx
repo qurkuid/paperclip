@@ -119,7 +119,7 @@ export function companyActivityRoutes() {
       <Route path="goals" element={<Goals />} />
       <Route path="goals/:goalId" element={<GoalDetail />} />
       <Route path="artifacts" element={<Artifacts />} />
-      <Route path="approvals" element={<Navigate to="/approvals/pending" replace />} />
+      <Route path="approvals" element={<Approvals />} />
       <Route path="approvals/pending" element={<Approvals />} />
       <Route path="approvals/all" element={<Approvals />} />
       <Route path="approvals/:approvalId" element={<ApprovalDetail />} />

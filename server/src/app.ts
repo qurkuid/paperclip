@@ -1,4 +1,8 @@
-import express, { Router, type Request as ExpressRequest } from "express";
+import express, {
+  Router,
+  type Request as ExpressRequest,
+  type RequestHandler as ExpressRequestHandler,
+} from "express";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -41,6 +45,7 @@ import { activityRoutes } from "./routes/activity.js";
 import { dashboardRoutes } from "./routes/dashboard.js";
 import { debugRequestRoutes } from "./routes/debug-requests.js";
 import { spacebogamFunnelRoutes } from "./routes/spacebogam-funnel.js";
+import { githubRepositorySnapshotRoutes } from "./routes/github-repository-snapshots.js";
 import { attentionRoutes } from "./routes/attention.js";
 import { decisionTrainingRoutes } from "./routes/decision-training.js";
 import { userProfileRoutes } from "./routes/user-profiles.js";
@@ -120,14 +125,49 @@ export function resolveViteHmrPort(serverPort: number): number {
   return Math.max(1_024, serverPort - 10_000);
 }
 
+export function resolveViteBasePath(value: string | undefined): string {
+  const trimmed = value?.trim();
+  if (!trimmed || trimmed === "/") return "/";
+  return `/${trimmed.replace(/^\/+|\/+$/g, "")}/`;
+}
+
+export function resolveUiBaseMountPath(value: string | undefined): string {
+  return resolveViteBasePath(value).replace(/\/$/, "");
+}
+
+export function resolveViteMiddlewareUrl(requestUrl: string, basePath: string): string {
+  if (basePath === "/") return requestUrl;
+  const prefix = basePath.slice(0, -1);
+  const normalizedRequestUrl = requestUrl.startsWith("/") ? requestUrl : `/${requestUrl}`;
+  if (
+    normalizedRequestUrl === prefix ||
+    normalizedRequestUrl.startsWith(`${prefix}/`)
+  ) {
+    return normalizedRequestUrl.slice(prefix.length) || "/";
+  }
+  return `${prefix}${normalizedRequestUrl}`;
+}
+
 export function resolveViteHmrHost(bindHost: string): string | undefined {
   const normalized = bindHost.trim().toLowerCase();
   if (normalized === "0.0.0.0" || normalized === "::") return undefined;
   return bindHost;
 }
 
-export function shouldServeViteDevHtml(req: ExpressRequest): boolean {
-  const pathname = req.path;
+export function shouldServeViteDevHtml(
+  req: ExpressRequest,
+  basePath = "/",
+): boolean {
+  const normalizedBasePath = resolveViteBasePath(basePath);
+  const basePrefix = normalizedBasePath === "/"
+    ? ""
+    : normalizedBasePath.slice(0, -1);
+  const pathname = basePrefix && (
+    req.path === basePrefix ||
+    req.path.startsWith(`${basePrefix}/`)
+  )
+    ? req.path.slice(basePrefix.length) || "/"
+    : req.path;
   if (VITE_DEV_STATIC_PATHS.has(pathname)) return false;
   if (VITE_DEV_ASSET_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return false;
   return req.accepts(["html"]) === "html";
@@ -271,6 +311,7 @@ export async function createApp(
   api.use(dashboardRoutes(db));
   api.use(debugRequestRoutes(db));
   api.use(spacebogamFunnelRoutes());
+  api.use(githubRepositorySnapshotRoutes(db));
   api.use(attentionRoutes(db));
   api.use(decisionTrainingRoutes(db));
   api.use(userProfileRoutes(db));
@@ -390,13 +431,25 @@ export async function createApp(
       allowedHostnames: opts.allowedHostnames,
     }),
   );
-  app.use("/api", api);
-  app.use("/api", (_req, res) => {
+  const apiNotFoundHandler: ExpressRequestHandler = (_req, res) => {
     res.status(404).json({ error: "API route not found" });
-  });
-  app.use(pluginUiStaticRoutes(db, {
+  };
+  app.use("/api", api);
+  app.use("/api", apiNotFoundHandler);
+  const uiBaseMountPath = resolveUiBaseMountPath(
+    process.env.PAPERCLIP_UI_BASE_PATH,
+  );
+  if (uiBaseMountPath) {
+    app.use(`${uiBaseMountPath}/api`, api);
+    app.use(`${uiBaseMountPath}/api`, apiNotFoundHandler);
+  }
+  const pluginUiRouter = pluginUiStaticRoutes(db, {
     localPluginDir: opts.localPluginDir ?? DEFAULT_LOCAL_PLUGIN_DIR,
-  }));
+  });
+  app.use(pluginUiRouter);
+  if (uiBaseMountPath) {
+    app.use(uiBaseMountPath, pluginUiRouter);
+  }
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   if (opts.uiMode === "static") {
@@ -458,9 +511,11 @@ export async function createApp(
     const publicUiRoot = path.resolve(uiRoot, "public");
     const hmrPort = resolveViteHmrPort(opts.serverPort);
     const hmrHost = resolveViteHmrHost(opts.bindHost);
+    const viteBasePath = resolveViteBasePath(process.env.PAPERCLIP_UI_BASE_PATH);
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       root: uiRoot,
+      base: viteBasePath,
       appType: "custom",
       server: {
         middlewareMode: true,
@@ -475,6 +530,7 @@ export async function createApp(
     viteHtmlRenderer = createCachedViteHtmlRenderer({
       vite,
       uiRoot,
+      basePath: viteBasePath,
       brandHtml: applyUiBranding,
     });
     const renderViteHtml = viteHtmlRenderer;
@@ -483,7 +539,7 @@ export async function createApp(
       app.use(express.static(publicUiRoot, { index: false }));
     }
     app.get(/.*/, async (req, res, next) => {
-      if (!shouldServeViteDevHtml(req)) {
+      if (!shouldServeViteDevHtml(req, viteBasePath)) {
         next();
         return;
       }
@@ -494,7 +550,14 @@ export async function createApp(
         next(err);
       }
     });
-    app.use(vite.middlewares);
+    if (viteBasePath === "/") {
+      app.use(vite.middlewares);
+    } else {
+      app.use((req, res, next) => {
+        req.url = resolveViteMiddlewareUrl(req.url, viteBasePath);
+        vite.middlewares(req, res, next);
+      });
+    }
   }
 
   app.use(errorHandler);

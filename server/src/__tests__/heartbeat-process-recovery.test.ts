@@ -1313,6 +1313,24 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
     expect(checkoutReleasedIssue?.checkoutRunId).toBeNull();
   });
 
+  it("retries a local run that was lost before its process id was recorded", async () => {
+    const { agentId, runId } = await seedRunFixture({
+      agentStatus: "idle",
+      processPid: null,
+      processGroupId: null,
+    });
+    const heartbeat = heartbeatService(db);
+
+    await heartbeat.reapOrphanedRuns();
+
+    const retryRun = await db
+      .select()
+      .from(heartbeatRuns)
+      .where(and(eq(heartbeatRuns.agentId, agentId), eq(heartbeatRuns.retryOfRunId, runId)))
+      .then((rows) => rows[0] ?? null);
+    expect(retryRun).toMatchObject({ processLossRetryCount: 1 });
+  });
+
   it("restores one lost monitor dispatch before escalating a second process loss", async () => {
     const { companyId, agentId, runId, issueId } = await seedRunFixture({
       adapterType: "openclaw_gateway",
@@ -5108,6 +5126,37 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
     const [issue] = await db.select().from(issues).where(eq(issues.id, issueId));
     expect(issue?.status).toBe("in_progress");
     expect(issue?.executionRunId).toBeNull();
+  });
+
+  it("continues the agent run when persisting streamed output fails", async () => {
+    const { runId } = await seedQueuedIssueRunFixture();
+    const logWriteError = Object.assign(new Error("no space left on device"), { code: "ENOSPC" });
+    const appendFile = vi.spyOn(fs, "appendFile").mockRejectedValueOnce(logWriteError);
+    mockAdapterExecute.mockImplementationOnce(async (ctx: {
+      onLog: (stream: "stdout" | "stderr", chunk: string) => Promise<void>;
+    }) => {
+      await ctx.onLog("stdout", "useful progress\n");
+      return {
+        exitCode: 0,
+        signal: null,
+        timedOut: false,
+        errorMessage: null,
+        summary: "Completed despite unavailable run-log storage.",
+        provider: "test",
+        model: "test-model",
+      };
+    });
+    const heartbeat = heartbeatService(db);
+
+    try {
+      await heartbeat.resumeQueuedRuns();
+      await waitForRunToSettle(heartbeat, runId, 5_000);
+    } finally {
+      appendFile.mockRestore();
+    }
+
+    const [run] = await db.select().from(heartbeatRuns).where(eq(heartbeatRuns.id, runId));
+    expect(run?.status).toBe("succeeded");
   });
 
   it("classifies actionable plan-only recovery and enqueues one liveness continuation", async () => {

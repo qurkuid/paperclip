@@ -82,7 +82,8 @@ describe("skills catalog manifest", () => {
         commit: "0123456789abcdef0123456789abcdef01234567",
         path: "skills/remote-research",
       },
-      files: ["SKILL.md", "scripts/**"],
+      files: ["SKILL.md", "engine/**"],
+      description: "Curated research skill description.",
       recommendedForRoles: ["researcher"],
       tags: ["research"],
     });
@@ -91,7 +92,7 @@ describe("skills catalog manifest", () => {
         return new Response(JSON.stringify({
           tree: [
             { path: "skills/remote-research/SKILL.md", type: "blob", size: Buffer.byteLength(skillMarkdown) },
-            { path: "skills/remote-research/scripts/run.py", type: "blob", size: Buffer.byteLength(script) },
+            { path: "skills/remote-research/engine/run.py", type: "blob", size: Buffer.byteLength(script) },
             { path: "README.md", type: "blob", size: 9 },
           ],
         }), { status: 200 });
@@ -99,7 +100,7 @@ describe("skills catalog manifest", () => {
       if (url.endsWith("/skills/remote-research/SKILL.md")) {
         return new Response(skillMarkdown, { status: 200 });
       }
-      if (url.endsWith("/skills/remote-research/scripts/run.py")) {
+      if (url.endsWith("/skills/remote-research/engine/run.py")) {
         return new Response(script, { status: 200 });
       }
       return new Response("not found", { status: 404 });
@@ -117,6 +118,7 @@ describe("skills catalog manifest", () => {
       key: "paperclipai/optional/research/remote-research",
       path: "catalog/optional/research/remote-research",
       trustLevel: "scripts_executables",
+      description: "Curated research skill description.",
       recommendedForRoles: ["researcher"],
       tags: ["research"],
       source: {
@@ -130,7 +132,7 @@ describe("skills catalog manifest", () => {
     });
     expect(result.manifest.skills[0]!.files.map((file) => file.path)).toEqual([
       "SKILL.md",
-      "scripts/run.py",
+      "engine/run.py",
     ]);
     expect(result.manifest.skills[0]!.contentHash).toMatch(/^sha256:[a-f0-9]{64}$/);
   });

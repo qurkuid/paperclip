@@ -24,6 +24,14 @@ describe("withAppBasePath", () => {
 });
 
 describe("resolveAppResourceUrl", () => {
+  it("prefixes root-relative attachment links for a sub-path deployment", () => {
+    expect(resolveAppResourceUrl(
+      "/api/attachments/attachment-1/content?download=1",
+      undefined,
+      "/af",
+    )).toBe("/af/api/attachments/attachment-1/content?download=1");
+  });
+
   it("rewrites a saved loopback URL to the current origin", () => {
     expect(resolveAppResourceUrl(
       "http://127.0.0.1:3100/api/issues/issue-1/file.png?download=1",

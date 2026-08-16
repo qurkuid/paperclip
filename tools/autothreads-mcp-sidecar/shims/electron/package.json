@@ -1,0 +1,6 @@
+{
+  "name": "electron",
+  "private": true,
+  "type": "commonjs",
+  "main": "index.js"
+}

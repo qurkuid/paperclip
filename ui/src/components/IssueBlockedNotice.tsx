@@ -586,7 +586,7 @@ export function IssueBlockedNotice({
                     : reopenSuppressed
                       ? <>A message won&rsquo;t move this back to todo yet — it stays blocked by {blockerLabel} until {blockers.length === 1 ? "it is" : "they are"} done, then it reopens automatically. Comments still wake {responsibleName} for questions or triage in the meantime.</>
                       : <>Work on this task is blocked by {blockerLabel} until {blockers.length === 1 ? "it is" : "they are"} complete. Comments still wake the responsible for questions or triage.</>
-                  : <>Work on this task is blocked until it is moved back to todo. Comments still wake the responsible for questions or triage.</>}
+                  : <>이 작업은 할 일 상태로 다시 옮길 때까지 중단됩니다. 문의나 분류가 필요하면 댓글로 담당자에게 알릴 수 있습니다.</>}
               </p>
               {reopenSuppressed && reopenSuppressedLeafId ? (
                 <p

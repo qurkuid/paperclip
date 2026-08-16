@@ -548,7 +548,6 @@ export function buildHostServices(
 
   // Track active session event subscriptions for cleanup
   const activeSubscriptions = new Set<{ unsubscribe: () => void; timer: ReturnType<typeof setTimeout> }>();
-  let disposed = false;
 
   const ensureCompanyId = (companyId?: string) => {
     if (!companyId) throw new Error("companyId is required for this operation");
@@ -2674,10 +2673,6 @@ export function buildHostServices(
       },
 
       async sendMessage(params) {
-        if (disposed) {
-          throw new Error("Host services have been disposed");
-        }
-
         const companyId = ensureCompanyId(params.companyId);
         await ensurePluginAvailableForCompany(companyId);
 
@@ -2804,8 +2799,6 @@ export function buildHostServices(
      * or unloaded to prevent leaked listeners and lost log entries.
      */
     dispose() {
-      disposed = true;
-
       // Clear event bus subscriptions to prevent accumulation on worker restart.
       // Without this, each crash/restart cycle adds duplicate subscriptions.
       scopedBus.clear();

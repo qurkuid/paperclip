@@ -1,0 +1,31 @@
+{
+  "name": "@paperclipai/plugin-autothreads",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Review-gated Threads publishing for Paperclip.",
+  "license": "MIT",
+  "scripts": {
+    "prebuild": "pnpm --filter @paperclipai/plugin-sdk ensure-build-deps",
+    "build": "node ./esbuild.config.mjs",
+    "test": "vitest run --config ./vitest.config.ts",
+    "typecheck": "pnpm --filter @paperclipai/plugin-sdk ensure-build-deps && tsc --noEmit"
+  },
+  "paperclipPlugin": {
+    "manifest": "./dist/manifest.js",
+    "worker": "./dist/worker.js",
+    "ui": "./dist/ui/"
+  },
+  "dependencies": {
+    "@paperclipai/plugin-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.21",
+    "@types/react": "^19.2.17",
+    "esbuild": "^0.28.1",
+    "react": "^19.2.7",
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": { "react": ">=18" }
+}

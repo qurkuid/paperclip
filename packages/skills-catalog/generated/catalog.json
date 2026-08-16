@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "packageName": "@paperclipai/skills-catalog",
   "packageVersion": "0.3.1",
-  "generatedAt": "2026-07-15T22:20:53.895Z",
+  "generatedAt": "2026-08-11T15:12:21.457Z",
   "skills": [
     {
       "id": "paperclipai:bundled:docs:doc-maintenance",
@@ -381,6 +381,42 @@
       "contentHash": "sha256:90f278c89aa0711be150c1cd2456ca25620d02f36995b113ca9837d756a37f6c"
     },
     {
+      "id": "paperclipai:bundled:software-development:github-repository-adoption",
+      "key": "paperclipai/bundled/software-development/github-repository-adoption",
+      "kind": "bundled",
+      "category": "software-development",
+      "slug": "github-repository-adoption",
+      "name": "github-repository-adoption",
+      "description": "Analyze a public GitHub repository from a pinned snapshot, choose skill/plugin/adapter/core adoption, require approval, then deliver an implementation with verification and rollback evidence.",
+      "path": "catalog/bundled/software-development/github-repository-adoption",
+      "entrypoint": "SKILL.md",
+      "trustLevel": "markdown_only",
+      "compatibility": "compatible",
+      "defaultInstall": false,
+      "recommendedForRoles": [
+        "engineer",
+        "product",
+        "security"
+      ],
+      "requires": [],
+      "tags": [
+        "github",
+        "repository",
+        "plugin",
+        "security",
+        "approvals"
+      ],
+      "files": [
+        {
+          "path": "SKILL.md",
+          "kind": "skill",
+          "sizeBytes": 4346,
+          "sha256": "ca1bc1ff9090a4ea985891caedbc83bd36715c3a81ffda33cd5b242c2e0e1006"
+        }
+      ],
+      "contentHash": "sha256:8ae492333899cdd61f04d320a23fdab085af44c7ab229f0d0005fc60618d470e"
+    },
+    {
       "id": "paperclipai:optional:browser:agent-browser",
       "key": "paperclipai/optional/browser/agent-browser",
       "kind": "optional",
@@ -521,6 +557,212 @@
         }
       ],
       "contentHash": "sha256:429f94df398a0697042b5bbe4755b1ff1a230aa5f41d99118ad37493ac65d21c"
+    },
+    {
+      "id": "paperclipai:optional:research:insane-search",
+      "key": "paperclipai/optional/research/insane-search",
+      "kind": "optional",
+      "category": "research",
+      "slug": "insane-search",
+      "name": "insane-search",
+      "description": "Read public web sources that block normal fetches using official APIs, feeds, TLS-aware requests, and browser fallback. Use for cited research on social platforms, media, GitHub, Naver, and WAF-protected public pages; never bypass authentication or paywalls.",
+      "path": "catalog/optional/research/insane-search",
+      "entrypoint": "SKILL.md",
+      "trustLevel": "scripts_executables",
+      "compatibility": "compatible",
+      "defaultInstall": false,
+      "recommendedForRoles": [
+        "researcher",
+        "marketer",
+        "analyst"
+      ],
+      "requires": [
+        "node",
+        "python3"
+      ],
+      "tags": [
+        "research",
+        "public-web",
+        "citations",
+        "waf",
+        "social-media",
+        "naver"
+      ],
+      "files": [
+        {
+          "path": "SKILL.md",
+          "kind": "skill",
+          "sizeBytes": 26132,
+          "sha256": "1ce61fd69aaa2839fa4e917ebb757214803180ceb4dfd55a0d050149de0662a9"
+        },
+        {
+          "path": "engine/__init__.py",
+          "kind": "script",
+          "sizeBytes": 1062,
+          "sha256": "fbdf2a0832bd3be821ea2dfb18f66d938ecd56a2767df66ff530355068cc1811"
+        },
+        {
+          "path": "engine/__main__.py",
+          "kind": "script",
+          "sizeBytes": 7319,
+          "sha256": "8705d80e074290971414329c768bb16fb720e80beabb37b2488dce93a727f79a"
+        },
+        {
+          "path": "engine/bias_check.py",
+          "kind": "script",
+          "sizeBytes": 7470,
+          "sha256": "3516328a812a27354f21ebd13f935f8de4aee5e37e6efb83ecf50b3e30b1a103"
+        },
+        {
+          "path": "engine/content_safety.py",
+          "kind": "script",
+          "sizeBytes": 5223,
+          "sha256": "15250010928dbf8877c90c744c825ea71ef7ae57f9a9f2fb96c0eb0cc239c872"
+        },
+        {
+          "path": "engine/fetch_chain.py",
+          "kind": "script",
+          "sizeBytes": 57342,
+          "sha256": "b09d9df2fd6a1255f7003c3b48c55c0afb4c1975239b51b3c30012bcd480895a"
+        },
+        {
+          "path": "engine/learning.py",
+          "kind": "script",
+          "sizeBytes": 6766,
+          "sha256": "4360529675d2a2eb41855ab76b7ed2a37995cf4409161c7a0ac38b2a6413bed6"
+        },
+        {
+          "path": "engine/observations_log.py",
+          "kind": "script",
+          "sizeBytes": 2302,
+          "sha256": "c05da4bc780587255010720293f272354f77c851598adff38a9bc463be5814c1"
+        },
+        {
+          "path": "engine/phase0.py",
+          "kind": "script",
+          "sizeBytes": 13481,
+          "sha256": "0982a1da159230d33006f84604567ef1dcea36c9c5dba7afda975b69d0afc7a5"
+        },
+        {
+          "path": "engine/safety.py",
+          "kind": "script",
+          "sizeBytes": 3253,
+          "sha256": "3b78f8130db7041293aab85e53446b5f579cee08e7e7468a50880e17ff8be96e"
+        },
+        {
+          "path": "engine/transport.py",
+          "kind": "script",
+          "sizeBytes": 12377,
+          "sha256": "14530f4140dfd4a01f5806242987a9ad6482d9c6f2a0f802852e1b22e6d980d1"
+        },
+        {
+          "path": "engine/url_transforms.py",
+          "kind": "script",
+          "sizeBytes": 3287,
+          "sha256": "091433e23b9f66bd6d6c0379c013589c6881d7e840c98aa6af0e018ef361de09"
+        },
+        {
+          "path": "engine/validators.py",
+          "kind": "script",
+          "sizeBytes": 12758,
+          "sha256": "bb2caa2745542f3ed1c222faa8f1aca5b74fcd4dcfdd63ac5072360e85212200"
+        },
+        {
+          "path": "engine/waf_detector.py",
+          "kind": "script",
+          "sizeBytes": 7057,
+          "sha256": "5de70edda523f3680040ccbc8a1bc301c0b424d0ee98985adcaab3f5f0da790a"
+        },
+        {
+          "path": "engine/waf_profiles.yaml",
+          "kind": "other",
+          "sizeBytes": 7758,
+          "sha256": "12cdbfc6a872e9dbf44846c1638f268d704c205d1cd45964d011872f141dbd29"
+        },
+        {
+          "path": "references/cache-archive.md",
+          "kind": "reference",
+          "sizeBytes": 2682,
+          "sha256": "4abe85d2083881871a7e840754b7a82d27592c0108f583493f33002705e0fe6f"
+        },
+        {
+          "path": "references/fallback.md",
+          "kind": "reference",
+          "sizeBytes": 6198,
+          "sha256": "555169c5fdf1a8c1f1249e7510374f613b9d18baec24fdb511158ae2ff5c2919"
+        },
+        {
+          "path": "references/jina.md",
+          "kind": "reference",
+          "sizeBytes": 3485,
+          "sha256": "586b38af2f830698f4e67b545b413348ac59dbfb3fc2e0c939572ec11ba84ca1"
+        },
+        {
+          "path": "references/json-api.md",
+          "kind": "reference",
+          "sizeBytes": 6139,
+          "sha256": "a8351cf01e7d1ea7842f7ecbd04c439dcf08e7e3d7526d79bffd156745d7be57"
+        },
+        {
+          "path": "references/media.md",
+          "kind": "reference",
+          "sizeBytes": 5397,
+          "sha256": "5870801306d810130fd8e8a385e67b138a4bd86a7fae1a1399ed79e66c41d917"
+        },
+        {
+          "path": "references/metadata.md",
+          "kind": "reference",
+          "sizeBytes": 2982,
+          "sha256": "6b564a628f72d54bab0deb8156ac4da36d38870bcf58e900d95fc709805339d6"
+        },
+        {
+          "path": "references/naver.md",
+          "kind": "reference",
+          "sizeBytes": 3391,
+          "sha256": "1de0ecd0d4244f253538b6b197adf6e72e21e35c137b2f956af06a4c5804e942"
+        },
+        {
+          "path": "references/playwright.md",
+          "kind": "reference",
+          "sizeBytes": 6913,
+          "sha256": "182a04266363fedc3932684c94ad9a8a742f59ffa9fe432e08f8e6f65b0166f5"
+        },
+        {
+          "path": "references/public-api.md",
+          "kind": "reference",
+          "sizeBytes": 3520,
+          "sha256": "c0cf68114fb8ec10deb70ca65b127738fa32f7a58a2a920419b343fd6ad1a563"
+        },
+        {
+          "path": "references/rss.md",
+          "kind": "reference",
+          "sizeBytes": 3329,
+          "sha256": "8078d05ce089176af30a5282ab42667353e07cd04dfe94243d6722a110717bb9"
+        },
+        {
+          "path": "references/tls-impersonate.md",
+          "kind": "reference",
+          "sizeBytes": 6494,
+          "sha256": "8d81cc969b5f6cf5196b3271efec5612bb15f3fbf41db89ec2fb180c5740a572"
+        },
+        {
+          "path": "references/twitter.md",
+          "kind": "reference",
+          "sizeBytes": 4594,
+          "sha256": "8398bb3fb0f614b479e092f3f61303bc1dfd44a197d9ca9536ecc53a96b7d815"
+        }
+      ],
+      "contentHash": "sha256:c8cc289e841e366cff2ff0bb416c0956f0f6c32511cc1e7d63db6e7b3bd0af25",
+      "source": {
+        "type": "github",
+        "hostname": "github.com",
+        "owner": "fivetaku",
+        "repo": "insane-search",
+        "ref": "v0.14.0",
+        "commit": "019ee16bbf471595f9b67b164e4a92208183af2d",
+        "path": "skills/insane-search",
+        "url": "https://github.com/fivetaku/insane-search/tree/v0.14.0/skills/insane-search"
+      }
     },
     {
       "id": "paperclipai:optional:research:last30days",

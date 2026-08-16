@@ -24,4 +24,10 @@ describe("shouldServeViteDevHtml", () => {
     expect(shouldServeViteDevHtml(createRequest("/@vite/client", "html"))).toBe(false);
     expect(shouldServeViteDevHtml(createRequest("/src/main.tsx", "html"))).toBe(false);
   });
+
+  it("skips vite asset requests below the configured app base path", () => {
+    expect(shouldServeViteDevHtml(createRequest("/af/@vite/client", "html"), "/af/")).toBe(false);
+    expect(shouldServeViteDevHtml(createRequest("/af/src/main.tsx", "html"), "/af/")).toBe(false);
+    expect(shouldServeViteDevHtml(createRequest("/af/CMP/issues/CMP-576", "html"), "/af/")).toBe(true);
+  });
 });

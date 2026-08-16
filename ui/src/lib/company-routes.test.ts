@@ -115,6 +115,19 @@ describe("company routes", () => {
     expect(extractCompanyPrefixFromPath("/attention")).toBe("ATTENTION");
   });
 
+  it("keeps decision training routes inside the active company", () => {
+    expect(isBoardPathWithoutPrefix("/training")).toBe(true);
+    expect(isBoardPathWithoutPrefix("/training/example-123")).toBe(true);
+    expect(extractCompanyPrefixFromPath("/training")).toBeNull();
+    expect(applyCompanyPrefix("/training", "CMP")).toBe("/CMP/training");
+    expect(applyCompanyPrefix("/training/example-123", "CMP")).toBe(
+      "/CMP/training/example-123",
+    );
+    expect(toCompanyRelativePath("/CMP/training/example-123")).toBe(
+      "/training/example-123",
+    );
+  });
+
   it("treats /timeline as a board route that needs a company prefix", () => {
     expect(isBoardPathWithoutPrefix("/timeline")).toBe(true);
     expect(extractCompanyPrefixFromPath("/timeline")).toBeNull();

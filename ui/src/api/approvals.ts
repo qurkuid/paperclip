@@ -1,10 +1,31 @@
 import type { Approval, ApprovalComment, Issue } from "@paperclipai/shared";
 import { api } from "./client";
 
+export interface ApprovalInboxItem {
+  id: string;
+  kind: "approval" | "request_confirmation";
+  status: string;
+  issueId: string | null;
+  issueIdentifier: string | null;
+  issueTitle: string | null;
+  originalInstruction: string | null;
+  resultSummary: string | null;
+  resultUrl: string | null;
+  managerReview: string | null;
+  ceoReview: string | null;
+  userApprovalStatus: string;
+  pendingConfirmation: string | null;
+  updatedAt: string;
+}
+
 export const approvalsApi = {
   list: (companyId: string, status?: string) =>
     api.get<Approval[]>(
       `/companies/${companyId}/approvals${status ? `?status=${encodeURIComponent(status)}` : ""}`,
+    ),
+  listInbox: (companyId: string, status?: string) =>
+    api.get<ApprovalInboxItem[]>(
+      `/companies/${companyId}/approval-inbox${status ? `?status=${encodeURIComponent(status)}` : ""}`,
     ),
   create: (companyId: string, data: Record<string, unknown>) =>
     api.post<Approval>(`/companies/${companyId}/approvals`, data),

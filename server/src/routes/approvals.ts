@@ -113,6 +113,14 @@ export function approvalRoutes(
     res.json(result.map((approval) => redactApprovalPayload(approval)));
   });
 
+  router.get("/companies/:companyId/approval-inbox", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    if (!(await assertApprovalAccessAllowed(req, res, companyId))) return;
+    const status = req.query.status as string | undefined;
+    res.json(await svc.listInbox(companyId, status));
+  });
+
   router.get("/approvals/:id", async (req, res) => {
     const id = req.params.id as string;
     const approval = await getAccessibleResource(req, res, svc.getById(id), "Approval not found");

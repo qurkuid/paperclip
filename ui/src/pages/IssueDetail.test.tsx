@@ -1483,7 +1483,7 @@ describe("IssueDetail", () => {
   });
 
   it("shows file viewer entry points when the experimental flag is enabled", async () => {
-    mockIssuesApi.get.mockResolvedValue(createIssue());
+    mockIssuesApi.get.mockResolvedValue(createIssue({ projectId: "project-1" }));
     mockInstanceSettingsApi.getExperimental.mockResolvedValue({
       enableIssuePlanDecompositions: false,
       enableExperimentalFileViewer: true,
@@ -1504,6 +1504,29 @@ describe("IssueDetail", () => {
     const latestWorkspaceProps = mockIssueWorkspaceCardRender.mock.calls.at(-1)?.[0];
     expect(latestWorkspaceProps?.onBrowseFiles).toEqual(expect.any(Function));
     expect(latestWorkspaceProps?.onOpenFileByPath).toEqual(expect.any(Function));
+  });
+
+  it("does not turn attachment-only issue paths into unavailable workspace links", async () => {
+    mockIssuesApi.get.mockResolvedValue(createIssue());
+    mockInstanceSettingsApi.getExperimental.mockResolvedValue({
+      enableIssuePlanDecompositions: false,
+      enableExperimentalFileViewer: true,
+    });
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <IssueDetail />
+        </QueryClientProvider>,
+      );
+    });
+
+    await flushReact();
+    await flushReact();
+
+    expect(container.querySelector('[aria-label="이 작업의 파일 열기"]')).toBeNull();
+    const latestWorkspaceProps = mockIssueWorkspaceCardRender.mock.calls.at(-1)?.[0];
+    expect(latestWorkspaceProps?.onBrowseFiles).toBeUndefined();
   });
 
   it("shows the plan decomposition panel when the experimental flag is enabled", async () => {

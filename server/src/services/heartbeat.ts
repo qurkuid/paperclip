@@ -134,7 +134,7 @@ import {
   sanitizeRuntimeServiceBaseEnv,
 } from "./workspace-runtime.js";
 import { issueService } from "./issues.js";
-import { createToolGatewayService } from "./tool-gateway.js";
+import { createToolGatewayService, type ToolGatewayDescriptor } from "./tool-gateway.js";
 import { toolAccessService } from "./tool-access.js";
 import { visibleIssueCondition } from "./issue-visibility.js";
 import { ISSUE_BLOCKERS_RESOLVED_WAKE_REASON } from "./issue-dependency-wakeups.js";
@@ -2146,6 +2146,22 @@ export async function revokeHeartbeatRunGatewayTokens(input: {
     ));
 }
 
+export function selectManagedMcpRuntimeToolNames(input: {
+  connectionId: string;
+  permittedUpstreamToolNames: string[];
+  visibleTools: Array<Pick<ToolGatewayDescriptor, "name" | "upstreamToolName" | "connectionId">>;
+}): string[] {
+  const permitted = new Set(input.permittedUpstreamToolNames);
+  return [...new Set(input.visibleTools
+    .filter((tool) =>
+      tool.connectionId === input.connectionId
+      && typeof tool.upstreamToolName === "string"
+      && permitted.has(tool.upstreamToolName)
+    )
+    .map((tool) => tool.upstreamToolName!))]
+    .sort((left, right) => left.localeCompare(right));
+}
+
 export async function buildPaperclipRuntimeMcpServers(input: {
   db: Db;
   agent: Pick<typeof agents.$inferSelect, "id" | "companyId" | "name">;
@@ -2197,6 +2213,20 @@ export async function buildPaperclipRuntimeMcpServers(input: {
   }
   const servers: AdapterRuntimeMcpServer[] = [];
   for (const connection of uniqueConnections) {
+    const permittedUpstreamToolNames = effective.allowedTools
+      .filter((tool) => tool.connectionId === connection.id)
+      .map((tool) => tool.toolName)
+      .filter((toolName): toolName is string => Boolean(toolName))
+      .sort((left, right) => left.localeCompare(right));
+    const visibleTools = await service.listConnectedMcpToolsForConnection(
+      connection.companyId,
+      connection.id,
+    );
+    const toolNames = selectManagedMcpRuntimeToolNames({
+      connectionId: connection.id,
+      permittedUpstreamToolNames,
+      visibleTools,
+    });
     const profileKey = `app:${connection.id}`;
     const [profile] = await input.db
       .select()
@@ -2260,10 +2290,11 @@ export async function buildPaperclipRuntimeMcpServers(input: {
       actor: { agentId: input.agent.id },
     });
     servers.push({
-      name: connection.name,
+      name: `paperclip-${connection.id.slice(0, 8)}`,
       url: `${paperclipApiBaseUrl()}/api/tool-gateway/gateways/${gateway.id}/mcp`,
       token: token.token,
       connectionId: connection.id,
+      toolNames,
     });
   }
   if (servers.length === 0) {
@@ -2293,13 +2324,20 @@ function adapterSupportsManagedMcpConfig(adapterType: string): boolean {
   return MANAGED_MCP_LOCAL_ADAPTERS.has(adapterType);
 }
 
-function gatewayAppliesToRun(input: {
-  gateway: typeof toolMcpGateways.$inferSelect;
+type ManagedMcpGatewayRunScope = Pick<
+  typeof toolMcpGateways.$inferSelect,
+  "profileId" | "agentId" | "projectId" | "issueId" | "contextScopeType" | "contextScopeId"
+>;
+
+export function managedMcpGatewayAppliesToRun(input: {
+  gateway: ManagedMcpGatewayRunScope;
+  effectiveProfileIds: ReadonlySet<string>;
   agentId: string;
   projectId: string | null;
   issueId: string | null;
 }): boolean {
-  const { gateway, agentId, projectId, issueId } = input;
+  const { gateway, effectiveProfileIds, agentId, projectId, issueId } = input;
+  if (!effectiveProfileIds.has(gateway.profileId)) return false;
   if (gateway.agentId && gateway.agentId !== agentId) return false;
   if (gateway.projectId && gateway.projectId !== projectId) return false;
   if (gateway.issueId && gateway.issueId !== issueId) return false;
@@ -2309,7 +2347,7 @@ function gatewayAppliesToRun(input: {
   return true;
 }
 
-async function createManagedMcpRunConfig(input: {
+export async function createManagedMcpRunConfig(input: {
   db: Db;
   agent: Pick<typeof agents.$inferSelect, "id" | "companyId" | "name" | "adapterType">;
   runId: string;
@@ -2319,6 +2357,13 @@ async function createManagedMcpRunConfig(input: {
 }): Promise<ManagedMcpGatewayRunConfig | null> {
   if (!adapterSupportsManagedMcpConfig(input.agent.adapterType)) return null;
   if (input.config.managedMcpOnly === false) return null;
+
+  const effective = await toolAccessService(input.db).getEffectiveProfilesForAgent(
+    input.agent.companyId,
+    input.agent.id,
+  );
+  const effectiveProfileIds = new Set(effective.profiles.map((profile) => profile.id));
+  if (effectiveProfileIds.size === 0) return null;
 
   const rows = await input.db
     .select()
@@ -2330,12 +2375,16 @@ async function createManagedMcpRunConfig(input: {
     ))
     .orderBy(asc(toolMcpGateways.name));
 
-  const gateways = rows.filter((gateway) => gatewayAppliesToRun({
-    gateway,
-    agentId: input.agent.id,
-    projectId: input.projectId,
-    issueId: input.issueId,
-  }));
+  const gateways = rows.filter((gateway) =>
+    !gateway.metadata?.managedRuntimeConnectionId
+    && managedMcpGatewayAppliesToRun({
+      gateway,
+      effectiveProfileIds,
+      agentId: input.agent.id,
+      projectId: input.projectId,
+      issueId: input.issueId,
+    })
+  );
   if (gateways.length === 0) return null;
 
   const service = createToolGatewayService(input.db);
@@ -11447,7 +11496,7 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
         monitorNextCheckAt !== undefined &&
         (!monitorNextCheckAt || monitorNextCheckAt.getTime() <= now.getTime());
       const shouldRetry = (run.processLossRetryCount ?? 0) < 1 && (
-        (tracksLocalChild && (!!run.processPid || !!run.processGroupId)) ||
+        tracksLocalChild ||
         monitorDispatchLostWithoutFutureWake
       );
       const baseMessage = buildProcessLossMessage(run, descendantOnlyCleanup ? { descendantOnly: true } : undefined);
@@ -13085,6 +13134,7 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
       } | null;
     } = { pending: null };
     let persistedLogBytes = Number(run.logBytes ?? 0);
+    let runLogPersistenceUnavailable = false;
     const flushOutputProgress = async (opts?: { force?: boolean }) => {
       const pendingOutputProgress = outputProgressState.pending;
       if (!pendingOutputProgress) return;
@@ -13201,14 +13251,21 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
         outputSeq += 1;
         const chunkSeq = outputSeq;
         let appendedBytes = 0;
-        if (handle) {
-          appendedBytes = await runLogStore.append(handle, {
-            stream,
-            chunk: sanitizedChunk,
-            ts,
-            seq: chunkSeq,
-          });
-          persistedLogBytes += appendedBytes;
+        if (handle && !runLogPersistenceUnavailable) {
+          try {
+            appendedBytes = await runLogStore.append(handle, {
+              stream,
+              chunk: sanitizedChunk,
+              ts,
+              seq: chunkSeq,
+            });
+            persistedLogBytes += appendedBytes;
+          } catch (error) {
+            // A full or unavailable log volume must not terminate the agent's work.
+            // Skip further persistence for this run while live output continues.
+            runLogPersistenceUnavailable = true;
+            logger.warn({ err: error, runId }, "failed to append run log; continuing without persisted run logs");
+          }
         }
         outputProgressState.pending = {
           at: new Date(ts),

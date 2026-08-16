@@ -62,7 +62,10 @@ function boardActor(companyIds: string[]) {
   };
 }
 
-async function createApp(actor: Record<string, unknown>) {
+async function createApp(
+  actor: Record<string, unknown>,
+  baseMountPath = "",
+) {
   const [{ pluginUiStaticRoutes }, { errorHandler }] = await Promise.all([
     import("../routes/plugin-ui-static.js"),
     import("../middleware/index.js"),
@@ -73,7 +76,10 @@ async function createApp(actor: Record<string, unknown>) {
     req.actor = actor as typeof req.actor;
     next();
   });
-  app.use(pluginUiStaticRoutes({} as never, { localPluginDir: tmpdir() }));
+  app.use(
+    baseMountPath,
+    pluginUiStaticRoutes({} as never, { localPluginDir: tmpdir() }),
+  );
   app.use(errorHandler);
   return app;
 }
@@ -107,6 +113,17 @@ describe("plugin UI static route", () => {
     expect(res.status).toBe(200);
     expect(res.text).toContain("static-bundle");
     expect(mockRegistry.getConfig).not.toHaveBeenCalled();
+  });
+
+  it("serves built UI assets below the configured application base path", async () => {
+    readyPlugin(createPluginPackage("export const marker = 'prefixed-bundle';\n"));
+    const app = await createApp({ type: "none", source: "none" }, "/af");
+
+    const res = await request(app).get(`/af/_plugins/${pluginId}/ui/index.js`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toMatch(/javascript/);
+    expect(res.text).toContain("prefixed-bundle");
   });
 
   it("requires authentication before reading company-scoped devUiUrl config", async () => {

@@ -657,6 +657,86 @@ describeEmbeddedPostgres("tool gateway acceptance", () => {
     }
   });
 
+  it("exposes upstream callable aliases for managed runtime gateways", async () => {
+    const company = await createCompany(db);
+    const remote = await startFakeRemoteMcpServer(async () => ({
+      body: {
+        jsonrpc: "2.0",
+        id: "test",
+        result: { content: [{ type: "text", text: "prepared" }], structuredContent: { ok: true } },
+      },
+    }));
+    try {
+      const { application, connection, catalogEntry } = await createRemoteMcpTool(db, company.id, {
+        url: remote.url,
+        applicationKey: "intm-internal-data",
+        toolName: "intm_internal_prepare_content_approval",
+        title: "Prepare content approval",
+        riskLevel: "write",
+      });
+      const gatewayToolName = expectedConnectedToolName({
+        applicationKey: application.applicationKey,
+        connectionId: connection.id,
+        toolName: catalogEntry.toolName,
+      });
+      const [profile] = await db.insert(toolProfiles).values({
+        companyId: company.id,
+        profileKey: `managed-runtime-${randomUUID()}`,
+        name: `Managed runtime ${randomUUID()}`,
+        defaultAction: "deny",
+      }).returning();
+      await db.insert(toolProfileEntries).values({
+        companyId: company.id,
+        profileId: profile.id,
+        selectorType: "tool_name",
+        effect: "include",
+        toolName: gatewayToolName,
+      });
+
+      const gateway = createTestToolGatewayService(db);
+      const created = await gateway.createNamedGateway({
+        companyId: company.id,
+        body: {
+          name: "Managed publisher runtime",
+          profileId: profile.id,
+          metadata: { managedRuntimeConnectionId: connection.id },
+        },
+      });
+      const token = await gateway.createNamedGatewayToken({
+        companyId: company.id,
+        gatewayId: created.id,
+        body: { name: "Heartbeat", subjectType: "gateway_client" },
+      });
+      const app = createGatewayRouteApp(db, gateway);
+
+      const listed = await request(app)
+        .post(`/api/tool-gateway/gateways/${created.id}/mcp`)
+        .set("authorization", `Bearer ${token.token}`)
+        .send({ jsonrpc: "2.0", id: 1, method: "tools/list" })
+        .expect(200);
+      expect(listed.body.result.tools.map((tool: { name: string }) => tool.name)).toEqual([
+        "intm_internal_prepare_content_approval",
+      ]);
+
+      const called = await request(app)
+        .post(`/api/tool-gateway/gateways/${created.id}/mcp`)
+        .set("authorization", `Bearer ${token.token}`)
+        .send({
+          jsonrpc: "2.0",
+          id: 2,
+          method: "tools/call",
+          params: {
+            name: "intm_internal_prepare_content_approval",
+            arguments: { preview: true },
+          },
+        })
+        .expect(200);
+      expect(called.body.result.content).toEqual([{ type: "text", text: "prepared" }]);
+    } finally {
+      await remote.close();
+    }
+  });
+
   it("omits archived gateways from listNamedGateways", async () => {
     const company = await createCompany(db);
     const [profile] = await db.insert(toolProfiles).values({
@@ -2124,6 +2204,70 @@ rl.on("line", (line) => {
           data: { structuredContent: { limit: 50 } },
         },
       });
+    } finally {
+      await fake.close();
+    }
+  });
+
+  it("keeps a remote MCP tool available after an application JSON-RPC error", async () => {
+    const company = await createCompany(db);
+    const agent = await createAgent(db, company.id);
+    const { run } = await createIssueAndRun(db, company.id, agent.id);
+    const fake = await startFakeRemoteMcpServer((fakeRequest) => ({
+      body: {
+        jsonrpc: "2.0",
+        id: fakeRequest.body?.id,
+        error: { code: -32000, message: "Approved content media must use a same-origin URL." },
+      },
+    }));
+    try {
+      const remoteTool = await createRemoteMcpTool(db, company.id, {
+        applicationKey: "content-publisher",
+        connectionName: "Content publisher",
+        toolName: "prepare_content_approval",
+        title: "Prepare content approval",
+        url: fake.url,
+        riskLevel: "read",
+      });
+      await allowAllToolsForAgent(db, company.id, agent.id);
+
+      const gateway = createTestToolGatewayService(db);
+      const firstSession = await gateway.createSession({
+        companyId: company.id,
+        agentId: agent.id,
+        runId: run.id,
+      });
+      const toolName = (await gateway.listToolsForSession(firstSession.token))
+        .find((tool) => tool.connectionId === remoteTool.connection.id)!.name;
+
+      await gateway.executeTool({
+        sessionToken: firstSession.token,
+        tool: toolName,
+        parameters: { videoUrl: "http://127.0.0.1/video.mp4" },
+      }).then(
+        () => {
+          throw new Error("Expected remote MCP application error");
+        },
+        (error) => expectGatewayError(error, 502, "remote_mcp_error"),
+      );
+
+      const [connectionAfterApplicationError] = await db
+        .select()
+        .from(toolConnections)
+        .where(eq(toolConnections.id, remoteTool.connection.id));
+      expect(connectionAfterApplicationError).toMatchObject({
+        healthStatus: "ok",
+        healthMessage: "Remote MCP server responded to tools/call with a JSON-RPC error.",
+        lastError: null,
+      });
+
+      const newSession = await gateway.createSession({
+        companyId: company.id,
+        agentId: agent.id,
+        runId: run.id,
+      });
+      expect((await gateway.listToolsForSession(newSession.token)).map((tool) => tool.name))
+        .toContain(toolName);
     } finally {
       await fake.close();
     }

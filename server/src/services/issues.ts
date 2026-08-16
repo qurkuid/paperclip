@@ -5885,9 +5885,13 @@ export function issueService(db: Db) {
       const initialClaim = await db.transaction(async (tx) => {
         await tx.execute(sql`select ${issues.id} from ${issues} where ${issues.id} = ${sourceIssue.id} for update`);
 
-        const belongsToPlanDocument = await tx
-          .select({ revisionId: documentRevisions.id })
+        const planRevision = await tx
+          .select({
+            revisionId: documentRevisions.id,
+            latestRevisionId: documents.latestRevisionId,
+          })
           .from(issueDocuments)
+          .innerJoin(documents, eq(documents.id, issueDocuments.documentId))
           .innerJoin(documentRevisions, eq(issueDocuments.documentId, documentRevisions.documentId))
           .where(and(
             eq(issueDocuments.companyId, sourceIssue.companyId),
@@ -5896,8 +5900,11 @@ export function issueService(db: Db) {
             eq(documentRevisions.id, data.acceptedPlanRevisionId),
           ))
           .then((rows) => rows[0] ?? null);
-        if (!belongsToPlanDocument) {
+        if (!planRevision) {
           throw unprocessable("acceptedPlanRevisionId must belong to the source issue's plan document");
+        }
+        if (planRevision.latestRevisionId !== data.acceptedPlanRevisionId) {
+          throw unprocessable("acceptedPlanRevisionId must be the latest source issue plan revision");
         }
 
         const acceptedInteraction = await findAcceptedPlanDocumentInteraction(tx, {
