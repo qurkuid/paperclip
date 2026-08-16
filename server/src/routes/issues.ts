@@ -235,6 +235,7 @@ import {
   observeCrossIssueInfluence,
   type CrossIssueInfluenceKind,
 } from "../services/cross-issue-influence-limit.js";
+import { buildTelegramDecisionPackage } from "../services/telegram-decision-package.js";
 
 const MAX_ISSUE_COMMENT_LIMIT = 500;
 const updateIssueRouteSchema = updateIssueSchema.extend({
@@ -10565,6 +10566,36 @@ export function issueRoutes(
     if (!(await assertIssueReadAllowed(req, res, issue))) return;
     const interactions = await issueThreadInteractionService(db).listForIssue(id);
     res.json(interactions);
+  });
+
+  /**
+   * Safe projection of one decision interaction for the Hermes Telegram
+   * bridge: evidence, options, revision and expiry, with no attachment bodies,
+   * lead/contact fields or credentials.
+   */
+  router.get("/issues/:id/interactions/:interactionId/decision-package", async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const interactionId = req.params.interactionId as string;
+    const issue = await getAccessibleResource(req, res, svc.getById(id), "Issue not found");
+    if (!issue) return;
+
+    const interaction = await issueThreadInteractionsSvc.getById(interactionId);
+    if (
+      !interaction
+      || interaction.companyId !== issue.companyId
+      || interaction.issueId !== issue.id
+    ) {
+      throw notFound("Interaction not found");
+    }
+    const company = await companiesSvc.getById(issue.companyId);
+
+    res.json(buildTelegramDecisionPackage({
+      companyName: company?.name,
+      issue,
+      interaction,
+      publicUrl: process.env.PAPERCLIP_PUBLIC_URL,
+    }));
   });
 
   router.post("/issues/:id/interactions", validate(createIssueThreadInteractionSchema), async (req, res) => {

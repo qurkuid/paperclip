@@ -1186,9 +1186,39 @@ export interface RequestConfirmationToolActionResult {
   updatedAt: string;
 }
 
+export interface RequestConfirmationDecisionKpi {
+  label: string;
+  value: string;
+}
+
+export interface RequestConfirmationDecisionSample {
+  observed: number;
+  required: number;
+}
+
+export interface RequestConfirmationDecisionFreshness {
+  recordUpdatedAt: string;
+  funnelGeneratedAt: string | null;
+  funnelDataThrough: string | null;
+  quality: string | null;
+}
+
+/**
+ * Evidence an out-of-app surface (the Hermes Telegram bridge) needs to render
+ * a decision without pulling the underlying records.
+ */
+export interface RequestConfirmationDecisionContext {
+  kpis: RequestConfirmationDecisionKpi[];
+  sample: RequestConfirmationDecisionSample;
+  freshness: RequestConfirmationDecisionFreshness;
+  asOf: string;
+  expiresAt: string;
+}
+
 export interface RequestConfirmationPayload {
   version: 1;
   prompt: string;
+  decisionContext?: RequestConfirmationDecisionContext;
   acceptLabel?: string | null;
   rejectLabel?: string | null;
   rejectRequiresReason?: boolean;

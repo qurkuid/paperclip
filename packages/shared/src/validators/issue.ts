@@ -883,6 +883,25 @@ export const requestConfirmationTargetSchema = z.discriminatedUnion("type", [
   requestConfirmationCustomTargetSchema,
 ]);
 
+export const requestConfirmationDecisionContextSchema = z.object({
+  kpis: z.array(z.object({
+    label: z.string().trim().min(1).max(120),
+    value: z.string().trim().min(1).max(120),
+  })).min(1).max(40),
+  sample: z.object({
+    observed: z.number().int().nonnegative(),
+    required: z.number().int().positive(),
+  }),
+  freshness: z.object({
+    recordUpdatedAt: z.string().datetime({ offset: true }),
+    funnelGeneratedAt: z.string().datetime({ offset: true }).nullable(),
+    funnelDataThrough: z.string().datetime({ offset: true }).nullable(),
+    quality: z.string().trim().min(1).max(80).nullable(),
+  }),
+  asOf: z.string().datetime({ offset: true }),
+  expiresAt: z.string().datetime({ offset: true }),
+});
+
 export const requestConfirmationToolActionPayloadSchema = z.object({
   version: z.literal(1),
   actionRequestId: z.string().uuid(),
@@ -911,6 +930,7 @@ export const requestConfirmationPayloadSchema = z.object({
   detailsMarkdown: z.string().max(20000).nullable().optional(),
   supersedeOnUserComment: z.boolean().optional(),
   target: requestConfirmationTargetSchema.nullable().optional(),
+  decisionContext: requestConfirmationDecisionContextSchema.optional(),
   toolAction: requestConfirmationToolActionPayloadSchema.optional(),
 });
 
@@ -1259,6 +1279,9 @@ export const createIssueThreadInteractionSchema = z.discriminatedUnion("kind", [
 export type CreateIssueThreadInteraction = z.infer<typeof createIssueThreadInteractionSchema>;
 
 export const acceptIssueThreadInteractionSchema = z.object({
+  // Revision the caller rendered; out-of-app resolvers send it so a decision
+  // cannot be applied to an interaction that changed underneath them.
+  expectedRevision: z.string().datetime({ offset: true }).optional(),
   selectedClientKeys: z.array(z.string().trim().min(1).max(120)).min(1).max(50).optional(),
   selectedOptionIds: z.array(z.string().trim().min(1).max(120))
     .max(REQUEST_CHECKBOX_CONFIRMATION_OPTION_LIMIT)
@@ -1293,6 +1316,7 @@ export const acceptIssueThreadInteractionSchema = z.object({
 export type AcceptIssueThreadInteraction = z.infer<typeof acceptIssueThreadInteractionSchema>;
 
 export const rejectIssueThreadInteractionSchema = z.object({
+  expectedRevision: z.string().datetime({ offset: true }).optional(),
   reason: z.string().trim().max(4000).optional(),
 });
 export type RejectIssueThreadInteraction = z.infer<typeof rejectIssueThreadInteractionSchema>;
