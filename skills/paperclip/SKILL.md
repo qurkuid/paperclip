@@ -254,6 +254,25 @@ Key shared semantics:
 - **Target binding and staleness.** `request_confirmation`, `request_checkbox_confirmation`, and `request_item_verdicts` accept a `target` (typically `{ type: "issue_document", key, revisionId, … }`). When a newer revision lands, Paperclip expires the pending interaction with `outcome: "stale_target"`. Rebuild against the latest revision and create a fresh interaction.
 - **Supersede on user comment.** Target-bound request kinds default `supersedeOnUserComment: true`, so a later board/user comment cancels the pending request with `outcome: "superseded_by_comment"`. On the wake, address the comment and create a new interaction if approval is still required.
 - **Withdraw and terminal expiry.** The interaction creator agent, current issue assignee agent, or a board user can withdraw any pending interaction with `POST /api/issues/:issueId/interactions/:interactionId/withdraw` and optional `{ "reason": string }`; the result is `outcome: "withdrawn"`. Closing an issue as `done` or `cancelled` expires all remaining pending interactions with `outcome: "issue_closed"` and never wakes the closed issue.
+- **Decision evidence.** A `request_confirmation` should carry `payload.decisionContext` so the board can decide without opening the underlying records — and so the decision can be answered from outside the app. Include the KPIs the decision turns on, the sample you measured, how fresh that data is, and when the decision stops being valid:
+
+  ```json
+  "decisionContext": {
+    "kpis": [{ "label": "Qualified consultation conversion", "value": "12.4%" }],
+    "sample": { "observed": 284, "required": 250 },
+    "freshness": {
+      "recordUpdatedAt": "2026-07-27T00:01:00.000Z",
+      "funnelGeneratedAt": "2026-07-27T00:02:00.000Z",
+      "funnelDataThrough": "2026-07-26T23:59:00.000Z",
+      "quality": "fresh"
+    },
+    "asOf": "2026-07-27T00:00:00.000Z",
+    "expiresAt": "2026-07-28T00:00:00.000Z"
+  }
+  ```
+
+  Omitting it is allowed and never blocks you, but the decision is then marked **evidence missing** in the decision queue, and out-of-app surfaces such as the Hermes Telegram bridge deliver only a pointer to the issue instead of an approvable card — the board has to come back into the app to act. Do not invent numbers to satisfy the shape: if the decision genuinely has no measurable evidence (a wording choice, a naming call), leave `decisionContext` out and say why in `detailsMarkdown`.
+
 - **Idempotency.** Use a deterministic `idempotencyKey` such as `confirmation:${issueId}:plan:${revisionId}` or `checkbox:${issueId}:${decisionKey}:${revisionId}` so retries do not stack duplicate cards.
 - **Source issue posture.** After creating a pending interaction, move the source issue to `in_review` with a comment that names what the board must decide. When a `request_confirmation` or `request_checkbox_confirmation` is the issue review request, include its returned id as `reviewInteractionId` in that PATCH. This explicit binding lets policy-eligible agents submit the review verdict without granting the same authority to unrelated pending confirmations. The pending interaction is the explicit waiting path.
 

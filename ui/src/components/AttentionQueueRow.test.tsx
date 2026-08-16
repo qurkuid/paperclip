@@ -564,6 +564,59 @@ describe("AttentionQueueRow", () => {
     expect(container?.textContent).toContain("Approval approved");
   });
 
+  it("flags a confirmation the agent raised without decision evidence", () => {
+    render(
+      <AttentionQueueRow
+        item={buildItem({
+          sourceKind: "issue_thread_interaction",
+          subject: {
+            kind: "interaction",
+            id: "interaction-1",
+            companyId: "c1",
+            title: "Plan approval",
+            identifier: null,
+            status: "pending",
+            href: "/PAP/issues/issue-1#interaction-interaction-1",
+            metadata: { kind: "request_confirmation", issueId: "issue-1", evidenceStatus: "missing" },
+          },
+        })}
+        companyId="c1"
+        expanded={false}
+        onToggleExpand={noop}
+        onDismiss={noop}
+      />,
+    );
+
+    expect(container?.querySelector('[data-testid="interaction-evidence-missing"]')?.textContent)
+      .toContain("근거 미비");
+  });
+
+  it("does not flag a confirmation that carries decision evidence", () => {
+    render(
+      <AttentionQueueRow
+        item={buildItem({
+          sourceKind: "issue_thread_interaction",
+          subject: {
+            kind: "interaction",
+            id: "interaction-1",
+            companyId: "c1",
+            title: "Plan approval",
+            identifier: null,
+            status: "pending",
+            href: "/PAP/issues/issue-1#interaction-interaction-1",
+            metadata: { kind: "request_confirmation", issueId: "issue-1", evidenceStatus: "complete" },
+          },
+        })}
+        companyId="c1"
+        expanded={false}
+        onToggleExpand={noop}
+        onDismiss={noop}
+      />,
+    );
+
+    expect(container?.querySelector('[data-testid="interaction-evidence-missing"]')).toBeNull();
+  });
+
   it("renders configured confirmation labels and accepts from the compact action area", async () => {
     const onToggleExpand = vi.fn();
     vi.mocked(issuesApi.acceptInteraction).mockResolvedValue({} as never);

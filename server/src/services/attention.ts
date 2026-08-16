@@ -655,6 +655,12 @@ function approvalTitle(type: string, payload: Record<string, unknown>) {
   return type.replaceAll("_", " ");
 }
 
+/** A request_confirmation carries decision evidence when its payload has a decisionContext. */
+function hasDecisionContext(payload: Record<string, unknown>): boolean {
+  const context = payload.decisionContext;
+  return context !== null && typeof context === "object" && !Array.isArray(context);
+}
+
 function interactionLabel(kind: string) {
   switch (kind) {
     case "request_confirmation":
@@ -1191,6 +1197,13 @@ export function attentionService(db: Db, serviceOptions: AttentionServiceOptions
               createdByAgentId: interaction.createdByAgentId,
               isPlanTarget,
               targetDocumentKey: isPlanTarget ? "plan" : null,
+              // Surfaces a confirmation the agent raised without KPI, sample
+              // and freshness evidence. Such a decision cannot be answered
+              // from an out-of-app surface, so the board should see which ones
+              // arrived unsupported.
+              evidenceStatus: interaction.kind === "request_confirmation"
+                ? (hasDecisionContext(payload) ? "complete" : "missing")
+                : null,
             },
           },
           whyNow: `${interactionLabel(interaction.kind)} on an issue thread.`,

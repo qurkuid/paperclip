@@ -341,6 +341,14 @@ export const AttentionQueueRow = memo(function AttentionQueueRow({
           {item.subject.title ?? meta.label}
         </span>
         <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{detailLine}</p>
+        {item.subject.metadata?.evidenceStatus === "missing" && (
+          <p
+            className="mt-0.5 text-xs text-muted-foreground"
+            data-testid="interaction-evidence-missing"
+          >
+            근거 미비 — KPI·표본·신선도가 없어 앱 밖에서는 승인할 수 없습니다.
+          </p>
+        )}
       </div>
 
       {/* Collapsed-only content. It has no counterpart to morph into — the
