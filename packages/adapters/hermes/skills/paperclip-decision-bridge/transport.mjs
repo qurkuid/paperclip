@@ -59,6 +59,19 @@ export async function telegramFetch(config, method, body) {
     config.timeoutMs,
     "Telegram API",
   );
+  // Re-delivering an unchanged decision is a no-op, but Telegram answers the
+  // identical edit with 400 "message is not modified". Treat that one case as
+  // success so a repeat sweep stays idempotent.
+  if (response.status === 400) {
+    const failure = await readJsonResponse(response, "Telegram API").catch(() => null);
+    if (
+      typeof failure?.description === "string"
+      && failure.description.includes("message is not modified")
+    ) {
+      return { ok: true, unchanged: true };
+    }
+    throw new OperationError("Telegram API request failed with status 400");
+  }
   if (!response.ok) {
     await response.body?.cancel().catch(() => undefined);
     throw new OperationError(`Telegram API request failed with status ${response.status}`);

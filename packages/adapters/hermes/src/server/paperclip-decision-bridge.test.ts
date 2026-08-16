@@ -143,7 +143,7 @@ describe("paperclip-decision-bridge helper", () => {
   let packageBody: ReturnType<typeof decisionPackage>;
   let packageStatus: number;
   let resolutionStatus: number;
-  let telegramMode: "ok" | "api-failure" | "hung";
+  let telegramMode: "ok" | "api-failure" | "hung" | "not-modified";
   let tempDir: string;
   let stateFile: string;
   let queueItems: Array<Record<string, unknown>>;
@@ -195,6 +195,16 @@ describe("paperclip-decision-bridge helper", () => {
           return;
         }
         if (req.url.endsWith("/editMessageText")) {
+          if (telegramMode === "not-modified") {
+            res.statusCode = 400;
+            res.end(JSON.stringify({
+              ok: false,
+              error_code: 400,
+              description: "Bad Request: message is not modified: specified new message"
+                + " content and reply markup are exactly the same",
+            }));
+            return;
+          }
           res.end(JSON.stringify({
             ok: true,
             result: { message_id: 73 },
@@ -856,6 +866,27 @@ describe("paperclip-decision-bridge helper", () => {
     const feedRequest = requests.find((request) => request.url.includes("/attention?"));
     expect(feedRequest?.url).toContain("includeDismissed=true");
     expect(result.stdout).toContain('"unresolved":0');
+  });
+
+  it("poll succeeds when Telegram rejects an unchanged edit as not modified", async () => {
+    const first = await runHelper(["poll", "--sender", senderId, "--company", companyId], env());
+    expect(first.code).toBe(0);
+
+    telegramMode = "not-modified";
+    const second = await runHelper(["poll", "--sender", senderId, "--company", companyId], env());
+
+    expect(second.code).toBe(0);
+    expect(second.stdout).toContain('"updated":1');
+    expectNoSensitiveOutput(second);
+  });
+
+  it("poll still fails on a 400 that is not an unchanged edit", async () => {
+    packageStatus = 404;
+    const result = await runHelper(["poll", "--sender", senderId, "--company", companyId], env());
+
+    expect(result.code).toBe(1);
+    expect(result.stdout).not.toContain('"ok":true');
+    expectNoSensitiveOutput(result);
   });
 
   it("poll falls back to a notice when a queued interaction has incomplete evidence", async () => {
