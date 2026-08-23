@@ -499,6 +499,84 @@ describe("issue attachment routes", () => {
     expect(res.headers["x-content-type-options"]).toBe("nosniff");
   });
 
+  it("serves Korean UTF-8 markdown inline with an explicit utf-8 charset", async () => {
+    const koreanBody = Buffer.from("# 한국어 제목\n\n안녕하세요, 마크다운 본문입니다.", "utf8");
+    const storage = createStorageService(koreanBody);
+    mockIssueService.getAttachmentById.mockResolvedValue({
+      ...makeAttachment("text/markdown", "notes.md"),
+      byteSize: koreanBody.length,
+    });
+
+    const app = await createApp(storage);
+    const res = await request(app)
+      .get("/api/attachments/attachment-1/content")
+      .buffer(true)
+      .parse(parseBinaryResponse);
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toBe("text/markdown; charset=utf-8");
+    expect(res.headers["content-disposition"]).toBe('inline; filename="notes.md"');
+    expect(res.headers["content-length"]).toBe(String(koreanBody.length));
+    expect(Buffer.compare(res.body as Buffer, koreanBody)).toBe(0);
+    expect((res.body as Buffer).toString("utf8")).not.toContain("�");
+  });
+
+  it("keeps the utf-8 charset on markdown byte-range responses", async () => {
+    const koreanBody = Buffer.from("가나다", "utf8");
+    const storage = createStorageService(koreanBody);
+    mockIssueService.getAttachmentById.mockResolvedValue({
+      ...makeAttachment("text/markdown", "notes.md"),
+      byteSize: koreanBody.length,
+    });
+
+    const app = await createApp(storage);
+    const res = await request(app)
+      .get("/api/attachments/attachment-1/content")
+      .set("Range", "bytes=3-5")
+      .buffer(true)
+      .parse(parseBinaryResponse);
+
+    expect(res.status).toBe(206);
+    expect(res.headers["content-type"]).toBe("text/markdown; charset=utf-8");
+    expect(res.headers["content-range"]).toBe("bytes 3-5/9");
+    expect(res.headers["content-length"]).toBe("3");
+    expect((res.body as Buffer).toString("utf8")).toBe("나");
+  });
+
+  it("keeps the utf-8 charset when a markdown download is requested", async () => {
+    const koreanBody = Buffer.from("다운로드 본문", "utf8");
+    const storage = createStorageService(koreanBody);
+    mockIssueService.getAttachmentById.mockResolvedValue({
+      ...makeAttachment("text/markdown", "notes.md"),
+      byteSize: koreanBody.length,
+    });
+
+    const app = await createApp(storage);
+    const res = await request(app)
+      .get("/api/attachments/attachment-1/content?download=1")
+      .buffer(true)
+      .parse(parseBinaryResponse);
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toBe("text/markdown; charset=utf-8");
+    expect(res.headers["content-disposition"]).toBe('attachment; filename="notes.md"');
+    expect(Buffer.compare(res.body as Buffer, koreanBody)).toBe(0);
+  });
+
+  it("does not append a charset to binary attachment content types", async () => {
+    const storage = createStorageService();
+    mockIssueService.getAttachmentById.mockResolvedValue(makeAttachment("image/png", "preview.png"));
+
+    const app = await createApp(storage);
+    const res = await request(app)
+      .get("/api/attachments/attachment-1/content")
+      .buffer(true)
+      .parse(parseBinaryResponse);
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toBe("image/png");
+  });
+
   it("serves arbitrary binary attachments as downloads with nosniff", async () => {
     const storage = createStorageService();
     mockIssueService.getAttachmentById.mockResolvedValue(makeAttachment("application/x-msdownload", "payload.exe"));
