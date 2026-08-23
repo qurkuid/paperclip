@@ -161,6 +161,7 @@ import {
 import { shouldWakeAssigneeOnCheckout } from "./issues-checkout-wakeup.js";
 import {
   GENERIC_ATTACHMENT_CONTENT_TYPES,
+  appendUtf8CharsetToTextualContentType,
   isInlineAttachmentContentType,
   normalizeIssueAttachmentMaxBytes,
   normalizeContentType,
@@ -12355,7 +12356,7 @@ export function issueRoutes(
       objectContentType: object.contentType,
       originalFilename: attachment.originalFilename,
     });
-    res.setHeader("Content-Type", responseContentType);
+    res.setHeader("Content-Type", appendUtf8CharsetToTextualContentType(responseContentType));
     res.setHeader("Cache-Control", "private, max-age=60");
     res.setHeader("X-Content-Type-Options", "nosniff");
     if (responseContentType === SVG_CONTENT_TYPE) {

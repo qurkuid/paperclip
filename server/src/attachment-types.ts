@@ -132,7 +132,33 @@ export function normalizeUploadAttachmentContentType(input: {
 }
 
 export function isInlineAttachmentContentType(contentType: string): boolean {
-  return matchesContentType(contentType, [...INLINE_ATTACHMENT_TYPES]);
+  // Match on the bare media type so parameters (e.g. "; charset=utf-8") never
+  // flip an inline-safe type to a forced download.
+  const mediaType = contentType.split(";", 1)[0]?.trim() ?? contentType;
+  return matchesContentType(mediaType, [...INLINE_ATTACHMENT_TYPES]);
+}
+
+const UTF8_TEXTUAL_APPLICATION_TYPES: ReadonlySet<string> = new Set([
+  "application/json",
+  "application/xml",
+]);
+
+/**
+ * Append "; charset=utf-8" to textual content types that lack an explicit
+ * charset, so clients don't fall back to a non-UTF-8 default when rendering
+ * text bodies. Non-textual types (including image/svg+xml) pass through
+ * unchanged.
+ */
+export function appendUtf8CharsetToTextualContentType(contentType: string): string {
+  const trimmed = contentType.trim();
+  if (!trimmed || trimmed.toLowerCase().includes("charset=")) return contentType;
+  const mediaType = trimmed.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  const isTextual =
+    mediaType.startsWith("text/") ||
+    UTF8_TEXTUAL_APPLICATION_TYPES.has(mediaType) ||
+    (mediaType.startsWith("application/") &&
+      (mediaType.endsWith("+json") || mediaType.endsWith("+xml")));
+  return isTextual ? `${trimmed}; charset=utf-8` : contentType;
 }
 
 // ---------- Module-level singletons read once at startup ----------
